@@ -84,13 +84,12 @@ class Arguments:
     use_checkpoint_lr_scheduler : bool = False
     override_lr_scheduler : bool = False
     load = None
-    mob_scale_factor : int = 1
     mob_router_type : str = "dense"
     mob_type : str = "2d"
-    moe_scale_factor : int = 1
-    moe_expert_capacity : int = 1
+    moe_num_experts : int = 1
+    moe_capacity_factor : int = 1
     moe_jitter_eps : float = None
-    moe_experts_per_token : int = 1
+    moe_top_k : int = 1
     moe_log_tokens_per_expert : bool = False
     save : str = None
     moe_num_centers : int = 1

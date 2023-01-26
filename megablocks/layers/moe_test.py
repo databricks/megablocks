@@ -23,18 +23,18 @@ def moe_module(
         seq_len,
         hidden_size,
         ffn_hidden_size,
-        moe_scale_factor,
-        moe_expert_capacity,
-        moe_experts_per_token=1):
+        moe_num_experts=1,
+        moe_capacity_factor=1,
+        moe_top_k=1):
     # Set global arguments for megatron.
     test_util.set_megatron_arguments(
         micro_batch_size=batch_size,
         hidden_size=hidden_size,
         seq_length=seq_len,
         ffn_hidden_size=ffn_hidden_size,
-        moe_scale_factor=moe_scale_factor,
-        moe_expert_capacity=moe_expert_capacity,
-        moe_experts_per_token=moe_experts_per_token)
+        moe_num_experts=moe_num_experts,
+        moe_capacity_factor=moe_capacity_factor,
+        moe_top_k=moe_top_k)
 
     def init_method_normal(std):
         def init_(tensor):
@@ -51,7 +51,7 @@ def moe_module(
     moe_mlp.cuda(torch.cuda.current_device()).half()
 
     # Set the baseline parameters to match exactly.
-    if moe_scale_factor == 1:
+    if moe_num_experts == 1:
         with torch.no_grad():
             w1 = moe_mlp.w1.squeeze().t().contiguous()
             megatron_mlp.dense_h_to_4h.weight.copy_(w1)
@@ -101,8 +101,7 @@ class MoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testMoE_Forward(
-            self, bs, sl, hs, num_experts, experts_per_token):
-        expert_capacity = bs * sl // num_experts
+            self, bs, sl, hs, num_experts, top_k):
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, layer = moe_module(
@@ -110,17 +109,15 @@ class MoETest(parameterized.TestCase):
             seq_len=sl,
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
-            moe_scale_factor=num_experts,
-            moe_expert_capacity=expert_capacity,
-            moe_experts_per_token=experts_per_token)
+            moe_num_experts=num_experts,
+            moe_top_k=top_k)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testMoE_ForwardBackward(
-            self, bs, sl, hs, num_experts, experts_per_token):
-        expert_capacity = bs * sl // num_experts
+            self, bs, sl, hs, num_experts, top_k):
         x = torch.randn(sl, bs, hs).half().cuda()
         x.requires_grad_(True)
 
@@ -129,9 +126,8 @@ class MoETest(parameterized.TestCase):
             seq_len=sl,
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
-            moe_scale_factor=num_experts,
-            moe_expert_capacity=expert_capacity,
-            moe_experts_per_token=experts_per_token)
+            moe_num_experts=num_experts,
+            moe_top_k=top_k)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -143,16 +139,13 @@ class MoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_DENSE_TESTS)
     def testMoE_ForwardVersusDense(self, bs, sl, hs):
-        num_experts, expert_capacity = (1, bs * sl)
         x = torch.randn(sl, bs, hs).half().cuda()
 
         megatron_mlp, moe_mlp = moe_module(
             batch_size=bs,
             seq_len=sl,
             hidden_size=hs,
-            ffn_hidden_size=hs * 2,
-            moe_scale_factor=num_experts,
-            moe_expert_capacity=expert_capacity)
+            ffn_hidden_size=hs * 2)
 
         expected_out, _ = megatron_mlp(x)
         out, _ = moe_mlp(x)
@@ -162,7 +155,6 @@ class MoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_DENSE_TESTS)
     def testMoE_ForwardBackwardVersusDense(self, bs, sl, hs):
-        num_experts, expert_capacity = (1, bs * sl)
         x = torch.randn(sl, bs, hs).half().cuda()
         x.requires_grad_(True)
 
@@ -170,9 +162,7 @@ class MoETest(parameterized.TestCase):
             batch_size=bs,
             seq_len=sl,
             hidden_size=hs,
-            ffn_hidden_size=hs * 2,
-            moe_scale_factor=num_experts,
-            moe_expert_capacity=expert_capacity)
+            ffn_hidden_size=hs * 2)
 
         out, _ = moe_mlp(x)
         loss = out.sum()

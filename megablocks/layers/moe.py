@@ -46,7 +46,7 @@ def batched_load_balancing_loss():
         tokens_per_expert = torch.cat(tokens_per_expert).half()
         expert_scores = torch.cat(expert_scores, dim=1).mean(dim=0)
 
-    expected_values = num_layers_per_pipeline_stage * args.moe_scale_factor
+    expected_values = num_layers_per_pipeline_stage * args.moe_num_experts
     assert tokens_per_expert.numel() == expected_values
     assert expert_scores.numel() == expected_values
 
@@ -54,14 +54,14 @@ def batched_load_balancing_loss():
     #
     # loss_weight * num_experts / (num_layers * tokens * top_k)
     scale_numerator = (
-        args.moe_scale_factor *
+        args.moe_num_experts *
         args.moe_loss_weight
     )
     scale_denominator = (
         args.num_layers *
         args.micro_batch_size *
         args.seq_length *
-        args.moe_experts_per_token
+        args.moe_top_k
     )
     scale = scale_numerator / scale_denominator
     return scale * torch.dot(tokens_per_expert, expert_scores)
@@ -106,14 +106,21 @@ class MoE(MegatronModule):
         super(MoE, self).__init__()
         args = megatron.get_args()
         world_size = mpu.get_data_parallel_world_size()
-        self.num_experts = args.moe_scale_factor
+        self.num_experts = args.moe_num_experts
         self.num_experts_per_rank = (
             self.num_experts // world_size
             if args.expert_model_parallelism
             else self.num_experts
         )
-        self.expert_capacity = args.moe_expert_capacity
-        self.top_k = args.moe_experts_per_token
+
+        # Calculate the expert capacity in tokens from the capacity factor.
+        tokens_per_expert = (
+            args.seq_length * args.micro_batch_size
+            / self.num_experts_per_rank
+        )
+        self.expert_capacity = int(args.moe_capacity_factor * tokens_per_expert)
+
+        self.top_k = args.moe_top_k
         self.batch_size = args.micro_batch_size
 
         # Calculate the number of bits needed to represent the
