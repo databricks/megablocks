@@ -8,7 +8,7 @@ MegaBlocks is currently integrated with [Megatron-LM](https://github.com/NVIDIA/
 
 ![MegaBlocks Performance](media/dropping_end_to_end.png)
 
-MegaBlocks dMoEs outperforms MoEs trained with [Tutel](https://github.com/microsoft/tutel) by up to *40%* compared to Tutel's best performing `capacity_factor` configurations. In addition to being faster, MegaBlocks simplifies MoE training by removing the `capacity_factor` hyperparameter alltogether. Compared to dense Transformers trained with [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), MegaBlocks dMoEs can accelerate training by as much as *2.4x*. Check out our [paper](https://arxiv.org/abs/2211.15841) for more details!
+MegaBlocks dMoEs outperforms MoEs trained with [Tutel](https://github.com/microsoft/tutel) by up to **40%** compared to Tutel's best performing `capacity_factor` configurations. In addition to being faster, MegaBlocks simplifies MoE training by removing the `capacity_factor` hyperparameter alltogether. Compared to dense Transformers trained with [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), MegaBlocks dMoEs can accelerate training by as much as **2.4x**. Check out our [paper](https://arxiv.org/abs/2211.15841) for more details!
 
 ```
 Dataset: The Pile
