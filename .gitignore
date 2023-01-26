@@ -1,0 +1,8 @@
+*~
+gpt2-merges.txt
+gpt2-vocab.json
+core
+__pycache__
+*.egg-info
+dist
+build
