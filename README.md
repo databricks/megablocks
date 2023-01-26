@@ -12,10 +12,7 @@ Note that the block-sparse kernels used to implement dMoE are currently limited 
 
 ```
 @article{megablocks-arxiv,
-  author    = {Trevor Gale and
-               Deepak Narayanan and
-               Cliff Young and
-               Matei Zaharia},
+  author    = {Trevor Gale and Deepak Narayanan and Cliff Young and Matei Zaharia},
   title     = {MegaBlocks: Efficient Sparse Training with Mixture-of-Experts},
   journal   = {CoRR},
   volume    = {abs/2211.15841},
