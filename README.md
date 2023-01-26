@@ -4,7 +4,7 @@ MegaBlocks is a light-weight library for mixture-of-experts (MoE) training. The 
 
 MegaBlocks is currently integrated with [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), where we support data, expert and pipeline parallel training of MoEs. We're working on extending more frameworks to support MegaBlocks.
 
-## :rocket: Performance
+# :rocket: Performance
 
 ![MegaBlocks Performance](media/dropping_end_to_end.png)
 
@@ -16,17 +16,17 @@ Hardware: 8x A100-SXM4-80GB
 Software: CUDA 11.5, Tutel v0.2, CUTLASS 2.5
 ```
 
-## :building_construction: Installation
+# :building_construction: Installation
 
 We recommend using NGC's [`nvcr.io/nvidia/pytorch:21.12-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags) PyTorch container. The [Dockerfile](Dockerfile) builds on this image with additional dependencies. To build the image, run `docker build . -t megablocks-dev` and then `bash docker.sh` to launch the container.
 
 Note that the block-sparse kernels used to implement dMoE are currently limited to A100 GPUs.
 
-## :steam_locomotive: Usage
+# :steam_locomotive: Usage
 
 We provide scripts for pre-training Transformer MoE and dMoE language models under the [top-level directory](megablocks/). The quickest way to get started is to use one of the [experiment launch scripts](exp/).
 
-## :writing_hand: Citation
+# :writing_hand: Citation
 
 ```
 @article{megablocks-arxiv,
