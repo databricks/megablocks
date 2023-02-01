@@ -1,4 +1,5 @@
 from megablocks.layers import moe
+from megablocks.layers import arguments
 import megatron
 from megatron.model import ModelType
 from megatron import mpu
@@ -28,7 +29,8 @@ def loss_func(loss_mask, output_tensor=None):
             load_balancing_loss = load_balancing_loss[args.num_layers:]
             moe.clear_load_balancing_loss()
             moe.save_load_balancing_loss(load_balancing_loss)
-    lbl = moe.batched_load_balancing_loss()
+    megablocks_args = arguments.from_megatron(megatron.get_args())
+    lbl = moe.batched_load_balancing_loss(megablocks_args)
     moe.clear_load_balancing_loss()
 
     averaged_lbl = average_losses_across_data_parallel_group([lbl])

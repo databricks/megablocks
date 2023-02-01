@@ -6,12 +6,12 @@ EXP_DIR=$1
 # 512 * 1k * 200k = 100b tokens.
 # 512 * 1k * 100k = 50b tokens (default).
 # 512 * 1k * 20k = 10b tokens.
-TRAINING_STEPS=100000
+TRAINING_STEPS=20000
 if [ -n "${2}" ]; then
     TRAINING_STEPS=$2;
 fi
 
-NUM_EXPERTS=1
+NUM_EXPERTS=64
 if [ -n "${3}" ]; then
     NUM_EXPERTS=$3;
 fi

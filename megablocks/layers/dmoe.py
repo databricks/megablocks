@@ -1,8 +1,8 @@
 from megablocks.layers import moe
+from megablocks.layers import mpu
+from megablocks.layers.arguments import Arguments
 from megablocks.layers.gelu import gelu
 import megablocks.ops as ops
-import megatron
-from megatron import mpu
 import numpy as np
 import stk
 import torch
@@ -14,9 +14,8 @@ def promote_scalar(x):
 
 class dMoE(moe.MoE):
 
-    def __init__(self, init_method, output_layer_init_method):
-        super(dMoE, self).__init__(init_method, output_layer_init_method)
-        args = megatron.get_args()
+    def __init__(self, args : Arguments):
+        super(dMoE, self).__init__(args)
 
         # Re-shape the weight matrices to be how we want them for
         # the block-sparse matrix multiplication operations.
@@ -94,8 +93,7 @@ class dMoE(moe.MoE):
                                       block_rows,
                                       blocks_per_row)
 
-        # TODO(tgale): This is unused. Remove the need for
-        # this in stk.
+        # TODO(tgale): This is unused. Remove the need for this in stk.
         data = torch.empty(
             column_indices.numel(),
             self.blocking,
