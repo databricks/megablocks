@@ -7,6 +7,7 @@ from megablocks.layers import moe
 from megablocks.layers import testing
 import torch
 
+
 def test_modules(
         batch_size,
         seq_len,
