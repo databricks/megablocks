@@ -22,10 +22,6 @@ class Arguments:
     moe_jitter_eps : Optional[float] = None
     moe_lbl_in_fp32 : bool = False
 
-    # Training arguments.
-    micro_batch_size : int = 1
-    seq_length : int = 1
-
     # Parallelism arguments.
     expert_model_parallelism : bool = False
     expert_parallel_group : Optional[torch.distributed.ProcessGroup] = None

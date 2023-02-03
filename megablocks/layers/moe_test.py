@@ -9,8 +9,6 @@ import torch
 
 
 def test_modules(
-        batch_size,
-        seq_len,
         hidden_size,
         ffn_hidden_size,
         moe_num_experts=1,
@@ -18,9 +16,7 @@ def test_modules(
         moe_top_k=1):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
-        micro_batch_size=batch_size,
         hidden_size=hidden_size,
-        seq_length=seq_len,
         ffn_hidden_size=ffn_hidden_size,
         moe_num_experts=moe_num_experts,
         moe_capacity_factor=moe_capacity_factor,
@@ -86,8 +82,6 @@ class MoETest(parameterized.TestCase):
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, _, layer = test_modules(
-            batch_size=bs,
-            seq_len=sl,
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
@@ -103,8 +97,6 @@ class MoETest(parameterized.TestCase):
         x.requires_grad_(True)
 
         args, _, layer = test_modules(
-            batch_size=bs,
-            seq_len=sl,
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
@@ -123,8 +115,6 @@ class MoETest(parameterized.TestCase):
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, mlp, moe_mlp = test_modules(
-            batch_size=bs,
-            seq_len=sl,
             hidden_size=hs,
             ffn_hidden_size=hs * 2)
 
@@ -140,8 +130,6 @@ class MoETest(parameterized.TestCase):
         x.requires_grad_(True)
 
         _, mlp, moe_mlp = test_modules(
-            batch_size=bs,
-            seq_len=sl,
             hidden_size=hs,
             ffn_hidden_size=hs * 2)
 
