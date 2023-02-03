@@ -26,12 +26,28 @@ def clear_load_balancing_loss():
 
 
 def batched_load_balancing_loss(args : Arguments):
+    # tokens_per_expert[i].shape = (num_experts)
+    # expert_scores[i].shape = (tokens, num_experts)
     tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
-    num_layers_per_pipeline_stage = args.num_layers // args.pipeline_model_parallel_size
+    num_layers_per_pipeline_stage = (
+        args.num_layers // args.pipeline_model_parallel_size)
     if args.num_layers_per_virtual_pipeline_stage is not None:
         num_layers_per_pipeline_stage = args.num_layers_per_virtual_pipeline_stage
     assert len(tokens_per_expert) == num_layers_per_pipeline_stage
     assert len(expert_scores) == num_layers_per_pipeline_stage
+
+    # Verify the shape of the tokens_per_expert and expert_scores tensors.
+    assert all([
+        x.ndim == 1 and x.numel() == args.moe_num_experts
+        for x in tokens_per_expert
+    ])
+
+    tokens = expert_scores[0].shape[0]
+    assert all([
+        (x.ndim == 2 and x.shape[1] == args.moe_num_experts and
+         x.shape[0] == tokens) for x in expert_scores
+    ])
+
 
     # Concatenate the contributions of each layer and convert to
     # the correct types and formats for the dot product.
@@ -55,8 +71,7 @@ def batched_load_balancing_loss(args : Arguments):
     )
     scale_denominator = (
         args.num_layers *
-        args.micro_batch_size *
-        args.seq_length *
+        tokens *
         args.moe_top_k
     )
     scale = scale_numerator / scale_denominator
@@ -107,14 +122,6 @@ class MoE(torch.nn.Module):
         world_size = mpu.get_expert_parallel_world_size(args)
         self.num_experts = args.moe_num_experts
         self.num_experts_per_rank = self.num_experts // world_size
-
-        # Calculate the expert capacity in tokens from the capacity factor.
-        tokens_per_expert = (
-            args.seq_length * args.micro_batch_size
-            / self.num_experts_per_rank
-        )
-        self.expert_capacity = int(args.moe_capacity_factor * tokens_per_expert)
-        self.top_k = args.moe_top_k
 
         # Calculate the number of bits needed to represent the expert indices
         # so that we can pass it to radix sort.
@@ -182,6 +189,10 @@ class MoE(torch.nn.Module):
             args.expert_model_parallelism else
             self.forward_once)
 
+    def expert_capacity(self, tokens):
+        tokens_per_expert = tokens / self.num_experts_per_rank
+        return int(self.args.moe_capacity_factor * tokens_per_expert)
+
     def jitter(self, x):
         low = 1.0 - self.jitter_eps
         high = 1.0 + self.jitter_eps
@@ -198,9 +209,9 @@ class MoE(torch.nn.Module):
 
         sl, bs, hs = x.size()
         scores = torch.mm(x.view(-1, hs), weights).softmax(dim=-1)
-        if self.top_k == 1:
+        if self.args.moe_top_k == 1:
             return scores, *scores.max(dim=-1)
-        return scores, *torch.topk(scores, self.top_k, dim=-1)
+        return scores, *torch.topk(scores, self.args.moe_top_k, dim=-1)
 
     def load_balancing_loss(self, tokens_per_expert, expert_scores):
         """Calculate the load balancing loss contribution."""
@@ -210,7 +221,7 @@ class MoE(torch.nn.Module):
         assert len(tokens_per_expert.size()) == 1
         num_experts, = tokens_per_expert.size()
         assert num_experts == self.num_experts
-        scale = self.num_experts / (tokens * self.top_k)
+        scale = self.num_experts / (tokens * self.args.moe_top_k)
         return scale * torch.dot(
             tokens_per_expert.half(),
             expert_scores.mean(dim=0))
@@ -267,7 +278,8 @@ class MoE(torch.nn.Module):
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
-            expert_capacity = self.expert_capacity
+            sl, bs, hs = x.size()
+            expert_capacity = self.expert_capacity(sl * bs)
             if expert_capacity == 0:
                 expert_capacity = torch.max(tokens_per_expert)
         x = self.permute_and_compute(
@@ -385,7 +397,8 @@ class MoE(torch.nn.Module):
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
-            expert_capacity = self.expert_capacity
+            tokens, hs = x.size()
+            expert_capacity = self.expert_capacity(tokens)
             if expert_capacity == 0:
                 expert_capacity = torch.max(parallel_tokens_per_expert)
 
@@ -434,15 +447,15 @@ class MoE(torch.nn.Module):
             x, self.router_weight)
 
         # Simplified code-path for the common case of top_k == 1.
-        if self.top_k == 1:
+        if self.args.moe_top_k == 1:
             x, tokens_per_expert = self.forward_fn(x, top_experts)
             x = x * expert_weights.view(-1, 1)
             save_load_balancing_loss((tokens_per_expert, scores))
             return x.view(sl, bs, hs), self.bias
 
         # Chunk the routing/weight data for each 'k'.
-        top_experts = top_experts.chunk(self.top_k, dim=-1)
-        expert_weights = expert_weights.chunk(self.top_k, dim=-1)
+        top_experts = top_experts.chunk(self.args.moe_top_k, dim=-1)
+        expert_weights = expert_weights.chunk(self.args.moe_top_k, dim=-1)
 
         # Compute the FFN layers for each 'k'.
         x, tokens_per_expert = zip(*[
