@@ -5,7 +5,7 @@ def gelu(x):
     assert isinstance(x, stk.Matrix)
     return stk.Matrix(
         x.size(),
-        F.gelu(x.data, approximate=True),
+        F.gelu(x.data, approximate="tanh"),
         x.row_indices,
         x.column_indices,
         x.offsets,

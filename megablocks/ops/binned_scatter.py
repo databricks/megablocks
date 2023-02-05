@@ -2,6 +2,8 @@
 # extensions. Otherwise libc10.so cannot be found.
 import torch
 
+from stk.backend.autocast import custom_fwd, custom_bwd
+
 # TODO(tgale): Wrap this in a try-block with better
 # error message and instructions for building the
 # c++ operations.
@@ -11,6 +13,7 @@ import megablocks_ops as ops
 class BinnedScatterOp(torch.autograd.Function):
 
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, indices, bins):
         assert len(x.size()) == 3
         ctx.bin_size = x.size(1)
@@ -18,6 +21,7 @@ class BinnedScatterOp(torch.autograd.Function):
         return ops.binned_scatter(x, indices, bins)
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, grad):
         indices, bins = ctx.saved_tensors
         return ops.binned_gather(grad, indices, bins, ctx.bin_size), None, None
