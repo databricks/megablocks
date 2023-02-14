@@ -2,6 +2,10 @@ from megablocks.layers.arguments import Arguments
 import torch
 
 
+def is_moe_param(tensor : torch.Tensor) -> bool:
+    return hasattr(tensor, 'expert_model_parallel')
+
+
 def get_expert_parallel_world_size(args : Arguments) -> int:
     return (
         torch.distributed.get_world_size(args.expert_parallel_group)
@@ -33,7 +37,7 @@ def copy_expert_model_parallel_attributes(destination_tensor : torch.Tensor,
         setattr(destination_tensor, 'expert_model_parallel',
                 getattr(source_tensor,'expert_model_parallel'))
 
-        
+
 def synchronized_print(args : Arguments, *x):
     rank = get_expert_parallel_rank(args)
     for i in range(get_expert_parallel_world_size(args)):
