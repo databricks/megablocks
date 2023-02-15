@@ -1,4 +1,5 @@
 from megablocks.layers import mpu
+from megablocks.layers import router
 from megablocks.layers.all_to_all import all_to_all
 from megablocks.layers.arguments import Arguments, InitFn
 import megablocks.ops as ops
@@ -142,15 +143,8 @@ class MoE(torch.nn.Module):
         # so that we can pass it to radix sort.
         self.sort_end_bit = max(int(np.ceil(np.log2(self.num_experts))), 1)
 
-        # Learned router parameters.
-        #
-        # NOTE: This weight matrix is not parallelized with expert model
-        # parallelism. Each device needs the entire router weight matrix
-        # so that it can route its batch of data correctly.
-        self.router_weight = torch.nn.Parameter(torch.empty(
-            (args.hidden_size, self.num_experts),
-            dtype=torch.float16 if args.fp16 else torch.float32,
-            device=args.device))
+        # Token router.
+        self.router = router.LearnedRouter(args)
 
         # Learned MLP parameters.
         self.w1 = torch.nn.Parameter(torch.empty(
@@ -177,7 +171,7 @@ class MoE(torch.nn.Module):
             device=args.device,
             dtype=torch.float16 if args.fp16 else torch.float32))
 
-        # Initialize the parameters for the MLP and router.
+        # Initialize the parameters for the MLP.
         #
         # NOTE: It is important that we create the weight tensors prior
         # to creating the master weights and slicing our the piece for
@@ -193,10 +187,6 @@ class MoE(torch.nn.Module):
                 args, self.num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
         torch.nn.init.zeros_(self.bias)
-        args.init_method(self.router_weight)
-
-        # Save the jitter epsilon.
-        self.jitter_eps = args.moe_jitter_eps
 
         # Select the forward function for the operating mode.
         self.forward_fn = (
@@ -207,26 +197,6 @@ class MoE(torch.nn.Module):
     def expert_capacity(self, tokens):
         tokens_per_expert = tokens / self.num_experts_per_rank
         return int(self.args.moe_capacity_factor * tokens_per_expert)
-
-    def jitter(self, x):
-        low = 1.0 - self.jitter_eps
-        high = 1.0 + self.jitter_eps
-        noise = torch.rand(x.size(), dtype=x.dtype, device=x.device)
-        return low + noise * (high - low)
-
-    def routing_scores(self, x, weights):
-        """Generate routing scores.
-
-        Expected [sequence_length, batch_size, hidden_size].
-        """
-        if self.training and self.jitter_eps is not None:
-            x = x * self.jitter(x)
-
-        sl, bs, hs = x.size()
-        scores = torch.mm(x.view(-1, hs), weights).softmax(dim=-1)
-        if self.args.moe_top_k == 1:
-            return scores, *scores.max(dim=-1)
-        return scores, *torch.topk(scores, self.args.moe_top_k, dim=-1)
 
     def load_balancing_loss(self, tokens_per_expert, expert_scores):
         """Calculate the load balancing loss contribution."""
@@ -440,26 +410,11 @@ class MoE(torch.nn.Module):
         x = ops.padded_scatter(x, indices, bin_ids, bins, bins)
         return x, tokens_per_expert.flatten()
 
-
     def forward(self, x):
-        """Generate routing scores.
-
-        Expected [sequence_length, batch_size, hidden_size].
-        """
         sl, bs, hs = x.size()
 
         # Compute the top-1 expert routing.
-        #
-        # TODO(tgale): We could transpose the scores by flipping
-        # the matmul? Make the mean reduction in the load balancing
-        # loss cheaper. Might tradeoff with softmax.
-        #
-        # TODO(tgale): Using top-k instead of max could add some
-        # overhead for top-1 routing. Initial data suggests this
-        # is the case for num_experts=128 at least. Look into
-        # specializing if we can gain some performance.
-        scores, expert_weights, top_experts = self.routing_scores(
-            x, self.router_weight)
+        scores, expert_weights, top_experts = self.router(x)
 
         # Simplified code-path for the common case of top_k == 1.
         if self.args.moe_top_k == 1:
