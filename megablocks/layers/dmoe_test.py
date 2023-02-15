@@ -38,7 +38,7 @@ def test_modules(
         w1 = dmoe_mlp.w1.view([ne, fhs, hs])
         moe_mlp.w1.copy_(torch.transpose(w1, 1, 2).contiguous())
         moe_mlp.w2.copy_(dmoe_mlp.w2.view([ne, fhs, hs]))
-        moe_mlp.router_weight.copy_(dmoe_mlp.router_weight)
+        moe_mlp.router.layer.weight.copy_(dmoe_mlp.router.layer.weight)
         if moe_num_experts == 1:
             mlp.w1.copy_(moe_mlp.w1.squeeze())
             mlp.w2.copy_(moe_mlp.w2.squeeze())
