@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:21.12-py3
+FROM nvcr.io/nvidia/pytorch:23.01-py3
 
 RUN pip install stanford-stk
 

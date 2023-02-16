@@ -1,11 +1,11 @@
 from megablocks.layers import mpu
 from megablocks.layers import router
+from megablocks.layers import mlp
 from megablocks.layers.all_to_all import all_to_all
-from megablocks.layers.arguments import Arguments, InitFn
+from megablocks.layers.arguments import Arguments
 import megablocks.ops as ops
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 
 _LOAD_BALANCING_LOSS = []
@@ -94,39 +94,6 @@ def batched_load_balancing_loss(args : Arguments):
     return scale * torch.dot(tokens_per_expert, expert_scores)
 
 
-def create_expert_weights(args : Arguments,
-                          num_experts : int,
-                          rows : int,
-                          columns : int,
-                          init_method : InitFn):
-    # Create the entire weight matrix such that the sampled weights will
-    # not vary between data parallelism and expert model parallelism for
-    # the same random seed.
-    master_weights = torch.empty(
-        num_experts, rows, columns,
-        device=args.device,
-        dtype=torch.float16 if args.fp16 else torch.float32)
-    init_method(master_weights)
-
-    if not args.expert_model_parallelism:
-        return master_weights
-
-    # Calculate the number of experts on this tensor model parallel
-    # partition. Note that 'num_experts' must be divisible by expert
-    # parallel world size.
-    world_size = mpu.get_expert_parallel_world_size(args)
-    assert (num_experts % world_size) == 0
-    num_experts_per_rank = num_experts // world_size
-    rank = mpu.get_expert_parallel_rank(args)
-    start_expert = rank * num_experts_per_rank
-    end_expert = (rank + 1) * num_experts_per_rank
-
-    # Slice the weight matrix to get the chunk for this rank.
-    with torch.no_grad():
-        weights = master_weights[start_expert:end_expert]
-    return weights
-
-
 class MoE(torch.nn.Module):
 
     def __init__(self, args : Arguments):
@@ -146,23 +113,8 @@ class MoE(torch.nn.Module):
         # Token router.
         self.router = router.LearnedRouter(args)
 
-        # Learned MLP parameters.
-        self.w1 = torch.nn.Parameter(torch.empty(
-            self.num_experts_per_rank,
-            args.hidden_size,
-            args.ffn_hidden_size,
-            device=args.device,
-            dtype=torch.float16 if args.fp16 else torch.float32))
-        self.w2 = torch.nn.Parameter(torch.empty(
-            self.num_experts_per_rank,
-            args.ffn_hidden_size,
-            args.hidden_size,
-            device=args.device,
-            dtype=torch.float16 if args.fp16 else torch.float32))
-        mpu.set_expert_model_parallel_attributes(
-            self.w1, args.expert_model_parallelism)
-        mpu.set_expert_model_parallel_attributes(
-            self.w2, args.expert_model_parallelism)
+        # Expert MLP.
+        self.mlp = mlp.MLP(args)
 
         # Note that the output bias is not parallelized with expert
         # model parallelism.
@@ -170,22 +122,6 @@ class MoE(torch.nn.Module):
             1, 1, args.hidden_size,
             device=args.device,
             dtype=torch.float16 if args.fp16 else torch.float32))
-
-        # Initialize the parameters for the MLP.
-        #
-        # NOTE: It is important that we create the weight tensors prior
-        # to creating the master weights and slicing our the piece for
-        # this rank. If the master weights are created first the PyTorch
-        # caching allocator appears to use the same memory block for these
-        # and the slice which causes large increases in our peak memory
-        # usage.
-        with torch.no_grad():
-            self.w1.copy_(create_expert_weights(
-                args, self.num_experts, args.hidden_size,
-                args.ffn_hidden_size, args.init_method))
-            self.w2.copy_(create_expert_weights(
-                args, self.num_experts, args.ffn_hidden_size,
-                args.hidden_size, args.output_layer_init_method))
         torch.nn.init.zeros_(self.bias)
 
         # Select the forward function for the operating mode.
@@ -234,9 +170,6 @@ class MoE(torch.nn.Module):
         bins = bins.view(1) if not len(bins.size()) else bins
         return indices, bin_ids, bins, tokens_per_expert
 
-    def compute(self, x):
-        return torch.bmm(F.gelu(torch.bmm(x, self.w1), approximate="tanh"), self.w2)
-
     def permute_and_compute(
             self,
             x,
@@ -251,7 +184,7 @@ class MoE(torch.nn.Module):
 
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
-        x = self.compute(x)
+        x = self.mlp(x)
 
         # Un-route the data for the MoE output.
         return ops.binned_scatter(x, indices, bins)

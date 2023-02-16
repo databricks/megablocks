@@ -34,14 +34,14 @@ def test_modules(
 
     # Set the baseline parameters to match exactly.
     with torch.no_grad():
-        ne, hs, fhs = moe_mlp.w1.size()
-        w1 = dmoe_mlp.w1.view([ne, fhs, hs])
-        moe_mlp.w1.copy_(torch.transpose(w1, 1, 2).contiguous())
-        moe_mlp.w2.copy_(dmoe_mlp.w2.view([ne, fhs, hs]))
+        ne, hs, fhs = moe_mlp.mlp.w1.size()
+        w1 = dmoe_mlp.mlp.w1.view([ne, fhs, hs])
+        moe_mlp.mlp.w1.copy_(torch.transpose(w1, 1, 2).contiguous())
+        moe_mlp.mlp.w2.copy_(dmoe_mlp.mlp.w2.view([ne, fhs, hs]))
         moe_mlp.router.layer.weight.copy_(dmoe_mlp.router.layer.weight)
         if moe_num_experts == 1:
-            mlp.w1.copy_(moe_mlp.w1.squeeze())
-            mlp.w2.copy_(moe_mlp.w2.squeeze())
+            mlp.w1.copy_(moe_mlp.mlp.w1.squeeze())
+            mlp.w2.copy_(moe_mlp.mlp.w2.squeeze())
     return args, mlp, moe_mlp, dmoe_mlp
 
 # min size: (1, 2, 128, 2, 1)

@@ -1,7 +1,6 @@
+from megablocks.layers import mlp
 from megablocks.layers import moe
-from megablocks.layers import mpu
 from megablocks.layers.arguments import Arguments
-from megablocks.layers.gelu import gelu
 import megablocks.ops as ops
 import numpy as np
 import stk
@@ -16,23 +15,12 @@ class dMoE(moe.MoE):
 
     def __init__(self, args : Arguments):
         super(dMoE, self).__init__(args)
-
-        # Re-shape the weight matrices to be how we want them for
-        # the block-sparse matrix multiplication operations.
-        with torch.no_grad():
-            num_experts, hidden_size, ffn_hidden_size = self.w1.size()
-            w1 = torch.transpose(self.w1, 1, 2).contiguous()
-            self.w1 = torch.nn.Parameter(w1.view([-1, hidden_size]))
-            self.w2 = torch.nn.Parameter(self.w2.view([-1, hidden_size]))
-            mpu.set_expert_model_parallel_attributes(
-                self.w1, args.expert_model_parallelism)
-            mpu.set_expert_model_parallel_attributes(
-                self.w2, args.expert_model_parallelism)
-            self.hidden_size = hidden_size
-            self.ffn_hidden_size = ffn_hidden_size
+        self.hidden_size = args.hidden_size
+        self.ffn_hidden_size = args.ffn_hidden_size
         self.blocking = 128
-        self.h2f = stk.ops.sdd
-        self.f2h = stk.ops.dsd
+
+        # Sparse expert MLP.
+        self.mlp = mlp.SparseMLP(args)
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
@@ -131,9 +119,6 @@ class dMoE(moe.MoE):
         bins = promote_scalar(bins)
         return indices, bin_ids, bins, padded_bins, tokens_per_expert
 
-    def compute(self, x, topo):
-        return self.f2h(gelu(self.h2f(x, self.w1.t(), topo)), self.w2)
-
     def forward_once(self, x, top_expert):
         with torch.no_grad():
             indices, bin_ids, bins, padded_bins, tokens_per_expert = (
@@ -149,7 +134,7 @@ class dMoE(moe.MoE):
             topo = self.topology(x, padded_bins)
 
         # Perform the expert computation.
-        x = self.compute(x, topo)
+        x = self.mlp(x, topo)
 
         # Un-route the data for the MoE output.
         x = ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
@@ -175,7 +160,7 @@ class dMoE(moe.MoE):
             topo = self.topology(x, padded_bins)
 
         # Perform the expert computation.
-        x = self.compute(x, topo)
+        x = self.mlp(x, topo)
 
         # Un-route the data for the MoE output.
         return ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
