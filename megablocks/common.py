@@ -2,7 +2,7 @@ from megablocks.layers import moe
 from megablocks.layers import arguments
 import megatron
 from megatron.model import ModelType
-from megatron import mpu
+from megatron.core import parallel_state
 from megatron.utils import average_losses_across_data_parallel_group
 import pretrain_gpt
 
@@ -10,7 +10,7 @@ import pretrain_gpt
 # HACK: Shim in our loss function to handle the MoE load balancing loss.
 megatron_loss_fn = pretrain_gpt.loss_func
 def loss_func(loss_mask, output_tensor=None):
-    if mpu.is_pipeline_last_stage():
+    if parallel_state.is_pipeline_last_stage():
         assert output_tensor is not None
         loss, loss_dict = megatron_loss_fn(
             loss_mask, output_tensor)

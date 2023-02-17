@@ -2,7 +2,7 @@ from megablocks.layers import arguments
 from megablocks.layers import dmoe
 from megablocks.layers import moe
 import megatron
-from megatron import mpu
+from megatron.core import parallel_state
 from megatron.model.module import MegatronModule
 import torch
 
@@ -16,7 +16,7 @@ class MegatronHelper(MegatronModule):
         args.init_method = init_method
         args.output_layer_init_method = output_layer_init_method
         if args.expert_model_parallelism:
-            args.expert_parallel_group = mpu.get_data_parallel_group()
+            args.expert_parallel_group = parallel_state.get_data_parallel_group()
         self.moe = layer_cls(args)
 
     def forward(self, x):
