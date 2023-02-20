@@ -142,7 +142,8 @@ DATA_ARGUMENTS="\
 COMPUTE_ARGUMENTS="\
 --fp16 \
 --DDP-impl local \
---expert-model-parallelism"
+--moe-expert-model-parallelism \
+--no-async-tensor-model-parallel-allreduce"
 
 CHECKPOINT_ARGUMENTS="\
 --save-interval 2000 \
@@ -154,7 +155,7 @@ EVALUATION_ARGUMENTS="\
 --eval-interval 1000"
 
 python -m torch.distributed.launch ${DISTRIBUTED_ARGUMENTS} \
-       megablocks/pretrain_dmoe.py \
+       third_party/Megatron-LM/pretrain_gpt.py \
        ${MOE_ARGUMENTS} \
        ${MODEL_ARGUMENTS} \
        ${TRAINING_ARGUMENTS} \

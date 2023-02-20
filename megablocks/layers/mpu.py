@@ -9,14 +9,14 @@ def is_moe_param(tensor : torch.Tensor) -> bool:
 def get_expert_parallel_world_size(args : Arguments) -> int:
     return (
         torch.distributed.get_world_size(args.expert_parallel_group)
-        if args.expert_model_parallelism else 1
+        if args.moe_expert_model_parallelism else 1
     )
 
 
 def get_expert_parallel_rank(args : Arguments) -> int:
     return (
         torch.distributed.get_rank(args.expert_parallel_group)
-        if args.expert_model_parallelism else 0
+        if args.moe_expert_model_parallelism else 0
     )
 
 

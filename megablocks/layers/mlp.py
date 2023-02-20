@@ -20,7 +20,7 @@ def create_expert_weights(args : Arguments,
         dtype=torch.float16 if args.fp16 else torch.float32)
     init_method(master_weights)
 
-    if not args.expert_model_parallelism:
+    if not args.moe_expert_model_parallelism:
         return master_weights
 
     # Calculate the number of experts on this tensor model parallel
@@ -59,9 +59,9 @@ class MLP(torch.nn.Module):
             device=args.device,
             dtype=torch.float16 if args.fp16 else torch.float32))
         mpu.set_expert_model_parallel_attributes(
-            self.w1, args.expert_model_parallelism)
+            self.w1, args.moe_expert_model_parallelism)
         mpu.set_expert_model_parallel_attributes(
-            self.w2, args.expert_model_parallelism)
+            self.w2, args.moe_expert_model_parallelism)
 
         # Initialize the parameters for the MLP.
         #
@@ -97,9 +97,9 @@ class SparseMLP(MLP):
             self.w1 = torch.nn.Parameter(w1.view([-1, hidden_size]))
             self.w2 = torch.nn.Parameter(self.w2.view([-1, hidden_size]))
             mpu.set_expert_model_parallel_attributes(
-                self.w1, args.expert_model_parallelism)
+                self.w1, args.moe_expert_model_parallelism)
             mpu.set_expert_model_parallel_attributes(
-                self.w2, args.expert_model_parallelism)
+                self.w2, args.moe_expert_model_parallelism)
 
     def forward(self, x, topo):
         return stk.ops.dsd(gelu(

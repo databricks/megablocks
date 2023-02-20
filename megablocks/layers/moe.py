@@ -127,7 +127,7 @@ class MoE(torch.nn.Module):
         # Select the forward function for the operating mode.
         self.forward_fn = (
             self.parallel_forward_once if
-            args.expert_model_parallelism else
+            args.moe_expert_model_parallelism else
             self.forward_once)
 
     def expert_capacity(self, tokens):
