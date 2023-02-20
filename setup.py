@@ -20,7 +20,7 @@ ext_modules = [
 
 setup(
     name="megablocks",
-    version="0.0.1",
+    version="0.0.2",
     author="Trevor Gale",
     author_email="tgale@stanford.edu",
     description="MegaBlocks",
