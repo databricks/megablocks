@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEDIR=`cd .. && pwd`
+BASEDIR=`cd ../.. && pwd`
 sudo docker run \
      --cap-add SYS_ADMIN \
      --ipc=host \
