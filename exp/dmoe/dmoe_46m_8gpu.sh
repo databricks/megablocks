@@ -63,7 +63,7 @@ TRAINING_ARGUMENTS="\
 --global-batch-size 512 \
 --train-iters ${TRAINING_STEPS} \
 --lr-decay-iters ${TRAINING_STEPS} \
---lr 0.00015 \
+--lr 0.0006 \
 --min-lr 0.00001 \
 --lr-decay-style cosine \
 --lr-warmup-fraction 0.01 \
