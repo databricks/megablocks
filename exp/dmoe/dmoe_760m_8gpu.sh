@@ -26,13 +26,13 @@ if [ -n "${5}" ]; then
     LOSS_WEIGHT=$5;
 fi
 
-BATCH_SIZE=32
+BATCH_SIZE=8
 if [ -n "${6}" ]; then
     BATCH_SIZE=$6;
 fi
 
 ##
-### Pre-training for dMoE 125M parameter.
+### Pre-training for dMoE 760M parameter.
 ##
 
 # MoE hyperparameters.
@@ -51,9 +51,9 @@ DISTRIBUTED_ARGUMENTS="\
 
 # Model hyperparameters.
 MODEL_ARGUMENTS="\
---num-layers 12 \
---hidden-size 768 \
---num-attention-heads 12 \
+--num-layers 24 \
+--hidden-size 1536 \
+--num-attention-heads 16 \
 --seq-length 1024 \
 --max-position-embeddings 1024"
 
@@ -63,7 +63,7 @@ TRAINING_ARGUMENTS="\
 --global-batch-size 512 \
 --train-iters ${TRAINING_STEPS} \
 --lr-decay-iters ${TRAINING_STEPS} \
---lr 0.0006 \
+--lr 0.0004 \
 --min-lr 0.00004 \
 --lr-decay-style cosine \
 --lr-warmup-fraction 0.01 \
@@ -144,7 +144,8 @@ COMPUTE_ARGUMENTS="\
 --fp16 \
 --DDP-impl local \
 --moe-expert-model-parallelism \
---no-async-tensor-model-parallel-allreduce"
+--no-async-tensor-model-parallel-allreduce \
+--use-flash-attn"
 
 CHECKPOINT_ARGUMENTS="\
 --save-interval 2000 \

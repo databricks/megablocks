@@ -64,7 +64,7 @@ TRAINING_ARGUMENTS="\
 --train-iters ${TRAINING_STEPS} \
 --lr-decay-iters ${TRAINING_STEPS} \
 --lr 0.0006 \
---min-lr 0.00001 \
+--min-lr 0.00004 \
 --lr-decay-style cosine \
 --lr-warmup-fraction 0.01 \
 --clip-grad 1.0 \
