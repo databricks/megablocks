@@ -29,4 +29,4 @@ class FFN(torch.nn.Module):
 
     def forward(self, x):
         return torch.matmul(F.gelu(
-            torch.matmul(x, self.w1), approximate="tanh"), self.w2)
+            torch.matmul(x, self.w1), approximate=True), self.w2)

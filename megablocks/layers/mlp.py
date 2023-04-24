@@ -81,7 +81,7 @@ class MLP(torch.nn.Module):
 
     def forward(self, x):
         return torch.bmm(F.gelu(
-            torch.bmm(x, self.w1), approximate="tanh"), self.w2)
+            torch.bmm(x, self.w1), approximate=True), self.w2)
 
     
 class SparseMLP(MLP):
