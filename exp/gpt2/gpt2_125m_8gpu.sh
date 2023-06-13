@@ -2,6 +2,8 @@
 
 EXP_DIR=$1
 
+# scaling law: 3B tokens @ 125m = 6k steps.
+#
 # 512 * 1k * 400k = 200b tokens.
 # 512 * 1k * 200k = 100b tokens.
 # 512 * 1k * 100k = 50b tokens (default).
@@ -33,7 +35,7 @@ MODEL_ARGUMENTS="\
 
 # Training hyperparameters.
 TRAINING_ARGUMENTS="\
---micro-batch-size 32 \
+--micro-batch-size 64 \
 --global-batch-size 512 \
 --train-iters ${TRAINING_STEPS} \
 --lr-decay-iters ${TRAINING_STEPS} \

@@ -2,6 +2,8 @@
 
 EXP_DIR=$1
 
+# scaling law: 1B tokesn @ 125m = 2k steps.
+#
 # 512 * 1k * 400k = 200b tokens.
 # 512 * 1k * 200k = 100b tokens.
 # 512 * 1k * 100k = 50b tokens (default).
