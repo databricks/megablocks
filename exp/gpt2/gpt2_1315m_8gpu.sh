@@ -115,7 +115,7 @@ DATA_ARGUMENTS="\
 --split 969,30,1"
 
 COMPUTE_ARGUMENTS="\
---fp16 \
+--bf16 \
 --DDP-impl local \
 --no-async-tensor-model-parallel-allreduce \
 --use-flash-attn"
