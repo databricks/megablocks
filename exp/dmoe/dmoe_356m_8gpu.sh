@@ -144,7 +144,8 @@ COMPUTE_ARGUMENTS="\
 --fp16 \
 --DDP-impl local \
 --moe-expert-model-parallelism \
---no-async-tensor-model-parallel-allreduce"
+--no-async-tensor-model-parallel-allreduce \
+--use-flash-attn"
 
 CHECKPOINT_ARGUMENTS="\
 --save-interval 2000 \
@@ -154,6 +155,7 @@ EVALUATION_ARGUMENTS="\
 --eval-iters 100 \
 --log-interval 100 \
 --eval-interval 1000"
+
 
 python -m torch.distributed.launch ${DISTRIBUTED_ARGUMENTS} \
        third_party/Megatron-LM/pretrain_gpt.py \
