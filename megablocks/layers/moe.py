@@ -1,3 +1,4 @@
+from megablocks.layers import common
 from megablocks.layers import mpu
 from megablocks.layers import router
 from megablocks.layers import mlp
@@ -68,11 +69,11 @@ def batched_load_balancing_loss(args : Arguments):
     # Concatenate the contributions of each layer and convert to
     # the correct types and formats for the dot product.
     if args.moe_lbl_in_fp32:
-        tokens_per_expert = torch.cat(tokens_per_expert).float()
         expert_scores = torch.cat(expert_scores, dim=1).float().mean(dim=0)
+        tokens_per_expert = torch.cat(tokens_per_expert).float()
     else:
-        tokens_per_expert = torch.cat(tokens_per_expert).half()
         expert_scores = torch.cat(expert_scores, dim=1).mean(dim=0)
+        tokens_per_expert = torch.cat(tokens_per_expert).to(expert_scores.dtype)
 
     expected_values = num_layers_per_pipeline_stage * args.moe_num_experts
     assert tokens_per_expert.numel() == expected_values
@@ -121,7 +122,7 @@ class MoE(torch.nn.Module):
         self.bias = torch.nn.Parameter(torch.empty(
             1, 1, args.hidden_size,
             device=args.device,
-            dtype=torch.float16 if args.fp16 else torch.float32))
+            dtype=common.dtype(args)))
         torch.nn.init.zeros_(self.bias)
 
         # Select the forward function for the operating mode.

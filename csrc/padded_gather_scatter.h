@@ -1,4 +1,5 @@
 #include <c10/util/Half.h>
+#include <c10/util/BFloat16.h>
 #include <torch/extension.h>
 #include <c10/cuda/CUDAStream.h>
 
@@ -12,10 +13,10 @@
 namespace megablocks {
 namespace padded {
 
-template <int AToB, int kThreadsPerBlock, typename LoadType>
+template <typename T, int AToB, int kThreadsPerBlock, typename LoadType>
 __global__ void __launch_bounds__(kThreadsPerBlock)
-PaddedCopyKernel(c10::Half * __restrict__ a,
-		 c10::Half * __restrict__ b,
+PaddedCopyKernel(T * __restrict__ a,
+		 T * __restrict__ b,
 		 int num_columns,
 		 const int * __restrict__ indices,
 		 const int * __restrict__ bin_ids,
@@ -60,10 +61,11 @@ PaddedCopyKernel(c10::Half * __restrict__ a,
   }
 }
 
-cudaError_t PaddedGather(c10::Half * in,
+template <typename T>
+cudaError_t PaddedGather(T * in,
 			 int in_rows,
 			 int in_columns,
-			 c10::Half * out,
+			 T * out,
 			 int out_rows,
 			 const int * indices,
 			 const int * bin_ids,
@@ -71,7 +73,7 @@ cudaError_t PaddedGather(c10::Half * in,
 			 const int * padded_bins,
 			 cudaStream_t stream) {
   // Zero the output prior to gathering.
-  size_t output_bytes = out_rows * in_columns * sizeof(c10::Half);
+  size_t output_bytes = out_rows * in_columns * sizeof(T);
   CUDA_CALL(cudaMemsetAsync(out, 0, output_bytes, stream));
 
   // Launch the gather kernel.
@@ -80,7 +82,7 @@ cudaError_t PaddedGather(c10::Half * in,
     const int kThreadsPerBlock = 64;
     dim3 block_dim(kThreadsPerBlock, 1, 1);
     dim3 grid_dim(in_rows, 1, 1);
-    PaddedCopyKernel<1, kThreadsPerBlock, __half2><<<
+    PaddedCopyKernel<T, 1, kThreadsPerBlock, __half2><<<
       grid_dim, block_dim, 0, stream>>>(in,
 					out,
 					in_columns,
@@ -94,7 +96,7 @@ cudaError_t PaddedGather(c10::Half * in,
     const int kThreadsPerBlock = 32;
     dim3 block_dim(kThreadsPerBlock, 1, 1);
     dim3 grid_dim(in_rows, 1, 1);
-    PaddedCopyKernel<1, kThreadsPerBlock, __half2><<<
+    PaddedCopyKernel<T, 1, kThreadsPerBlock, __half2><<<
       grid_dim, block_dim, 0, stream>>>(in,
 					out,
 					in_columns,
@@ -108,7 +110,7 @@ cudaError_t PaddedGather(c10::Half * in,
   const int kThreadsPerBlock = 32;
   dim3 block_dim(kThreadsPerBlock, 1, 1);
   dim3 grid_dim(in_rows, 1, 1);
-  PaddedCopyKernel<1, kThreadsPerBlock, __half><<<
+  PaddedCopyKernel<T, 1, kThreadsPerBlock, __half><<<
     grid_dim, block_dim, 0, stream>>>(in,
 				      out,
 				      in_columns,
@@ -119,10 +121,11 @@ cudaError_t PaddedGather(c10::Half * in,
   return cudaGetLastError();
 }
 
-cudaError_t PaddedScatter(c10::Half * in,
+template <typename T>
+cudaError_t PaddedScatter(T * in,
 			  int in_rows,
 			  int in_columns,
-			  c10::Half * out,
+			  T * out,
 			  int out_rows,
 			  const int * indices,
 			  const int * bin_ids,
@@ -135,7 +138,7 @@ cudaError_t PaddedScatter(c10::Half * in,
     const int kThreadsPerBlock = 64;
     dim3 block_dim(kThreadsPerBlock, 1, 1);
     dim3 grid_dim(out_rows, 1, 1);
-    PaddedCopyKernel<0, kThreadsPerBlock, __half2><<<
+    PaddedCopyKernel<T, 0, kThreadsPerBlock, __half2><<<
       grid_dim, block_dim, 0, stream>>>(out,
 					in,
 					in_columns,
@@ -149,7 +152,7 @@ cudaError_t PaddedScatter(c10::Half * in,
     const int kThreadsPerBlock = 32;
     dim3 block_dim(kThreadsPerBlock, 1, 1);
     dim3 grid_dim(out_rows, 1, 1);
-    PaddedCopyKernel<0, kThreadsPerBlock, __half2><<<
+    PaddedCopyKernel<T, 0, kThreadsPerBlock, __half2><<<
       grid_dim, block_dim, 0, stream>>>(out,
 					in,
 					in_columns,
@@ -163,7 +166,7 @@ cudaError_t PaddedScatter(c10::Half * in,
   const int kThreadsPerBlock = 32;
   dim3 block_dim(kThreadsPerBlock, 1, 1);
   dim3 grid_dim(out_rows, 1, 1);
-  PaddedCopyKernel<0, kThreadsPerBlock, __half><<<
+  PaddedCopyKernel<T, 0, kThreadsPerBlock, __half><<<
     grid_dim, block_dim, 0, stream>>>(out,
 				      in,
 				      in_columns,
@@ -184,7 +187,8 @@ torch::Tensor padded_gather(torch::Tensor in,
   // Validate the inputs.
   TORCH_CHECK(in.is_cuda());
   TORCH_CHECK(in.ndimension() == 2);
-  TORCH_CHECK(in.scalar_type() == torch::kFloat16);
+  TORCH_CHECK(in.scalar_type() == torch::kFloat16 ||
+	      in.scalar_type() == torch::kBFloat16);
   TORCH_CHECK(indices.is_cuda());
   TORCH_CHECK(indices.ndimension() == 1);
   TORCH_CHECK(indices.scalar_type() == torch::kInt);
@@ -220,16 +224,30 @@ torch::Tensor padded_gather(torch::Tensor in,
   // Exit early if there is not work to do.
   if (out.numel() == 0) return out;
 
-  CUDA_CALL(padded::PaddedGather(in.data_ptr<c10::Half>(),
-				 in.size(0),
-				 in_columns,
-				 out.data_ptr<c10::Half>(),
-				 out_rows,
-				 indices.data_ptr<int>(),
-				 bin_ids.data_ptr<int>(),
-				 bins.data_ptr<int>(),
-				 padded_bins.data_ptr<int>(),
-				 c10::cuda::getCurrentCUDAStream()));
+
+  if (in.scalar_type() == torch::kFloat16) {
+    CUDA_CALL(padded::PaddedGather(in.data_ptr<c10::Half>(),
+				   in.size(0),
+				   in_columns,
+				   out.data_ptr<c10::Half>(),
+				   out_rows,
+				   indices.data_ptr<int>(),
+				   bin_ids.data_ptr<int>(),
+				   bins.data_ptr<int>(),
+				   padded_bins.data_ptr<int>(),
+				   c10::cuda::getCurrentCUDAStream()));
+  } else {
+    CUDA_CALL(padded::PaddedGather(in.data_ptr<c10::BFloat16>(),
+				   in.size(0),
+				   in_columns,
+				   out.data_ptr<c10::BFloat16>(),
+				   out_rows,
+				   indices.data_ptr<int>(),
+				   bin_ids.data_ptr<int>(),
+				   bins.data_ptr<int>(),
+				   padded_bins.data_ptr<int>(),
+				   c10::cuda::getCurrentCUDAStream()));
+  }
   return out;
 }
 
@@ -241,7 +259,8 @@ torch::Tensor padded_scatter(torch::Tensor in,
   // Validate the inputs.
   TORCH_CHECK(in.is_cuda());
   TORCH_CHECK(in.ndimension() == 2);
-  TORCH_CHECK(in.scalar_type() == torch::kFloat16);
+  TORCH_CHECK(in.scalar_type() == torch::kFloat16 ||
+	      in.scalar_type() == torch::kBFloat16);
   TORCH_CHECK(indices.is_cuda());
   TORCH_CHECK(indices.ndimension() == 1);
   TORCH_CHECK(indices.scalar_type() == torch::kInt);
@@ -267,6 +286,7 @@ torch::Tensor padded_scatter(torch::Tensor in,
   // Exit early if there is not work to do.
   if (out.numel() == 0) return out;
 
+  if (in.scalar_type() == torch::kFloat16) {
   CUDA_CALL(padded::PaddedScatter(in.data_ptr<c10::Half>(),
 				  in.size(0),
 				  in_columns,
@@ -277,6 +297,18 @@ torch::Tensor padded_scatter(torch::Tensor in,
 				  bins.data_ptr<int>(),
 				  padded_bins.data_ptr<int>(),
 				  c10::cuda::getCurrentCUDAStream()));
+  } else {
+    CUDA_CALL(padded::PaddedScatter(in.data_ptr<c10::BFloat16>(),
+				    in.size(0),
+				    in_columns,
+				    out.data_ptr<c10::BFloat16>(),
+				    out_rows,
+				    indices.data_ptr<int>(),
+				    bin_ids.data_ptr<int>(),
+				    bins.data_ptr<int>(),
+				    padded_bins.data_ptr<int>(),
+				    c10::cuda::getCurrentCUDAStream()));
+  }
   return out;
 }
 

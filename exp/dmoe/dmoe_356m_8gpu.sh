@@ -26,7 +26,7 @@ if [ -n "${5}" ]; then
     LOSS_WEIGHT=$5;
 fi
 
-BATCH_SIZE=8
+BATCH_SIZE=16
 if [ -n "${6}" ]; then
     BATCH_SIZE=$6;
 fi
@@ -141,7 +141,7 @@ DATA_ARGUMENTS="\
 --split 969,30,1"
 
 COMPUTE_ARGUMENTS="\
---fp16 \
+--bf16 \
 --DDP-impl local \
 --moe-expert-model-parallelism \
 --no-async-tensor-model-parallel-allreduce \

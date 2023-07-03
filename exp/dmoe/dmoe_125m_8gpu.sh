@@ -26,7 +26,7 @@ if [ -n "${5}" ]; then
     LOSS_WEIGHT=$5;
 fi
 
-BATCH_SIZE=32
+BATCH_SIZE=64
 if [ -n "${6}" ]; then
     BATCH_SIZE=$6;
 fi
