@@ -20,7 +20,7 @@ ext_modules = [
 
 setup(
     name="megablocks",
-    version="0.0.2",
+    version="0.0.3",
     author="Trevor Gale",
     author_email="tgale@stanford.edu",
     description="MegaBlocks",
@@ -35,5 +35,10 @@ setup(
     packages=find_packages(),
     ext_modules=ext_modules,
     cmdclass={"build_ext": BuildExtension},
-    install_requires=["absl-py", "numpy", "torch", "stanford-stk"],
+    install_requires=[
+        "absl-py",
+        "numpy",
+        "torch",
+        "stanford-stk @ git+https://github.com/stanford-futuredata/stk.git@main"
+    ],
 )
