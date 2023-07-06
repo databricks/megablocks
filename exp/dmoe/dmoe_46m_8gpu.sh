@@ -69,7 +69,7 @@ TRAINING_ARGUMENTS="\
 --lr-warmup-fraction 0.01 \
 --clip-grad 1.0 \
 --init-method-std 0.01 \
---optimizer adafactor"
+--optimizer adam"
 
 PILE_DATASET="\
 1.0 \

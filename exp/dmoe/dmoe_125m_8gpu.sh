@@ -26,7 +26,7 @@ if [ -n "${5}" ]; then
     LOSS_WEIGHT=$5;
 fi
 
-BATCH_SIZE=64
+BATCH_SIZE=32
 if [ -n "${6}" ]; then
     BATCH_SIZE=$6;
 fi
@@ -69,7 +69,7 @@ TRAINING_ARGUMENTS="\
 --lr-warmup-fraction 0.01 \
 --clip-grad 1.0 \
 --init-method-std 0.01 \
---optimizer adafactor"
+--optimizer adam"
 
 PILE_DATASET="\
 1.0 \

@@ -69,7 +69,7 @@ TRAINING_ARGUMENTS="\
 --lr-warmup-fraction 0.01 \
 --clip-grad 1.0 \
 --init-method-std 0.01 \
---optimizer adafactor"
+--optimizer adam"
 
 PILE_DATASET="\
 1.0 \
@@ -141,7 +141,7 @@ DATA_ARGUMENTS="\
 --split 969,30,1"
 
 COMPUTE_ARGUMENTS="\
---bf16 \
+--fp16 \
 --DDP-impl local \
 --moe-expert-model-parallelism \
 --no-async-tensor-model-parallel-allreduce \
