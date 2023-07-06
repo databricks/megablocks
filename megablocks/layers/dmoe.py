@@ -1,3 +1,4 @@
+from megablocks.layers import common
 from megablocks.layers import mlp
 from megablocks.layers import moe
 from megablocks.layers.arguments import Arguments
@@ -86,7 +87,7 @@ class dMoE(moe.MoE):
             column_indices.numel(),
             self.blocking,
             self.blocking,
-            dtype=torch.float16,
+            dtype=common.dtype(self.args),
             device=x.device)
         shape = (padded_tokens, self.ffn_hidden_size * self.num_experts_per_rank)
         row_indices = stk.ops.row_indices(

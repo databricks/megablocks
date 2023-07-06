@@ -1,3 +1,4 @@
+from megablocks.layers import common
 from megablocks.layers import mpu
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks.layers.gelu import gelu
@@ -17,7 +18,7 @@ def create_expert_weights(args : Arguments,
     master_weights = torch.empty(
         num_experts, rows, columns,
         device=args.device,
-        dtype=torch.float16 if args.fp16 else torch.float32)
+        dtype=common.dtype(args))
     init_method(master_weights)
 
     if not args.moe_expert_model_parallelism:
@@ -51,13 +52,13 @@ class MLP(torch.nn.Module):
             args.hidden_size,
             args.ffn_hidden_size,
             device=args.device,
-            dtype=torch.float16 if args.fp16 else torch.float32))
+            dtype=common.dtype(args)))
         self.w2 = torch.nn.Parameter(torch.empty(
             num_experts_per_rank,
             args.ffn_hidden_size,
             args.hidden_size,
             device=args.device,
-            dtype=torch.float16 if args.fp16 else torch.float32))
+            dtype=common.dtype(args)))
         mpu.set_expert_model_parallel_attributes(
             self.w1, args.moe_expert_model_parallelism)
         mpu.set_expert_model_parallel_attributes(

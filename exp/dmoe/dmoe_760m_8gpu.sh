@@ -26,13 +26,13 @@ if [ -n "${5}" ]; then
     LOSS_WEIGHT=$5;
 fi
 
-BATCH_SIZE=64
+BATCH_SIZE=8
 if [ -n "${6}" ]; then
     BATCH_SIZE=$6;
 fi
 
 ##
-### Pre-training for dMoE 46M parameter.
+### Pre-training for dMoE 760M parameter.
 ##
 
 # MoE hyperparameters.
@@ -51,9 +51,9 @@ DISTRIBUTED_ARGUMENTS="\
 
 # Model hyperparameters.
 MODEL_ARGUMENTS="\
---num-layers 6 \
---hidden-size 512 \
---num-attention-heads 8 \
+--num-layers 24 \
+--hidden-size 1536 \
+--num-attention-heads 16 \
 --seq-length 1024 \
 --max-position-embeddings 1024"
 
@@ -63,13 +63,13 @@ TRAINING_ARGUMENTS="\
 --global-batch-size 512 \
 --train-iters ${TRAINING_STEPS} \
 --lr-decay-iters ${TRAINING_STEPS} \
---lr 0.0006 \
---min-lr 0.00006 \
+--lr 0.0004 \
+--min-lr 0.00004 \
 --lr-decay-style cosine \
 --lr-warmup-fraction 0.01 \
 --clip-grad 1.0 \
 --init-method-std 0.01 \
---optimizer adam"
+--optimizer adafactor"
 
 PILE_DATASET="\
 1.0 \

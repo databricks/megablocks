@@ -1,3 +1,4 @@
+from megablocks.layers import common
 from megablocks.layers.arguments import Arguments
 import torch
 
@@ -16,7 +17,7 @@ class LearnedRouter(torch.nn.Module):
             args.hidden_size,
             args.moe_num_experts,
             bias=False,
-            dtype=torch.float16 if args.fp16 else torch.float32,
+            dtype=common.dtype(args),
             device=args.device)
         args.init_method(self.layer.weight)
 
