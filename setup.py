@@ -17,6 +17,17 @@ ext_modules = [
         })
 ]
 
+install_requires=[
+    'stanford-stk @ git+https://github.com/vchiley/stk.git@setup_deps',
+]
+
+extra_deps = {}
+
+extra_deps['dev'] = [
+    'absl-py',
+]
+
+extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
     name="megablocks",
@@ -35,10 +46,6 @@ setup(
     packages=find_packages(),
     ext_modules=ext_modules,
     cmdclass={"build_ext": BuildExtension},
-    install_requires=[
-        "absl-py",
-        "numpy",
-        "torch",
-        "stanford-stk @ git+https://github.com/stanford-futuredata/stk.git@main"
-    ],
+    install_requires=install_requires,
+    extras_require=extra_deps,
 )
