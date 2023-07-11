@@ -141,7 +141,7 @@ DATA_ARGUMENTS="\
 --split 969,30,1"
 
 COMPUTE_ARGUMENTS="\
---fp16 \
+--bf16 \
 --DDP-impl local \
 --moe-expert-model-parallelism \
 --no-async-tensor-model-parallel-allreduce \
