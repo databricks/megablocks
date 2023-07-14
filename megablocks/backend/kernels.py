@@ -3,9 +3,13 @@ import triton
 import triton.language as tl
 
 
+def assert_is_tensor(x, ndim):
+    if x.ndim != ndim:
+        raise ValueError(f"Expected {ndim}-tensor but got {x.ndim}-tensor")
+
+
 def assert_is_matrix(x):
-    if x.ndim != 2:
-        raise ValueError(f"Expected 2-tensor but got {x.ndim}-tensor")
+    assert_is_tensor(x, 2)
 
 
 def assert_is_vector(x):
@@ -18,7 +22,7 @@ def assert_equal(a, b):
         raise ValueError(f"Expected dimensions to be equal but got {a} and {b}.")
 
 
-# x: (tokens, hidden_size), real.
+# a: (tokens, hidden_size), real.
 # indices: (tokens * top_k), integer.
 # bin_ids: (tokens * top_k), integer.
 # weights: (tokens * top_k), real.
@@ -163,4 +167,116 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
         A_TO_B=False,
         TOP_K=top_k,
         SCALE=weights is not None)
+    return out
+
+# a: (tokens, hidden_size), real.
+# b: (num_experts, expert_capacity, num_columns), real.
+# indices: (tokens,), integer.
+# bins: (num_experts,), integer.
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}, num_warps=2),
+        triton.Config({'BLOCK_X': 128}, num_warps=2),
+        triton.Config({'BLOCK_X': 256}, num_warps=2),
+        triton.Config({'BLOCK_X': 128}, num_warps=4),
+        triton.Config({'BLOCK_X': 256}, num_warps=4),
+    ],
+    key=['num_columns'],
+)
+@triton.jit
+def _binned_copy(
+        a,
+        b,
+        num_experts,
+        expert_capacity,
+        num_columns,
+        indices,
+        bins,
+        BLOCK_X : tl.constexpr,
+        A_TO_B : tl.constexpr):
+    # Load our indices into the output.
+    expert_idx = tl.program_id(0)
+    entry_idx = tl.program_id(1)
+
+    # Calculate our offset into the output.
+    index_b = expert_idx * expert_capacity + entry_idx
+
+    # Load the index bounds for our bin and calculate
+    # the number of tokens assigned to our expert.
+    start = 0
+    if expert_idx > 0:
+       start = tl.load(bins + expert_idx - 1)
+    end = tl.load(bins + expert_idx)
+    num_tokens = end - start
+
+    # Calculate our offset into the input. If we don't
+    # have an input exit early.
+    if entry_idx >= num_tokens:
+        return
+    index_a = tl.load(indices + start + entry_idx)
+
+    # Offset the input and output pointers.
+    a += index_a * num_columns
+    b += index_b * num_columns
+    offsets = tl.arange(0, BLOCK_X)
+
+    # Swap the pointers depending on the direction.
+    #
+    # NOTE: We need to zero the output in both directions.
+    iptr = a if A_TO_B else b
+    optr = b if A_TO_B else a
+
+    iterations = tl.cdiv(num_columns, BLOCK_X)
+    for i in range(tl.cdiv(num_columns, BLOCK_X)):
+        mask = offsets < num_columns
+        x = tl.load(iptr + offsets, mask=mask)
+        tl.store(optr + offsets, x, mask=mask)
+        offsets += BLOCK_X
+
+
+def binned_gather(x, indices, bins, expert_capacity):
+    # Validate the input shapes.
+    assert_is_matrix(x)
+    assert_is_vector(indices)
+    assert_is_vector(bins)
+    assert_equal(indices.shape[0], x.shape[0])
+
+    num_experts = bins.shape[0]
+    out = torch.zeros(
+        (num_experts, expert_capacity, x.shape[1]),
+        dtype=x.dtype,
+        device=x.device)
+    _binned_copy[(num_experts, expert_capacity)](
+        x,
+        out,
+        num_experts,
+        expert_capacity,
+        x.shape[1],
+        indices,
+        bins,
+        A_TO_B=True)
+    return out
+
+
+def binned_scatter(x, indices, bins):
+    # Validate the input shapes.
+    assert_is_tensor(x, 3)
+    assert_is_vector(indices)
+    assert_is_vector(bins)
+    assert_equal(bins.shape[0], x.shape[0])
+
+    num_experts, expert_capacity, hidden_size = x.shape
+    out = torch.zeros(
+        (indices.shape[0], hidden_size),
+        dtype=x.dtype,
+        device=x.device)
+    _binned_copy[(num_experts, expert_capacity)](
+        out,
+        x,
+        num_experts,
+        expert_capacity,
+        hidden_size,
+        indices,
+        bins,
+        A_TO_B=False)
     return out

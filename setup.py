@@ -5,7 +5,7 @@ from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 ext_modules = [
     CUDAExtension(
         "megablocks_ops",
-        ["csrc/ops.cu", "csrc/binned_scatter.cu"],
+        ["csrc/ops.cu"],
         include_dirs = ["csrc"],
         extra_compile_args={
             "cxx": ["-fopenmp"],

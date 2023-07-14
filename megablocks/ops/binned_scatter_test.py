@@ -59,7 +59,6 @@ class BinnedScatterTest(parameterized.TestCase):
                     out[index, :] = x[i, j, :]
                 start = end
             return torch.from_numpy(out).cuda().half()
-
         out = ops.binned_scatter(x, indices, bins)
         expected_out = binned_scatter(x, indices, bins)
         self.assertTrue(torch.all(torch.eq(out, expected_out)))

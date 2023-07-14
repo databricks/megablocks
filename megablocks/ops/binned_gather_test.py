@@ -99,11 +99,11 @@ class BinnedGatherTest(parameterized.TestCase):
                     out[i, j, :] = x[index, :]
                 start = end
             return torch.from_numpy(out).cuda().half()
-                    
+
         out = ops.binned_gather(x, indices, bins, ec)
         expected_out = binned_gather(x, indices, bins, ec)
         self.assertTrue(torch.all(torch.eq(out, expected_out)))
-    
+
 
 if __name__ == '__main__':
     unittest.main()
