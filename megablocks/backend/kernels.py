@@ -26,8 +26,8 @@ def assert_equal(a, b):
 # indices: (tokens * top_k), integer.
 # bin_ids: (tokens * top_k), integer.
 # weights: (tokens * top_k), real.
-# bins: (num_experts,), integer.
-# padded_bins: (num_experts,), integer.
+# bins: (num_experts), integer.
+# padded_bins: (num_experts), integer.
 @triton.autotune(
     configs=[
         triton.Config({'BLOCK_X': 64}, num_warps=2),
@@ -169,10 +169,12 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
         SCALE=weights is not None)
     return out
 
+
 # a: (tokens, hidden_size), real.
 # b: (num_experts, expert_capacity, num_columns), real.
-# indices: (tokens,), integer.
-# bins: (num_experts,), integer.
+# indices: (tokens * top_k), integer.
+# weights: (tokens * top_k), real.
+# bins: (num_experts), integer.
 @triton.autotune(
     configs=[
         triton.Config({'BLOCK_X': 64}, num_warps=2),
@@ -191,9 +193,12 @@ def _binned_copy(
         expert_capacity,
         num_columns,
         indices,
+        weights,
         bins,
+        TOP_K : tl.constexpr,
         BLOCK_X : tl.constexpr,
-        A_TO_B : tl.constexpr):
+        A_TO_B : tl.constexpr,
+        SCALE : tl.constexpr):
     # Load our indices into the output.
     expert_idx = tl.program_id(0)
     entry_idx = tl.program_id(1)
@@ -216,9 +221,14 @@ def _binned_copy(
     index_a = tl.load(indices + start + entry_idx)
 
     # Offset the input and output pointers.
-    a += index_a * num_columns
+    #
+    # NOTE: Divide the input index
+    a += (index_a // TOP_K) * num_columns
     b += index_b * num_columns
     offsets = tl.arange(0, BLOCK_X)
+
+    # Load the scale, if requested.
+    scale = tl.load(weights + index_a) if SCALE else 1
 
     # Swap the pointers depending on the direction.
     #
@@ -230,16 +240,27 @@ def _binned_copy(
     for i in range(tl.cdiv(num_columns, BLOCK_X)):
         mask = offsets < num_columns
         x = tl.load(iptr + offsets, mask=mask)
-        tl.store(optr + offsets, x, mask=mask)
+        x *= scale
+
+        # If top_k > 1 and we're writing from B => A we need
+        # to use atomics to accumulate the result.
+        if (TOP_K == 1) or A_TO_B:
+            tl.store(optr + offsets, x, mask=mask)
+        else:
+            tl.atomic_add(optr + offsets, x, mask=mask)
+
         offsets += BLOCK_X
 
 
-def binned_gather(x, indices, bins, expert_capacity):
+def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bins)
-    assert_equal(indices.shape[0], x.shape[0])
+    assert_equal(indices.shape[0], x.shape[0] * top_k)
+
+    if weights is not None:
+        assert_equal(weights.shape[0], x.shape[0] * top_k)
 
     num_experts = bins.shape[0]
     out = torch.zeros(
@@ -253,21 +274,27 @@ def binned_gather(x, indices, bins, expert_capacity):
         expert_capacity,
         x.shape[1],
         indices,
+        weights,
         bins,
-        A_TO_B=True)
+        A_TO_B=True,
+        TOP_K=top_k,
+        SCALE=weights is not None)
     return out
 
 
-def binned_scatter(x, indices, bins):
+def binned_scatter(x, indices, weights, bins, top_k):
     # Validate the input shapes.
     assert_is_tensor(x, 3)
     assert_is_vector(indices)
     assert_is_vector(bins)
     assert_equal(bins.shape[0], x.shape[0])
 
+    if weights is not None:
+        assert_equal(indices.shape[0], weights.shape[0])
+
     num_experts, expert_capacity, hidden_size = x.shape
     out = torch.zeros(
-        (indices.shape[0], hidden_size),
+        (indices.shape[0] // top_k, hidden_size),
         dtype=x.dtype,
         device=x.device)
     _binned_copy[(num_experts, expert_capacity)](
@@ -277,6 +304,9 @@ def binned_scatter(x, indices, bins):
         expert_capacity,
         hidden_size,
         indices,
+        weights,
         bins,
-        A_TO_B=False)
+        A_TO_B=False,
+        TOP_K=top_k,
+        SCALE=weights is not None)
     return out

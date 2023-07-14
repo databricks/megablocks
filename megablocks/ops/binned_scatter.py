@@ -7,15 +7,18 @@ class BinnedScatterOp(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, indices, bins):
+    def forward(ctx, x, indices, weights, bins, top_k):
         assert len(x.size()) == 3
         ctx.bin_size = x.size(1)
-        ctx.save_for_backward(indices, bins)
-        return kernels.binned_scatter(x, indices, bins)
+        ctx.top_k = top_k
+        ctx.save_for_backward(indices, weights, bins)
+        return kernels.binned_scatter(x, indices, weights, bins, top_k)
 
     @staticmethod
     @custom_bwd
     def backward(ctx, grad):
-        indices, bins = ctx.saved_tensors
-        return kernels.binned_gather(grad, indices, bins, ctx.bin_size), None, None
+        indices, weights, bins = ctx.saved_tensors
+        out = kernels.binned_gather(
+            grad, indices, weights, bins, ctx.bin_size, ctx.top_k)
+        return out, None, None
 binned_scatter = BinnedScatterOp.apply
