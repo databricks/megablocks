@@ -145,7 +145,7 @@ class MoE(torch.nn.Module):
         assert num_experts == self.num_experts
         scale = self.num_experts / (tokens * self.args.moe_top_k)
         return scale * torch.dot(
-            tokens_per_expert.half(),
+            tokens_per_expert.to(expert_scores.dtype),
             expert_scores.mean(dim=0))
 
     def indices_and_bins(self, top_expert):
