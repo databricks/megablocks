@@ -166,10 +166,11 @@ class dMoE(moe.MoE):
             x,
             tokens_per_expert,
             indices,
-            expert_weights,
             bin_ids,
+            expert_weights,
             bins,
-            expert_capactiy):  # unused
+            expert_capactiy,  # unused
+            top_k):
 
         # Round the token counts up to the block size used in the matrix
         # multiplication. Calculate the starting position of each bin.
@@ -186,7 +187,7 @@ class dMoE(moe.MoE):
             bin_ids,
             bins,
             padded_bins,
-            self.top_k)
+            top_k)
 
         # Create the sparse matrix topology.
         with torch.no_grad():
@@ -203,4 +204,4 @@ class dMoE(moe.MoE):
             expert_weights,
             bins,
             padded_bins,
-            self.top_k)
+            top_k)

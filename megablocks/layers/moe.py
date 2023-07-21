@@ -178,14 +178,15 @@ class MoE(torch.nn.Module):
             x,
             tokens_per_expert, # unused
             indices,
-            expert_weights,
             bin_ids, # unused
+            expert_weights,
             bins,
-            expert_capacity):
+            expert_capacity,
+            top_k):
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
         x = ops.binned_gather(
-            x, indices, bins, expert_capacity, self.top_k)
+            x, indices, bins, expert_capacity, top_k)
 
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
@@ -193,7 +194,7 @@ class MoE(torch.nn.Module):
 
         # Un-route the data for the MoE output.
         return ops.binned_scatter(
-            x, indices, expert_weights, bins, self.top_k)
+            x, indices, expert_weights, bins, top_k)
 
     def forward_once(self, x, expert_weights, top_experts):
         # x: [sl, bs, hs]
@@ -216,13 +217,14 @@ class MoE(torch.nn.Module):
             x,
             tokens_per_expert,
             indices,
-            expert_weights,
             bin_ids,
+            expert_weights,
             bins,
-            expert_capacity)
+            expert_capacity,
+            self.top_k)
         return x, tokens_per_expert
 
-    def parallel_forward_once(self, x, top_expert):
+    def parallel_forward_once(self, x, expert_weights, top_experts):
         # NOTE: This function implements the same computation as forward_once
         # but with expert model parallelism.
         #
@@ -244,9 +246,11 @@ class MoE(torch.nn.Module):
         # output.
         #
         # Compute the mapping of local tokens to experts.
+        expert_weights = expert_weights.flatten()
+        top_experts = top_experts.flatten()
         with torch.no_grad():
             indices, bin_ids, bins, tokens_per_expert = (
-                self.indices_and_bins(top_expert))
+                self.indices_and_bins(top_experts))
 
             # Pass token count information to the device on which the
             # target expert resides.
@@ -269,7 +273,13 @@ class MoE(torch.nn.Module):
         # This view updates the shape of the tensor from [sl, bs, hs] to
         # [sl * bs, hs] prior to the permutation.
         x = x.view(-1, x.shape[-1])
-        x = ops.padded_gather(x, indices, bin_ids, bins, bins)
+        x = ops.padded_gather(
+            x,
+            indices,
+            bin_ids,
+            bins,
+            bins,
+            self.top_k)
 
         # Compute the number of tokens that will be received from each
         # device and permute the input data across the devices.
@@ -336,7 +346,8 @@ class MoE(torch.nn.Module):
             tokens, hs = x.size()
             expert_capacity = self.expert_capacity(tokens)
             if expert_capacity == 0:
-                expert_capacity = torch.max(parallel_tokens_per_expert)
+                expert_capacity = torch.max(
+                    parallel_tokens_per_expert).item()
 
         # Permute the tokens across the devices.
         parallel_x = all_to_all(
@@ -349,8 +360,10 @@ class MoE(torch.nn.Module):
             parallel_tokens_per_expert,
             parallel_indices,
             parallel_bin_ids,
+            None,  # expert_weights
             parallel_bins,
-            expert_capacity)
+            expert_capacity,
+            top_k=1)
 
         # Un-permute the tokens across the devices.
         x = all_to_all(
@@ -358,7 +371,14 @@ class MoE(torch.nn.Module):
             self.args.expert_parallel_group)
 
         # Un-permute locally to setup for the next series of operations.
-        x = ops.padded_scatter(x, indices, bin_ids, bins, bins)
+        x = ops.padded_scatter(
+            x,
+            indices,
+            bin_ids,
+            expert_weights,
+            bins,
+            bins,
+            self.top_k)
         return x, tokens_per_expert.flatten()
 
     def forward(self, x):
