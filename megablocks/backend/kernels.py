@@ -152,6 +152,17 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     if weights is not None:
         assert_equal(indices.shape[0], weights.shape[0])
 
+    # Triton does not support tl.atomic_add for bf16. If we're
+    # going to accumulate and data is bf16, cast to fp16 and
+    # then cast back on the output.
+    #
+    # TODO(tgale): Remove this with tl.atomic_add is supported
+    # for bf16 data.
+    cast_to_half = top_k > 1 and x.dtype == torch.bfloat16
+    if cast_to_half:
+        x = x.half()
+        weights = weights if weights is None else weights.half()
+
     tokens = indices.shape[0] // top_k
     out = torch.zeros(
         (tokens, x.shape[1]),
@@ -169,7 +180,7 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
         A_TO_B=False,
         TOP_K=top_k,
         SCALE=weights is not None)
-    return out
+    return out.to(torch.bfloat16) if cast_to_half else out
 
 
 # a: (tokens, hidden_size), real.
