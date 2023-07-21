@@ -22,5 +22,5 @@ class PaddedScatterOp(torch.autograd.Function):
         indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors
         out = kernels.padded_gather(
             grad, indices, bin_ids, weights, bins, padded_bins, ctx.top_k)
-        return out, None, None, None, None, None
+        return out, None, None, None, None, None, None
 padded_scatter = PaddedScatterOp.apply

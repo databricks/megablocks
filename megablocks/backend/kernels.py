@@ -103,6 +103,7 @@ def _padded_copy(
 
 def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     # Validate the input shapes.
+    x = x.contiguous()
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bin_ids)
@@ -139,6 +140,7 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
 
 def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     # Validate the input shapes.
+    x = x.contiguous()
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bin_ids)
@@ -254,6 +256,7 @@ def _binned_copy(
 
 def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
     # Validate the input shapes.
+    x = x.contiguous()
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bins)
@@ -267,6 +270,7 @@ def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
         (num_experts, expert_capacity, x.shape[1]),
         dtype=x.dtype,
         device=x.device)
+
     _binned_copy[(num_experts, expert_capacity)](
         x,
         out,
@@ -284,6 +288,7 @@ def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
 
 def binned_scatter(x, indices, weights, bins, top_k):
     # Validate the input shapes.
+    x = x.contiguous()
     assert_is_tensor(x, 3)
     assert_is_vector(indices)
     assert_is_vector(bins)

@@ -27,7 +27,8 @@ class dMoE(moe.MoE):
         # in the intermediate sparse matrix.
         max_column_index = (
             (self.ffn_hidden_size * self.num_experts) // self.blocking)
-        self.transpose_sort_end_bit = max(int(np.ceil(np.log2(max_column_index))), 1)
+        self.transpose_sort_end_bit = max(
+            int(np.ceil(np.log2(max_column_index))), 1)
 
     def sparse_transpose(self, size, data, row_indices, column_indices, offsets):
         block_columns = size[1] // data.shape[1]
@@ -97,15 +98,15 @@ class dMoE(moe.MoE):
         return stk.Matrix(shape, data, row_indices, column_indices, offsets,
                           column_indices_t, offsets_t, block_offsets_t)
 
-    def indices_and_padded_bins(self, top_expert):
+    def indices_and_padded_bins(self, top_experts):
         # Sort the expert ids to produce the scatter/gather
         # indices for the permutation.
-        top_expert = top_expert.int()
-        bin_ids, indices = ops.sort(top_expert, self.sort_end_bit)
+        top_experts = top_experts.int()
+        bin_ids, indices = ops.sort(top_experts, self.sort_end_bit)
 
         # Histogram the expert ids to identify the number of
         # tokens routed to each expert.
-        tokens_per_expert = ops.histogram(top_expert, self.num_experts)
+        tokens_per_expert = ops.histogram(top_experts, self.num_experts)
 
         # Round the token counts up to the block size used in
         # the matrix muliplications. Caculate the starting
@@ -120,15 +121,26 @@ class dMoE(moe.MoE):
         bins = promote_scalar(bins)
         return indices, bin_ids, bins, padded_bins, tokens_per_expert
 
-    def forward_once(self, x, top_expert):
+    def forward_once(self, x, expert_weights, top_experts):
+        # x: [sl, bs, hs]
+        # expert_weights: [sl * bs, top-k]
+        # top_experts: [sl * bs, top-k]
+        expert_weights = expert_weights.flatten()
+        top_experts = top_experts.flatten()
         with torch.no_grad():
             indices, bin_ids, bins, padded_bins, tokens_per_expert = (
-                self.indices_and_padded_bins(top_expert))
+                self.indices_and_padded_bins(top_experts))
         sl, bs, hs = x.size()
 
         # Route the tokens for MoE computation.
         x = x.view(sl * bs, hs)
-        x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+        x = ops.padded_gather(
+            x,
+            indices,
+            bin_ids,
+            bins,
+            padded_bins,
+            self.top_k)
 
         # Create the sparse matrix topology.
         with torch.no_grad():
@@ -138,12 +150,26 @@ class dMoE(moe.MoE):
         x = self.mlp(x, topo)
 
         # Un-route the data for the MoE output.
-        x = ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
+        x = ops.padded_scatter(
+            x,
+            indices,
+            bin_ids,
+            expert_weights,
+            bins,
+            padded_bins,
+            self.top_k)
         return x, tokens_per_expert
 
     # For use in the base-class parallel_forward_once.
     def permute_and_compute(
-            self, x, tokens_per_expert, indices, bin_ids, bins, _):
+            self,
+            x,
+            tokens_per_expert,
+            indices,
+            expert_weights,
+            bin_ids,
+            bins,
+            expert_capactiy):  # unused
 
         # Round the token counts up to the block size used in the matrix
         # multiplication. Calculate the starting position of each bin.
@@ -154,7 +180,13 @@ class dMoE(moe.MoE):
 
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
-        x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+        x = ops.padded_gather(
+            x,
+            indices,
+            bin_ids,
+            bins,
+            padded_bins,
+            self.top_k)
 
         # Create the sparse matrix topology.
         with torch.no_grad():
@@ -164,4 +196,11 @@ class dMoE(moe.MoE):
         x = self.mlp(x, topo)
 
         # Un-route the data for the MoE output.
-        return ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
+        return ops.padded_scatter(
+            x,
+            indices,
+            bin_ids,
+            expert_weights,
+            bins,
+            padded_bins,
+            self.top_k)

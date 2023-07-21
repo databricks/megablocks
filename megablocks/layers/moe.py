@@ -106,6 +106,7 @@ class MoE(torch.nn.Module):
         world_size = mpu.get_expert_parallel_world_size(args)
         self.num_experts = args.moe_num_experts
         self.num_experts_per_rank = self.num_experts // world_size
+        self.top_k = self.args.moe_top_k
 
         # Calculate the number of bits needed to represent the expert indices
         # so that we can pass it to radix sort.
@@ -132,7 +133,8 @@ class MoE(torch.nn.Module):
             self.forward_once)
 
     def expert_capacity(self, tokens):
-        tokens_per_expert = tokens / self.num_experts_per_rank
+        tokens_per_expert = (
+            self.top_k * tokens / self.num_experts_per_rank)
         return int(self.args.moe_capacity_factor * tokens_per_expert)
 
     def load_balancing_loss(self, tokens_per_expert, expert_scores):
@@ -143,7 +145,7 @@ class MoE(torch.nn.Module):
         assert len(tokens_per_expert.size()) == 1
         num_experts, = tokens_per_expert.size()
         assert num_experts == self.num_experts
-        scale = self.num_experts / (tokens * self.args.moe_top_k)
+        scale = self.num_experts / (tokens * self.top_k)
         return scale * torch.dot(
             tokens_per_expert.half(),
             expert_scores.mean(dim=0))
@@ -176,33 +178,48 @@ class MoE(torch.nn.Module):
             x,
             tokens_per_expert, # unused
             indices,
+            expert_weights,
             bin_ids, # unused
             bins,
             expert_capacity):
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
-        x = ops.binned_gather(x, indices, bins, expert_capacity)
+        x = ops.binned_gather(
+            x, indices, bins, expert_capacity, self.top_k)
 
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
         x = self.mlp(x)
 
         # Un-route the data for the MoE output.
-        return ops.binned_scatter(x, indices, bins)
+        return ops.binned_scatter(
+            x, indices, expert_weights, bins, self.top_k)
 
-    def forward_once(self, x, top_expert):
+    def forward_once(self, x, expert_weights, top_experts):
+        # x: [sl, bs, hs]
+        # expert_weights: [sl * bs, top-k]
+        # top_experts: [sl * bs, top-k]
+        expert_weights = expert_weights.flatten()
+        top_experts = top_experts.flatten()
         with torch.no_grad():
             indices, bin_ids, bins, tokens_per_expert = (
-                self.indices_and_bins(top_expert))
+                self.indices_and_bins(top_experts))
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
             sl, bs, hs = x.size()
             expert_capacity = self.expert_capacity(sl * bs)
             if expert_capacity == 0:
-                expert_capacity = torch.max(tokens_per_expert)
+                expert_capacity = torch.max(tokens_per_expert).item()
+
         x = self.permute_and_compute(
-            x, tokens_per_expert, indices, bin_ids, bins, expert_capacity)
+            x,
+            tokens_per_expert,
+            indices,
+            expert_weights,
+            bin_ids,
+            bins,
+            expert_capacity)
         return x, tokens_per_expert
 
     def parallel_forward_once(self, x, top_expert):
@@ -347,39 +364,11 @@ class MoE(torch.nn.Module):
     def forward(self, x):
         sl, bs, hs = x.size()
 
-        # Compute the top-1 expert routing.
+        # Compute the expert scores and assignments.
         scores, expert_weights, top_experts = self.router(x)
 
-        # Simplified code-path for the common case of top_k == 1.
-        if self.args.moe_top_k == 1:
-            x, tokens_per_expert = self.forward_fn(x, top_experts)
-            x = x * expert_weights.view(-1, 1)
-            save_load_balancing_loss((tokens_per_expert, scores))
-            return x.view(sl, bs, hs), self.bias
-
-        # Chunk the routing/weight data for each 'k'.
-        top_experts = top_experts.chunk(self.args.moe_top_k, dim=-1)
-        expert_weights = expert_weights.chunk(self.args.moe_top_k, dim=-1)
-
-        # Compute the FFN layers for each 'k'.
-        x, tokens_per_expert = zip(*[
-            self.forward_fn(x, routing.squeeze())
-            for routing in top_experts
-        ])
-
-        # Weight and combine the expert outputs.
-        #
-        # TODO(tgale): We should fused this to save memory and
-        # bandwidth. We can likely fuse the scale + add for top-k
-        # routing.
-        #
-        # Sum the token counts for each expert.
-        x = sum([
-            out * weight.view(-1, 1)
-            for (out, weight) in zip(x, expert_weights)
-        ])
-        tokens_per_expert = sum(tokens_per_expert)
-
-        # Save the matrices needed for load balancing loss computation.
+        # Compute the experts.
+        x, tokens_per_expert = self.forward_fn(
+            x, expert_weights, top_experts)
         save_load_balancing_loss((tokens_per_expert, scores))
         return x.view(sl, bs, hs), self.bias

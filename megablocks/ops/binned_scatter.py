@@ -20,5 +20,5 @@ class BinnedScatterOp(torch.autograd.Function):
         indices, weights, bins = ctx.saved_tensors
         out = kernels.binned_gather(
             grad, indices, weights, bins, ctx.bin_size, ctx.top_k)
-        return out, None, None
+        return out, None, None, None, None
 binned_scatter = BinnedScatterOp.apply
