@@ -36,18 +36,18 @@ def assert_equal(a, b):
         triton.Config({'BLOCK_X': 128}, num_warps=4),
         triton.Config({'BLOCK_X': 256}, num_warps=4),
     ],
-    key=['num_columns'],
+    key=['NUM_COLUMNS'],
 )
 @triton.jit
 def _padded_copy(
         a,
         b,
-        num_columns,
         indices,
         bin_ids,
         weights,
         bins,
         padded_bins,
+        NUM_COLUMNS : tl.constexpr,
         TOP_K : tl.constexpr,
         BLOCK_X : tl.constexpr,
         A_TO_B : tl.constexpr,
@@ -73,10 +73,14 @@ def _padded_copy(
 
     # Offset the input and output pointers.
     #
-    # NOTE: Divide the input index
-    a += (index_a // TOP_K) * num_columns
-    b += index_b * num_columns
-    offsets = tl.arange(0, BLOCK_X)
+    # If we're going from A to B, divide the input index to copy
+    # the same input repeatedly. If we're going from B to A we
+    # need to reduce the result. Using atomics is slow, so we
+    # do the reduce step in a second kernel.
+    offset = index_a // TOP_K if A_TO_B else index_a
+    a += tl.multiple_of(offset * NUM_COLUMNS, NUM_COLUMNS)
+    b += tl.multiple_of(index_b * NUM_COLUMNS, NUM_COLUMNS)
+    offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
     # Load the scale, if requested.
     scale = tl.load(weights + index_a) if SCALE else 1
@@ -85,18 +89,15 @@ def _padded_copy(
     iptr = a if A_TO_B else b
     optr = b if A_TO_B else a
 
-    iterations = tl.cdiv(num_columns, BLOCK_X)
-    for i in range(tl.cdiv(num_columns, BLOCK_X)):
-        mask = offsets < num_columns
+    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+        mask = offsets < NUM_COLUMNS
         x = tl.load(iptr + offsets, mask=mask)
-        x = x.to(optr.dtype.element_ty) * scale.to(optr.dtype.element_ty)
+        x = x.to(tl.float32) * scale.to(tl.float32)
 
-        # If top_k > 1 and we're writing from B => A we need
-        # to use atomics to accumulate the result.
-        if (TOP_K == 1) or A_TO_B:
-            tl.store(optr + offsets, x, mask=mask)
-        else:
-            tl.atomic_add(optr + offsets, x, mask=mask)
+        tl.store(
+            optr + offsets,
+            x.to(optr.dtype.element_ty),
+            mask=mask)
 
         offsets += BLOCK_X
 
@@ -125,12 +126,12 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     _padded_copy[(indices.shape[0],)](
         x,
         out,
-        x.shape[1],
         indices,
         bin_ids,
         weights,
         bins,
         padded_bins,
+        NUM_COLUMNS=x.shape[1],
         A_TO_B=True,
         TOP_K=top_k,
         SCALE=weights is not None)
@@ -150,26 +151,26 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     if weights is not None:
         assert_equal(indices.shape[0], weights.shape[0])
 
-    # NOTE: If we're going to do a reduction use float32. This
-    # significantly affects model quality.
     tokens = indices.shape[0] // top_k
-    out = torch.zeros(
-        (tokens, x.shape[1]),
-        dtype=torch.float32 if weights is not None else x.dtype,
+    out = torch.empty(
+        (tokens, top_k, x.shape[1]),
+        dtype=x.dtype,
         device=x.device)
     _padded_copy[(indices.shape[0],)](
         out,
         x,
-        x.shape[1],
         indices,
         bin_ids,
         weights,
         bins,
         padded_bins,
+        NUM_COLUMNS=x.shape[1],
         A_TO_B=False,
         TOP_K=top_k,
         SCALE=weights is not None)
-    return out.to(x.dtype)
+
+    # Reduce along the top-k dimension, if needed.
+    return out.sum(dim=1) if top_k > 1 else out.view(tokens, x.shape[1])
 
 
 # x: (tokens, top_k, hidden_size), real
@@ -345,7 +346,7 @@ def _binned_copy(
         if (TOP_K == 1) or A_TO_B:
             tl.store(optr + offsets, x, mask=mask)
         else:
-            tl.atomic_add(optr + offsets, x, mask=mask)
+            tl.atomic_add(optr + offsets, x, mask=mask, sem='relaxed')
 
         offsets += BLOCK_X
 

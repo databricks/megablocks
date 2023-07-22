@@ -9,7 +9,7 @@ def log_benchmark(name, arguments, time, std):
     for (key, value) in arguments.items():
         print(f"{key} = {value}")
     print("Results:")
-    print("mean time = {:.2f}ms, std time = {:.2f}ms".format(time, std))
+    print("mean time = {:.3f}ms, std time = {:.3f}ms".format(time, std))
     print("="*60)
 
 
