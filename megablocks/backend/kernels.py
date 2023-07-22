@@ -89,17 +89,14 @@ def _padded_copy(
     for i in range(tl.cdiv(num_columns, BLOCK_X)):
         mask = offsets < num_columns
         x = tl.load(iptr + offsets, mask=mask)
-        x *= scale
+        x = x.to(optr.dtype.element_ty) * scale.to(optr.dtype.element_ty)
 
         # If top_k > 1 and we're writing from B => A we need
         # to use atomics to accumulate the result.
         if (TOP_K == 1) or A_TO_B:
             tl.store(optr + offsets, x, mask=mask)
         else:
-            tl.atomic_add(
-                optr + offsets,
-                x.to(optr.dtype.element_ty),
-                mask=mask)
+            tl.atomic_add(optr + offsets, x, mask=mask)
 
         offsets += BLOCK_X
 
