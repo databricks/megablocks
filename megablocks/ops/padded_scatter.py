@@ -9,7 +9,7 @@ class PaddedScatterOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k):
-        ctx.save_for_backward(indices, bin_ids, weights, bins, padded_bins)
+        ctx.save_for_backward(x, indices, bin_ids, weights, bins, padded_bins)
         ctx.top_k = top_k
         return kernels.padded_scatter(
             x, indices, bin_ids, weights, bins, padded_bins, top_k)
@@ -19,8 +19,25 @@ class PaddedScatterOp(torch.autograd.Function):
     def backward(ctx, grad):
         grad = grad.contiguous()
 
-        indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors
+        x, indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors
         out = kernels.padded_gather(
-            grad, indices, bin_ids, weights, bins, padded_bins, ctx.top_k)
-        return out, None, None, None, None, None, None
+            grad,
+            indices,
+            bin_ids,
+            weights,
+            bins,
+            padded_bins,
+            ctx.top_k)
+
+        wgrad = None
+        if ctx.needs_input_grad[3]:
+            wgrad = kernels.padded_scatter_wgrad(
+                x,
+                grad,
+                indices,
+                bin_ids,
+                bins,
+                padded_bins,
+                ctx.top_k)
+        return out, None, None, wgrad, None, None, None
 padded_scatter = PaddedScatterOp.apply

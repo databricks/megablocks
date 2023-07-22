@@ -103,7 +103,6 @@ def _padded_copy(
 
 def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     # Validate the input shapes.
-    x = x.contiguous()
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bin_ids)
@@ -140,7 +139,6 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
 
 def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     # Validate the input shapes.
-    x = x.contiguous()
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bin_ids)
@@ -157,7 +155,7 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     tokens = indices.shape[0] // top_k
     out = torch.zeros(
         (tokens, x.shape[1]),
-        dtype=torch.float32 if top_k > 1 else x.dtype,
+        dtype=torch.float32 if weights is not None else x.dtype,
         device=x.device)
     _padded_copy[(indices.shape[0],)](
         out,
@@ -173,6 +171,102 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
         SCALE=weights is not None)
     return out.to(x.dtype)
 
+
+# x: (tokens, top_k, hidden_size), real
+# grad: (tokens, hidden_size), real.
+# wgrad: (tokens, top_k), real.
+# indices: (tokens * top_k), integer.
+# bin_ids: (tokens * top_k), integer.
+# bins: (num_experts), integer.
+# padded_bins: (num_experts), integer.
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}, num_warps=2),
+        triton.Config({'BLOCK_X': 128}, num_warps=2),
+        triton.Config({'BLOCK_X': 256}, num_warps=2),
+        triton.Config({'BLOCK_X': 128}, num_warps=4),
+        triton.Config({'BLOCK_X': 256}, num_warps=4),
+    ],
+    key=['num_columns'],
+)
+@triton.jit
+def _padded_copy_wgrad(
+        x,
+        grad,
+        wgrad,
+        num_columns,
+        indices,
+        bin_ids,
+        bins,
+        padded_bins,
+        TOP_K : tl.constexpr,
+        BLOCK_X : tl.constexpr):
+    # Our index into 'tokens * top_k'.
+    index_out = tl.load(indices + tl.program_id(0))
+
+    # One threadblock per row in 'a'. Array 'b' has greater or equal
+    # number of rows since they could be padded.
+    bin_idx = tl.load(bin_ids + tl.program_id(0))
+
+    # Now we know what bin we're assigned to, but we need to know how
+    # many threadblocks were assigned to earlier bins so we can offset
+    # in our bin properly.
+    offset_in_bin = tl.program_id(0);
+    if bin_idx > 0:
+        offset_in_bin -= tl.load(bins + bin_idx - 1)
+
+    # Load the starting index of our bin in array 'x'.
+    index_x = offset_in_bin;
+    if bin_idx > 0:
+        index_x += tl.load(padded_bins + bin_idx - 1)
+
+    # Offset the input and output pointers.
+    wgrad += index_out
+    grad += (index_out // TOP_K) * num_columns
+    x += index_x * num_columns
+    offsets = tl.arange(0, BLOCK_X)
+
+    acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
+    iterations = tl.cdiv(num_columns, BLOCK_X)
+    for i in range(tl.cdiv(num_columns, BLOCK_X)):
+        mask = offsets < num_columns
+        data = tl.load(x + offsets, mask=mask).to(tl.float32)
+        scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
+        acc += data * scale
+        offsets += BLOCK_X
+
+    # Reduce to get the final result and store.
+    out = tl.sum(acc).to(wgrad.dtype.element_ty)
+    tl.store(wgrad, out)
+
+
+def padded_scatter_wgrad(x, grad, indices, bin_ids, bins, padded_bins, top_k):
+    # Validate the input shapes.
+    assert_is_matrix(x)
+    assert_is_matrix(grad)
+    assert_is_vector(indices)
+    assert_is_vector(bin_ids)
+    assert_is_vector(bins)
+    assert_is_vector(padded_bins)
+    assert_equal(indices.shape[0], bin_ids.shape[0])
+    assert_equal(bins.size(), padded_bins.size())
+
+    tokens = indices.shape[0] // top_k
+    out = torch.empty(
+        (tokens * top_k),
+        dtype=x.dtype,
+        device=x.device)
+    _padded_copy_wgrad[(indices.shape[0],)](
+        x,
+        grad,
+        out,
+        x.shape[1],
+        indices,
+        bin_ids,
+        bins,
+        padded_bins,
+        TOP_K=top_k)
+    return out
 
 # a: (tokens, hidden_size), real.
 # b: (num_experts, expert_capacity, num_columns), real.
@@ -258,7 +352,6 @@ def _binned_copy(
 
 def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
     # Validate the input shapes.
-    x = x.contiguous()
     assert_is_matrix(x)
     assert_is_vector(indices)
     assert_is_vector(bins)
@@ -290,7 +383,6 @@ def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
 
 def binned_scatter(x, indices, weights, bins, top_k):
     # Validate the input shapes.
-    x = x.contiguous()
     assert_is_tensor(x, 3)
     assert_is_vector(indices)
     assert_is_vector(bins)

@@ -15,6 +15,7 @@ class BinnedGatherOp(torch.autograd.Function):
     @staticmethod
     @custom_bwd
     def backward(ctx, grad):
+        grad = grad.contiguous()
         indices, bins = ctx.saved_tensors
         out = kernels.binned_scatter(grad, indices, None, bins, ctx.top_k)
         return out, None, None, None, None
