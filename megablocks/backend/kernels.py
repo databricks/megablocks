@@ -96,7 +96,10 @@ def _padded_copy(
         if (TOP_K == 1) or A_TO_B:
             tl.store(optr + offsets, x, mask=mask)
         else:
-            tl.atomic_add(optr + offsets, x, mask=mask)
+            tl.atomic_add(
+                optr + offsets,
+                x.to(optr.dtype.element_ty),
+                mask=mask)
 
         offsets += BLOCK_X
 
@@ -152,21 +155,12 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     if weights is not None:
         assert_equal(indices.shape[0], weights.shape[0])
 
-    # Triton does not support tl.atomic_add for bf16. If we're
-    # going to accumulate and data is bf16, cast to fp16 and
-    # then cast back on the output.
-    #
-    # TODO(tgale): Remove this with tl.atomic_add is supported
-    # for bf16 data.
-    cast_to_half = top_k > 1 and x.dtype == torch.bfloat16
-    if cast_to_half:
-        x = x.half()
-        weights = weights if weights is None else weights.half()
-
+    # NOTE: If we're going to do a reduction use float32. This
+    # significantly affects model quality.
     tokens = indices.shape[0] // top_k
     out = torch.zeros(
         (tokens, x.shape[1]),
-        dtype=x.dtype,
+        dtype=torch.float32 if top_k > 1 else x.dtype,
         device=x.device)
     _padded_copy[(indices.shape[0],)](
         out,
@@ -180,7 +174,7 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
         A_TO_B=False,
         TOP_K=top_k,
         SCALE=weights is not None)
-    return out.to(torch.bfloat16) if cast_to_half else out
+    return out.to(x.dtype)
 
 
 # a: (tokens, hidden_size), real.
