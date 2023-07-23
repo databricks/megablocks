@@ -302,6 +302,14 @@ class MoE(torch.nn.Module):
             recv_counts = recv_counts.tolist()
             tokens_received = sum(recv_counts)
 
+        # Start the cross-device permutation asynchronously so we can
+        # overlap communication with computation.
+        parallel_x, parallel_x_handle = all_to_all(
+            x, recv_counts, send_counts,
+            self.args.expert_parallel_group,
+            async_op=True)
+
+        with torch.no_grad():
             # After we do the cross-device permutation we have the tokens on the
             # correct device but not yet grouped by expert because we received
             # tokens from each device as contiguous chunks. To group the tokens
@@ -349,12 +357,9 @@ class MoE(torch.nn.Module):
                 expert_capacity = torch.max(
                     parallel_tokens_per_expert).item()
 
-        # Permute the tokens across the devices.
-        parallel_x = all_to_all(
-            x, recv_counts, send_counts,
-            self.args.expert_parallel_group)
-
         # Locally permute the tokens and perform the expert computation.
+        # Block to make sure that the cross-device permutation is complete.
+        parallel_x_handle.wait()
         parallel_x = self.permute_and_compute(
             parallel_x,
             parallel_tokens_per_expert,
@@ -366,7 +371,7 @@ class MoE(torch.nn.Module):
             top_k=1)
 
         # Un-permute the tokens across the devices.
-        x = all_to_all(
+        x, _ = all_to_all(
             parallel_x, send_counts, recv_counts,
             self.args.expert_parallel_group)
 
