@@ -9,6 +9,8 @@ class PaddedScatterOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k):
+        # TODO(tgale): Don't save 'x' for backwards if we don't need to
+        # calculate the gradient w.r.t. 'weights'.
         ctx.save_for_backward(x, indices, bin_ids, weights, bins, padded_bins)
         ctx.top_k = top_k
         return kernels.padded_scatter(

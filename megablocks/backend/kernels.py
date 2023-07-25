@@ -266,6 +266,7 @@ def padded_scatter_wgrad(x, grad, indices, bin_ids, bins, padded_bins, top_k):
         TOP_K=top_k)
     return out
 
+
 # a: (tokens, hidden_size), real.
 # b: (num_experts, expert_capacity, num_columns), real.
 # indices: (tokens * top_k), integer.
@@ -409,3 +410,98 @@ def binned_scatter(x, indices, weights, bins, top_k):
 
     # Reduce along the top-k dimension, if needed.
     return out.sum(dim=1) if top_k > 1 else out.view(tokens, hidden_size)
+
+
+# a: (tokens, hidden_size), real.
+# b: (num_experts, expert_capacity, num_columns), real.
+# indices: (tokens * top_k), integer.
+# weights: (tokens * top_k), real.
+# bins: (num_experts), integer.
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}, num_warps=2),
+        triton.Config({'BLOCK_X': 128}, num_warps=2),
+        triton.Config({'BLOCK_X': 256}, num_warps=2),
+        triton.Config({'BLOCK_X': 128}, num_warps=4),
+        triton.Config({'BLOCK_X': 256}, num_warps=4),
+    ],
+    key=['num_columns'],
+)
+@triton.jit
+def _binned_copy_wgrad(
+        x,
+        grad,
+        wgrad,
+        num_experts,
+        expert_capacity,
+        num_columns,
+        indices,
+        bins,
+        TOP_K : tl.constexpr,
+        BLOCK_X : tl.constexpr):
+    # Load our indices into the output.
+    expert_idx = tl.program_id(0)
+    entry_idx = tl.program_id(1)
+
+    # Calculate our offset into the output.
+    index_x = expert_idx * expert_capacity + entry_idx
+
+    # Load the index bounds for our bin and calculate
+    # the number of tokens assigned to our expert.
+    start = 0
+    if expert_idx > 0:
+       start = tl.load(bins + expert_idx - 1)
+    end = tl.load(bins + expert_idx)
+    num_tokens = end - start
+
+    # Calculate our offset into the input. If we don't
+    # have an input exit early.
+    if entry_idx >= num_tokens:
+        return
+    index_out = tl.load(indices + start + entry_idx)
+
+    # Offset the input and output pointers.
+    wgrad += index_out
+    grad += (index_out // TOP_K) * num_columns
+    x += index_x * num_columns
+    offsets = tl.arange(0, BLOCK_X)
+
+    acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
+    iterations = tl.cdiv(num_columns, BLOCK_X)
+    for i in range(tl.cdiv(num_columns, BLOCK_X)):
+        mask = offsets < num_columns
+        data = tl.load(x + offsets, mask=mask).to(tl.float32)
+        scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
+        acc += data * scale
+        offsets += BLOCK_X
+
+    # Reduce to get the final result and store.
+    out = tl.sum(acc).to(wgrad.dtype.element_ty)
+    tl.store(wgrad, out)
+
+
+def binned_scatter_wgrad(x, grad, indices, bins, top_k):
+    # Validate the input shapes.
+    assert_is_tensor(x, 3)
+    assert_is_matrix(grad)
+    assert_is_vector(indices)
+    assert_is_vector(bins)
+    assert_equal(bins.shape[0], x.shape[0])
+
+    num_experts, expert_capacity, hidden_size = x.shape
+    tokens = indices.shape[0] // top_k
+    out = torch.zeros(
+        (tokens * top_k),
+        dtype=x.dtype,
+        device=x.device)
+    _binned_copy_wgrad[(num_experts, expert_capacity)](
+        x,
+        grad,
+        out,
+        num_experts,
+        expert_capacity,
+        hidden_size,
+        indices,
+        bins,
+        TOP_K=top_k)
+    return out
