@@ -8,8 +8,9 @@ ext_modules = [
         ["csrc/ops.cu"],
         include_dirs = ["csrc"],
         extra_compile_args={
-            "cxx": ["-fopenmp"],
+            "cxx": ["-fopenmp", "-DUSE_C10D_NCCL"],
             "nvcc": [
+                "-DUSE_C10D_NCCL",
                 "--ptxas-options=-v",
                 "--optimize=2",
                 "--generate-code=arch=compute_80,code=sm_80"
