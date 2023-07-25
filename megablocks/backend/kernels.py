@@ -94,10 +94,7 @@ def _padded_copy(
         x = tl.load(iptr + offsets, mask=mask)
         x = x.to(tl.float32) * scale.to(tl.float32)
 
-        tl.store(
-            optr + offsets,
-            x.to(optr.dtype.element_ty),
-            mask=mask)
+        tl.store(optr + offsets, x.to(optr.dtype.element_ty), mask=mask)
 
         offsets += BLOCK_X
 
@@ -321,8 +318,12 @@ def _binned_copy(
 
     # Offset the input and output pointers.
     #
-    # NOTE: Divide the input index
-    a += (index_a // TOP_K) * num_columns
+    # If we're going from A to B, divide the input index to copy
+    # the same input repeatedly. If we're going from B to A we
+    # need to reduce the result. Using atomics is slow, so we
+    # do the reduce step in a second kernel.
+    offset = index_a // TOP_K if A_TO_B else index_a
+    a += offset * num_columns
     b += index_b * num_columns
     offsets = tl.arange(0, BLOCK_X)
 
@@ -339,14 +340,9 @@ def _binned_copy(
     for i in range(tl.cdiv(num_columns, BLOCK_X)):
         mask = offsets < num_columns
         x = tl.load(iptr + offsets, mask=mask)
-        x *= scale
+        x = x.to(tl.float32) * scale.to(tl.float32)
 
-        # If top_k > 1 and we're writing from B => A we need
-        # to use atomics to accumulate the result.
-        if (TOP_K == 1) or A_TO_B:
-            tl.store(optr + offsets, x, mask=mask)
-        else:
-            tl.atomic_add(optr + offsets, x, mask=mask, sem='relaxed')
+        tl.store(optr + offsets, x.to(optr.dtype.element_ty), mask=mask)
 
         offsets += BLOCK_X
 
@@ -393,8 +389,9 @@ def binned_scatter(x, indices, weights, bins, top_k):
         assert_equal(indices.shape[0], weights.shape[0])
 
     num_experts, expert_capacity, hidden_size = x.shape
+    tokens = indices.shape[0] // top_k
     out = torch.zeros(
-        (indices.shape[0] // top_k, hidden_size),
+        (tokens, top_k, hidden_size),
         dtype=x.dtype,
         device=x.device)
     _binned_copy[(num_experts, expert_capacity)](
@@ -409,4 +406,6 @@ def binned_scatter(x, indices, weights, bins, top_k):
         A_TO_B=False,
         TOP_K=top_k,
         SCALE=weights is not None)
-    return out
+
+    # Reduce along the top-k dimension, if needed.
+    return out.sum(dim=1) if top_k > 1 else out.view(tokens, hidden_size)
