@@ -185,6 +185,7 @@ class MoE(torch.nn.Module):
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
         x = self.mlp(x)
+        x = common.cast_if_autocast_enabled(x)
 
         # Un-route the data for the MoE output.
         return ops.binned_scatter(x, indices, bins)
@@ -348,6 +349,9 @@ class MoE(torch.nn.Module):
 
         # Compute the top-1 expert routing.
         scores, expert_weights, top_experts = self.router(x)
+
+        # guarentee routing is done with amp precision
+        x = common.cast_if_autocast_enabled(x)
 
         # Simplified code-path for the common case of top_k == 1.
         if self.args.moe_top_k == 1:
