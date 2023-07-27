@@ -70,10 +70,9 @@ def batched_load_balancing_loss(args : Arguments):
     # the correct types and formats for the dot product.
     if args.moe_lbl_in_fp32:
         expert_scores = torch.cat(expert_scores, dim=1).float().mean(dim=0)
-        tokens_per_expert = torch.cat(tokens_per_expert).float()
     else:
         expert_scores = torch.cat(expert_scores, dim=1).mean(dim=0)
-        tokens_per_expert = torch.cat(tokens_per_expert).to(expert_scores.dtype)
+    tokens_per_expert = torch.cat(tokens_per_expert).to(expert_scores.dtype)
 
     expected_values = num_layers_per_pipeline_stage * args.moe_num_experts
     assert tokens_per_expert.numel() == expected_values
@@ -147,7 +146,7 @@ class MoE(torch.nn.Module):
         assert num_experts == self.num_experts
         scale = self.num_experts / (tokens * self.top_k)
         return scale * torch.dot(
-            tokens_per_expert.half(),
+            tokens_per_expert.to(expert_scores.dtype),
             expert_scores.mean(dim=0))
 
     def indices_and_bins(self, top_expert):
@@ -191,6 +190,7 @@ class MoE(torch.nn.Module):
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
         x = self.mlp(x)
+        x = common.cast_if_autocast_enabled(x)
 
         # Un-route the data for the MoE output.
         return ops.binned_scatter(
@@ -387,6 +387,7 @@ class MoE(torch.nn.Module):
         return x, tokens_per_expert.flatten()
 
     def forward(self, x):
+        x = common.cast_if_autocast_enabled(x)
         sl, bs, hs = x.size()
 
         # Compute the expert scores and assignments.
