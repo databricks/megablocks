@@ -1,25 +1,15 @@
 #include <vector>
 
-#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
-#include <torch/csrc/distributed/c10d/ProcessGroupNCCL.hpp>
 #include <torch/extension.h>
+#include <ATen/cuda/CUDAEvent.h>
 
 namespace megablocks {
 
-#if defined(TORCH_VERSION_MAJOR) && (TORCH_VERSION_MAJOR >= 2)
+torch::Tensor block_current_stream(torch::Tensor x);
 
-void all_to_all(torch::Tensor x,
-		const std::vector<int> &output_split_sizes,
-		const std::vector<int> &input_split_sizes,
-		c10d::ProcessGroup &pg);
-
-#else
-
-void all_to_all(torch::Tensor x,
-		const std::vector<int> &output_split_sizes,
-		const std::vector<int> &input_split_sizes,
-		c10d::ProcessGroupNCCL &pg);
-
-#endif  // defined(TORCH_VERSION_MAJOR) && (TORCH_VERSION_MAJOR >= 2)
+torch::Tensor all_to_all(torch::Tensor x,
+			 const std::vector<size_t> &recv_counts,
+			 const std::vector<size_t> &send_counts,
+			 int world_size, int rank);
 
 }  // namespace megablocks

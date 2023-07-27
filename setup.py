@@ -15,7 +15,8 @@ ext_modules = [
                 "--optimize=2",
                 "--generate-code=arch=compute_80,code=sm_80"
             ]
-        })
+        },
+        libraries=["nccl"])
 ]
 
 

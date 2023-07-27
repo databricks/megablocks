@@ -10,7 +10,8 @@
 namespace megablocks {
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("all_to_all", &all_to_all, "all-to-all.");  
+  m.def("all_to_all", &all_to_all, "all-to-all.");
+  m.def("block_current_stream", &block_current_stream, "Block current stream on NCCL stream.");
   m.def("exclusive_cumsum", &exclusive_cumsum, "batched exclusive cumsum.");
   m.def("histogram", &histogram, "even width histogram.");
   m.def("inclusive_cumsum", &inclusive_cumsum, "batched inclusive cumsum");

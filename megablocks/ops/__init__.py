@@ -1,3 +1,4 @@
+from megablocks.ops.all_to_all import all_to_all
 from megablocks.ops.binned_gather import binned_gather
 from megablocks.ops.binned_scatter import binned_scatter
 from megablocks.ops.cumsum import exclusive_cumsum
