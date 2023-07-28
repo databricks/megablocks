@@ -191,12 +191,11 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
   auto type = internal::GetNcclDataType(x);
   auto send_ptr = (uint8_t*)x.data_ptr();
   auto recv_ptr = (uint8_t*)out.data_ptr();
-
   NCCL_CHECK(ncclGroupStart());
   for (int rank = 0; rank < world_size; ++rank) {
     if (internal::NcclShouldSendRecv(send_counts[rank])) {
       NCCL_CHECK(ncclSend(send_ptr + send_offsets[rank],
-			  send_counts[rank],
+			  send_counts[rank] * hidden_size,
 			  type,
 			  rank,
 			  comm,
@@ -204,7 +203,7 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
     }
     if (internal::NcclShouldSendRecv(recv_counts[rank])) {
       NCCL_CHECK(ncclRecv(recv_ptr + recv_offsets[rank],
-			  recv_counts[rank],
+			  recv_counts[rank] * hidden_size,
 			  type,
 			  rank,
 			  comm,
