@@ -1,3 +1,4 @@
+from megablocks import benchmark_util
 from megablocks.layers import common
 from megablocks.layers import mpu
 from megablocks.layers import router
@@ -304,6 +305,8 @@ class MoE(torch.nn.Module):
 
         # Start the cross-device permutation asynchronously so we can
         # overlap communication with computation.
+        t = benchmark_util.Timer("all2all (1)")
+        x = t.start(x)
         parallel_x, parallel_x_handle = all_to_all(
             x, recv_counts, send_counts,
             self.args.expert_parallel_group,
@@ -360,6 +363,10 @@ class MoE(torch.nn.Module):
         # Locally permute the tokens and perform the expert computation.
         # Block to make sure that the cross-device permutation is complete.
         parallel_x_handle.wait()
+        parallel_x = t.end(parallel_x)
+
+        t = benchmark_util.Timer("permute_and_compute")
+        parallel_x = t.start(parallel_x)
         parallel_x = self.permute_and_compute(
             parallel_x,
             parallel_tokens_per_expert,
@@ -369,11 +376,15 @@ class MoE(torch.nn.Module):
             parallel_bins,
             expert_capacity,
             top_k=1)
+        parallel_x = t.end(parallel_x)
 
         # Un-permute the tokens across the devices.
+        t = benchmark_util.Timer("all2all (2)")
+        parallel_x = t.start(parallel_x)
         x, _ = all_to_all(
             parallel_x, send_counts, recv_counts,
             self.args.expert_parallel_group)
+        x = t.end(x)
 
         # Un-permute locally to setup for the next series of operations.
         x = ops.padded_scatter(
@@ -388,12 +399,21 @@ class MoE(torch.nn.Module):
 
     def forward(self, x):
         sl, bs, hs = x.size()
-
+        
         # Compute the expert scores and assignments.
+        t = benchmark_util.Timer("router")
+        x = t.start(x)        
         scores, expert_weights, top_experts = self.router(x)
+        x = t.end(x)
+
 
         # Compute the experts.
+        t = benchmark_util.Timer("parallel_forward_once")
+        x = t.start(x)
         x, tokens_per_expert = self.forward_fn(
             x, expert_weights, top_experts)
+        x = t.end(x)
+        
         save_load_balancing_loss((tokens_per_expert, scores))
+        benchmark_util.report_times(self.args)
         return x.view(sl, bs, hs), self.bias

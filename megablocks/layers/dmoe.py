@@ -1,3 +1,4 @@
+from megablocks import benchmark_util
 from megablocks.layers import common
 from megablocks.layers import mlp
 from megablocks.layers import moe
@@ -190,11 +191,17 @@ class dMoE(moe.MoE):
             top_k)
 
         # Create the sparse matrix topology.
+        t = benchmark_util.Timer("topology")            
+        x = t.start(x)                    
         with torch.no_grad():
             topo = self.topology(x, padded_bins)
+        x = t.end(x)
 
         # Perform the expert computation.
+        t = benchmark_util.Timer("compute")
+        x = t.start(x)
         x = self.mlp(x, topo)
+        x = t.end(x)
 
         # Un-route the data for the MoE output.
         return ops.padded_scatter(
