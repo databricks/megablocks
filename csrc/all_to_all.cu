@@ -10,15 +10,6 @@
 namespace megablocks {
 namespace internal {
 
-// TODO(tgale): Is it safe to assume we have these features?
-// #ifndef HAS_NCCL_BF16_DATATYPE
-// #error "Expected support for bf16 data"
-// #endif  // HAS_NCCL_BF16_DATATYPE
-
-// #ifndef NCCL_HAS_COMM_NONBLOCKING
-// #error "Expected support for non-blocking communicators"
-// #endif  // NCCL_HAS_COMM_NONBLOCKING
-
 #define NCCL_CHECK(code)				    \
   do {                                                      \
     ncclResult_t status = code;				    \
@@ -147,9 +138,9 @@ torch::Tensor block_current_stream(torch::Tensor x) {
 // x.shape: (tokens, hidden_size)
 // recv_counts: (world_size)
 // send_counts: (world_size)
-torch::Tensor all_to_all(torch::Tensor x,
-			 const std::vector<size_t> &recv_counts,
-			 const std::vector<size_t> &send_counts) {
+void all_to_all(torch::Tensor out, torch::Tensor x,
+		const std::vector<size_t> &recv_counts,
+		const std::vector<size_t> &send_counts) {
   // Verify the input tensor is on GPU.
   TORCH_CHECK(x.is_cuda());
   TORCH_CHECK(x.ndimension() == 2);
@@ -175,9 +166,6 @@ torch::Tensor all_to_all(torch::Tensor x,
     recv_offsets[i] = total_recv * hidden_size * element_bytes;
     total_recv += recv_counts[i];
   }
-  auto options = torch::TensorOptions().dtype(x.dtype()).device(x.device());
-  torch::Tensor out = torch::empty(
-    {(int64_t)total_recv, (int64_t)hidden_size}, options);
 
   // Get NCLL metadata from the process group.
   auto& comm = internal::GetNcclComm(x, 0, 0);
@@ -234,7 +222,6 @@ torch::Tensor all_to_all(torch::Tensor x,
   // of the communication. Use a different event than we used to guarantee the
   // communication ops wait until the input is ready.
   events[1].record(stream);
-  return out;
 }
 
 }  // namespace megablocks

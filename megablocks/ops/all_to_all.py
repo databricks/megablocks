@@ -40,6 +40,10 @@ class AllToAllOp(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, x, output_split_sizes, input_split_sizes, group, async_op):
+        out = torch.empty(
+            (sum(output_split_sizes),) + x.shape[1:],
+            device=x.device, dtype=x.dtype)
+
         group = _get_default_group() if group is None else group
         ctx.input_shape = x.shape
         ctx.output_split_sizes = output_split_sizes
@@ -49,8 +53,8 @@ class AllToAllOp(torch.autograd.Function):
         if not _is_comm_initialized():
             _initialize_comm(group)
 
-        out = ops.all_to_all(
-            x,
+        ops.all_to_all(
+            out, x,
             output_split_sizes,
             input_split_sizes)
         assert not async_op
