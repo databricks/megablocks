@@ -172,10 +172,6 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
   }
   TORCH_CHECK(total_send == tokens);
 
-  // DEBUG
-  int local_rank;
-  NCCL_CHECK(ncclCommUserRank(comm, &local_rank));
-
   // Calculate the number of tokens that will be received. Create
   // the output tensor for the all-to-all. Note that this tensor
   // is associated with the current stream.
@@ -189,10 +185,6 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
     for (size_t rank = 0; rank < world_size; ++rank) {
       size_t i = rank * num_experts + expert_id;
       recv_offsets[i] = total_recv * hidden_size * element_bytes;
-      if (local_rank == 0) {
-	std::cout << "recv_offset[" << i << "] = " << recv_offsets[i] << std::endl;
-	std::cout << "recv_counts[" << i << "] = " << recv_counts[i] << std::endl;
-      }
       total_recv += recv_counts[i];
     }
   }
@@ -214,15 +206,6 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
   for (int rank = 0; rank < world_size; ++rank) {
     for (int expert_id = 0; expert_id < num_experts; ++expert_id) {
       int i = rank * num_experts + expert_id;
-      if (local_rank == 0) {
-	std::cout << "rank = " << rank << ", expert = " << expert_id << std::endl;
-	std::cout << "send_offset[" << i << "] = " << send_offsets[i] << std::endl;
-	std::cout << "send_counts[" << i << "] = " << send_counts[i] << std::endl;
-	std::cout << "recv_offset[" << i << "] = " << recv_offsets[i] << std::endl;
-	std::cout << "recv_counts[" << i << "] = " << recv_counts[i] << std::endl;
-      }
-
-
       if (internal::NcclShouldSendRecv(send_counts[i])) {
 	NCCL_CHECK(ncclSend(send_ptr + send_offsets[i],
 			    send_counts[i] * hidden_size,
