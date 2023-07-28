@@ -104,13 +104,12 @@ bool NcclShouldSendRecv(size_t value) { return true; }
 
 #else
 
-// Older versions of NCLL use 0 byte messages for synchronization.
+// Older versions of NCCL use 0 byte messages for synchronization.
 bool NcclShouldSendRecv(size_t value) { return value != 0; }
 
 #endif
 
 }  // namespace internal
-
 
 torch::Tensor nccl_get_unique_id() {
   auto options = torch::TensorOptions()
@@ -136,8 +135,11 @@ torch::Tensor block_current_stream(torch::Tensor x) {
 }
 
 // x.shape: (tokens, hidden_size)
-// recv_counts: (world_size)
-// send_counts: (world_size)
+// recv_counts: (world_size * num_experts)
+// send_counts: (world_size * num_experts)
+//
+// NOTE: If send/recv counts are specified with `num_experts` > 1,
+// we order the received blocks to group them by expert id.
 void all_to_all(torch::Tensor out, torch::Tensor x,
 		const std::vector<size_t> &recv_counts,
 		const std::vector<size_t> &send_counts) {
@@ -146,6 +148,19 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
   TORCH_CHECK(x.ndimension() == 2);
   const size_t tokens = x.size(0), hidden_size = x.size(1);
   const size_t element_bytes = internal::BytesPerElement(x);
+
+  // Get NCCL metadata from the process group.
+  auto& comm = internal::GetNcclComm(x, 0, 0);
+  auto& stream = internal::GetNcclStream();
+  auto& events = internal::GetNcclEvents();
+
+  // Validate the number of ranks.
+  int world_size;
+  NCCL_CHECK(ncclCommCount(comm, &world_size));
+  TORCH_CHECK(send_counts.size() == recv_counts.size());
+  TORCH_CHECK((send_counts.size() % world_size) == 0);
+  TORCH_CHECK((recv_counts.size() % world_size) == 0);
+  int num_experts = send_counts.size() / world_size;
 
   // Validate the input split sizes. The total number of elements
   // across the splits must be equal to the number of input tokens.
@@ -157,26 +172,30 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
   }
   TORCH_CHECK(total_send == tokens);
 
+  // DEBUG
+  int local_rank;
+  NCCL_CHECK(ncclCommUserRank(comm, &local_rank));
+
   // Calculate the number of tokens that will be received. Create
   // the output tensor for the all-to-all. Note that this tensor
   // is associated with the current stream.
+  //
+  // NOTE: The counts are treated like a [world_size, num_expert]
+  // matrix. We want to group messages by expert id, so we iterate
+  // column-major in the input.
   std::vector<size_t> recv_offsets(recv_counts.size(), 0);
   size_t total_recv = 0;
-  for (size_t i = 0; i < recv_counts.size(); ++i) {
-    recv_offsets[i] = total_recv * hidden_size * element_bytes;
-    total_recv += recv_counts[i];
+  for (size_t expert_id = 0; expert_id < num_experts; ++expert_id) {
+    for (size_t rank = 0; rank < world_size; ++rank) {
+      size_t i = rank * num_experts + expert_id;
+      recv_offsets[i] = total_recv * hidden_size * element_bytes;
+      if (local_rank == 0) {
+	std::cout << "recv_offset[" << i << "] = " << recv_offsets[i] << std::endl;
+	std::cout << "recv_counts[" << i << "] = " << recv_counts[i] << std::endl;
+      }
+      total_recv += recv_counts[i];
+    }
   }
-
-  // Get NCLL metadata from the process group.
-  auto& comm = internal::GetNcclComm(x, 0, 0);
-  auto& stream = internal::GetNcclStream();
-  auto& events = internal::GetNcclEvents();
-
-  // Validate the number of ranks.
-  int world_size;
-  NCCL_CHECK(ncclCommCount(comm, &world_size));
-  TORCH_CHECK(world_size == send_counts.size());
-  TORCH_CHECK(world_size == recv_counts.size());
 
   // PyTorch runs NCCL kernels on a special stream s.t. they can overlap with
   // computation. The input tensors are allocated on the compute stream, but
@@ -193,21 +212,33 @@ void all_to_all(torch::Tensor out, torch::Tensor x,
   auto recv_ptr = (uint8_t*)out.data_ptr();
   NCCL_CHECK(ncclGroupStart());
   for (int rank = 0; rank < world_size; ++rank) {
-    if (internal::NcclShouldSendRecv(send_counts[rank])) {
-      NCCL_CHECK(ncclSend(send_ptr + send_offsets[rank],
-			  send_counts[rank] * hidden_size,
-			  type,
-			  rank,
-			  comm,
-			  stream));
-    }
-    if (internal::NcclShouldSendRecv(recv_counts[rank])) {
-      NCCL_CHECK(ncclRecv(recv_ptr + recv_offsets[rank],
-			  recv_counts[rank] * hidden_size,
-			  type,
-			  rank,
-			  comm,
-			  stream));
+    for (int expert_id = 0; expert_id < num_experts; ++expert_id) {
+      int i = rank * num_experts + expert_id;
+      if (local_rank == 0) {
+	std::cout << "rank = " << rank << ", expert = " << expert_id << std::endl;
+	std::cout << "send_offset[" << i << "] = " << send_offsets[i] << std::endl;
+	std::cout << "send_counts[" << i << "] = " << send_counts[i] << std::endl;
+	std::cout << "recv_offset[" << i << "] = " << recv_offsets[i] << std::endl;
+	std::cout << "recv_counts[" << i << "] = " << recv_counts[i] << std::endl;
+      }
+
+
+      if (internal::NcclShouldSendRecv(send_counts[i])) {
+	NCCL_CHECK(ncclSend(send_ptr + send_offsets[i],
+			    send_counts[i] * hidden_size,
+			    type,
+			    rank,
+			    comm,
+			    stream));
+      }
+      if (internal::NcclShouldSendRecv(recv_counts[i])) {
+	NCCL_CHECK(ncclRecv(recv_ptr + recv_offsets[i],
+			    recv_counts[i] * hidden_size,
+			    type,
+			    rank,
+			    comm,
+			    stream));
+      }
     }
   }
   NCCL_CHECK(ncclGroupEnd());
