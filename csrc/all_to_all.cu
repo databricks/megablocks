@@ -1,6 +1,7 @@
 #include "all_to_all.h"
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 
 #include <nccl.h>
@@ -24,25 +25,27 @@ namespace internal {
     TORCH_CHECK(status == ncclSuccess, status);		    \
   } while (0)
 
-ncclComm_t CreateNcclComm(int world_size, int rank) {
+ncclUniqueId ExtractNcclUniqueId(torch::Tensor unique_id) {
+  TORCH_CHECK(unique_id.is_cpu());
+  TORCH_CHECK(unique_id.ndimension() == 1);
+  TORCH_CHECK(unique_id.size(0) == sizeof(ncclUniqueId));
+
   ncclUniqueId id;
-  std::cout << "creating id" << std::endl;
-  NCCL_CHECK(ncclGetUniqueId(&id));
-  std::cout << "start group" << std::endl;
+  std::memcpy(&id, unique_id.data_ptr(), sizeof(ncclUniqueId));
+  return id;
+}
+
+ncclComm_t CreateNcclComm(torch::Tensor unique_id, int world_size, int rank) {
+  ncclUniqueId id = ExtractNcclUniqueId(unique_id);
   NCCL_CHECK(ncclGroupStart());
-  std::cout << "create comm" << std::endl;
   ncclComm_t comm;
-  std::cout << "comm init" << std::endl;
-  std::cout << "world_size, rank = " << world_size << ", " << rank << std::endl;
   NCCL_CHECK(ncclCommInitRank(&comm, world_size, id, rank));
-  std::cout << "end group" << std::endl;
   NCCL_CHECK(ncclGroupEnd());
-  std::cout << "return" << std::endl;
   return comm;
 }
 
-ncclComm_t& GetNcclComm(int world_size, int rank) {
-  static ncclComm_t comm = CreateNcclComm(world_size, rank);
+ncclComm_t& GetNcclComm(torch::Tensor unique_id, int world_size, int rank) {
+  static ncclComm_t comm = CreateNcclComm(unique_id, world_size, rank);
   return comm;
 }
 
@@ -51,9 +54,9 @@ at::cuda::CUDAStream& GetNcclStream() {
   return stream;
 }
 
-at::cuda::CUDAEvent& GetNcclEvent() {
-  static auto event = at::cuda::CUDAEvent();
-  return event;
+std::vector<at::cuda::CUDAEvent>& GetNcclEvents() {
+  static std::vector<at::cuda::CUDAEvent> events(2);
+  return events;
 }
 
 ncclDataType_t GetNcclDataType(torch::Tensor x) {
@@ -117,8 +120,26 @@ bool NcclShouldSendRecv(size_t value) { return value != 0; }
 
 }  // namespace internal
 
+
+torch::Tensor nccl_get_unique_id() {
+  auto options = torch::TensorOptions()
+    .dtype(at::kByte).device(torch::kCPU);
+  auto out = torch::empty(sizeof(ncclUniqueId), options);
+
+  ncclUniqueId id;
+  NCCL_CHECK(ncclGetUniqueId(&id));
+  std::memcpy(out.data_ptr(), &id, sizeof(ncclUniqueId));
+  return out;
+}
+
+void create_nccl_comm(torch::Tensor unique_id, int world_size, int rank) {
+  // NOTE: The first call initializes the communicator.
+  internal::GetNcclComm(unique_id, world_size, rank);
+}
+
 torch::Tensor block_current_stream(torch::Tensor x) {
-  auto& event = internal::GetNcclEvent();
+  // NOTE: The second event is used to block the current stream.
+  auto& event = internal::GetNcclEvents()[1];
   event.block(at::cuda::getCurrentCUDAStream(x.device().index()));
   return x;
 }
@@ -128,18 +149,12 @@ torch::Tensor block_current_stream(torch::Tensor x) {
 // send_counts: (world_size)
 torch::Tensor all_to_all(torch::Tensor x,
 			 const std::vector<size_t> &recv_counts,
-			 const std::vector<size_t> &send_counts,
-			 int world_size, int rank) {
-  std::cout << "inside all2all" << std::endl;
+			 const std::vector<size_t> &send_counts) {
   // Verify the input tensor is on GPU.
   TORCH_CHECK(x.is_cuda());
   TORCH_CHECK(x.ndimension() == 2);
   const size_t tokens = x.size(0), hidden_size = x.size(1);
   const size_t element_bytes = internal::BytesPerElement(x);
-
-  // Validate the number of ranks.
-  TORCH_CHECK(world_size == send_counts.size());
-  TORCH_CHECK(world_size == recv_counts.size());
 
   // Validate the input split sizes. The total number of elements
   // across the splits must be equal to the number of input tokens.
@@ -165,12 +180,15 @@ torch::Tensor all_to_all(torch::Tensor x,
     {(int64_t)total_recv, (int64_t)hidden_size}, options);
 
   // Get NCLL metadata from the process group.
-  std::cout << "Making NCCL communicator" << std::endl;
-  auto& comm = internal::GetNcclComm(world_size, rank);
-  std::cout << "Got communicator" << std::endl;
+  auto& comm = internal::GetNcclComm(x, 0, 0);
   auto& stream = internal::GetNcclStream();
-  auto& event = internal::GetNcclEvent();
-  std::cout << "got comm/stream/event" << std::endl;
+  auto& events = internal::GetNcclEvents();
+
+  // Validate the number of ranks.
+  int world_size;
+  NCCL_CHECK(ncclCommCount(comm, &world_size));
+  TORCH_CHECK(world_size == send_counts.size());
+  TORCH_CHECK(world_size == recv_counts.size());
 
   // PyTorch runs NCCL kernels on a special stream s.t. they can overlap with
   // computation. The input tensors are allocated on the compute stream, but
@@ -178,19 +196,14 @@ torch::Tensor all_to_all(torch::Tensor x,
   // tensor to finish before they can start. We insert an event into the
   // current stream and force the NCCL stream to block on it to maintain
   // correctness.
-  event.record(at::cuda::getCurrentCUDAStream(x.device().index()));
-  event.block(stream);
-
-  std::cout << "blocked on the event" << std::endl;
+  events[0].record(at::cuda::getCurrentCUDAStream(x.device().index()));
+  events[0].block(stream);
 
   // Issue the communication primitives.
   auto type = internal::GetNcclDataType(x);
   auto send_ptr = (uint8_t*)x.data_ptr();
   auto recv_ptr = (uint8_t*)out.data_ptr();
 
-  std::cout << "done with type" << std::endl;
-
-  std::cout << "starting send/recv" << std::endl;
   NCCL_CHECK(ncclGroupStart());
   for (int rank = 0; rank < world_size; ++rank) {
     if (internal::NcclShouldSendRecv(send_counts[rank])) {
@@ -211,17 +224,16 @@ torch::Tensor all_to_all(torch::Tensor x,
     }
   }
   NCCL_CHECK(ncclGroupEnd());
-  std::cout << "done with send/recv" << std::endl;
 
   // The input and output tensor are allocated on the compute stream. Record
   // the NCCL stream to avoid having these freed before communication finishes.
   c10::cuda::CUDACachingAllocator::recordStream(x.storage().data_ptr(), stream);
   c10::cuda::CUDACachingAllocator::recordStream(out.storage().data_ptr(), stream);
 
-  // Record the event in the NCCL stream s.t. the caller can block on the results
-  // of the communication.
-  event.record(stream);
-  std::cout << "returning" << std::endl;
+  // Record an event in the NCCL stream s.t. the caller can block on the results
+  // of the communication. Use a different event than we used to guarantee the
+  // communication ops wait until the input is ready.
+  events[1].record(stream);
   return out;
 }
 

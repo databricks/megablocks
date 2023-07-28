@@ -4,23 +4,23 @@ import torch
 
 _ALL_TO_ALL_BENCHMARK = (
     (8, 1024),
-    # (16, 1024),
-    # (32, 1024),
-    # (64, 1024),
-    # (128, 1024),
-    # (256, 1024),
-    # (512, 1024),
-    # (1024, 1024),
-    # (2 * 1024, 1024),
-    # (4 * 1024, 1024),
-    # (8 * 1024, 1024),
-    # (16 * 1024, 1024),
-    # (32 * 1024, 1024),
-    # (64 * 1024, 1024),
-    # (128 * 1024, 1024),
-    # (256 * 1024, 1024),
-    # (512 * 1024, 1024),
-    # (1024 * 1024, 1024),
+    (16, 1024),
+    (32, 1024),
+    (64, 1024),
+    (128, 1024),
+    (256, 1024),
+    (512, 1024),
+    (1024, 1024),
+    (2 * 1024, 1024),
+    (4 * 1024, 1024),
+    (8 * 1024, 1024),
+    (16 * 1024, 1024),
+    (32 * 1024, 1024),
+    (64 * 1024, 1024),
+    (128 * 1024, 1024),
+    (256 * 1024, 1024),
+    (512 * 1024, 1024),
+    (1024 * 1024, 1024),
 )
 
 def benchmark_all_to_all(group, sl, hs):
@@ -36,14 +36,10 @@ def benchmark_all_to_all(group, sl, hs):
         }
 
         fn = lambda: ops.all_to_all(x, send_recv_sizes, send_recv_sizes, group)
+        time, std = benchmark_util.benchmark_function(fn)
 
-        # DEBUG
-        fn()
-        
-        # time, std = benchmark_util.benchmark_function(fn)
-
-        # if torch.distributed.get_rank(group) == 0:
-        #     benchmark_util.log_benchmark("All-To-All", details, time, std)
+        if torch.distributed.get_rank(group) == 0:
+            benchmark_util.log_benchmark("All-To-All", details, time, std)
 
 
 if __name__ == '__main__':
