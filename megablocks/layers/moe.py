@@ -224,6 +224,76 @@ class MoE(torch.nn.Module):
             self.top_k)
         return x, tokens_per_expert
 
+    def _compute_send_recv_counts(
+            self,
+            tokens_per_expert,
+            parallel_tokens_per_expert):
+        world_size = mpu.get_expert_parallel_world_size(self.args)
+
+        # Reshape to [world_size, num_experts_per_rank].
+        tokens_per_expert = tokens_per_expert.view(world_size, -1)
+        parallel_tokens_per_expert = (
+            parallel_tokens_per_expert.view(world_size, -1))
+
+        # TODO(tgale): It might be faster to do this on the GPU and
+        # then communicate the results back to the host.
+        send_counts = tokens_per_expert.cpu().sum(dim=-1)
+        recv_counts = parallel_tokens_per_expert.cpu().sum(dim=-1)
+
+        # Convert the send/recv counts to lists.
+        send_counts = send_counts.tolist()
+        recv_counts = recv_counts.tolist()
+        tokens_received = sum(recv_counts)
+        return send_counts, recv_counts, tokens_received
+
+    def _compute_parallel_metadata(
+            self,
+            parallel_tokens_per_expert,
+            tokens_received):
+        # Reshape to [world_size, num_experts_per_rank].
+        world_size = mpu.get_expert_parallel_world_size(self.args)
+        parallel_tokens_per_expert = (
+            parallel_tokens_per_expert.view(world_size, -1))
+
+        replicate_bins = ops.inclusive_cumsum(
+            parallel_tokens_per_expert.flatten(), 0)
+        replicate_bins = (
+            replicate_bins.view(1)
+            if not len(replicate_bins.size())
+            else replicate_bins
+        )
+
+        # Construct the expert indices for the permuted tokens.
+        parallel_top_expert = torch.remainder(
+            torch.arange(
+                self.num_experts,
+                dtype=torch.int32,
+                device=parallel_tokens_per_expert.device),
+            self.num_experts_per_rank,
+        )
+        parallel_top_expert = ops.replicate(
+            parallel_top_expert.unsqueeze(dim=0),
+            replicate_bins, tokens_received).flatten()
+
+        # TODO(tgale): The sort_end_bit here can be reduced.
+        parallel_bin_ids, parallel_indices = ops.sort(
+            parallel_top_expert, self.sort_end_bit)
+
+        # Calculate the bins boundaries from the token counts.
+        parallel_tokens_per_expert = parallel_tokens_per_expert.sum(
+            dim=0, dtype=torch.int)
+        parallel_bins = ops.inclusive_cumsum(
+            parallel_tokens_per_expert, 0)
+        parallel_bins = (
+            parallel_bins.view(1)
+            if not len(parallel_bins.size())
+            else parallel_bins
+        )
+        return (parallel_tokens_per_expert,
+                parallel_indices,
+                parallel_bin_ids,
+                parallel_bins)
+
     def parallel_forward_once(self, x, expert_weights, top_experts):
         # NOTE: This function implements the same computation as forward_once
         # but with expert model parallelism.
@@ -285,22 +355,11 @@ class MoE(torch.nn.Module):
         # device and permute the input data across the devices.
         with torch.no_grad():
             tpe_handle.wait()
-            world_size = mpu.get_expert_parallel_world_size(self.args)
-
-            # Reshape to [world_size, num_experts_per_rank].
-            tokens_per_expert = tokens_per_expert.view(world_size, -1)
-            parallel_tokens_per_expert = (
-                parallel_tokens_per_expert.view(world_size, -1))
-
-            # TODO(tgale): It might be faster to do this on the GPU and
-            # then communicate the results back to the host.
-            send_counts = tokens_per_expert.cpu().sum(dim=-1)
-            recv_counts = parallel_tokens_per_expert.cpu().sum(dim=-1)
-
-            # Convert the send/recv counts to lists.
-            send_counts = send_counts.tolist()
-            recv_counts = recv_counts.tolist()
-            tokens_received = sum(recv_counts)
+            send_counts, recv_counts, tokens_received = (
+                self._compute_send_recv_counts(
+                    tokens_per_expert,
+                    parallel_tokens_per_expert)
+            )
 
         # Start the cross-device permutation asynchronously so we can
         # overlap communication with computation.
@@ -316,38 +375,14 @@ class MoE(torch.nn.Module):
             # for expert computation we'll do one more local permutation. The
             # rest of this torch.no_grad() scope sets up the indices and bins
             # for this permutation.
-            replicate_bins = ops.inclusive_cumsum(
-                parallel_tokens_per_expert.flatten(), 0)
-            replicate_bins = (
-                replicate_bins.view(1)
-                if not len(replicate_bins.size())
-                else replicate_bins
-            )
-
-            # Construct the expert indices for the permuted tokens.
-            parallel_top_expert = torch.remainder(
-                torch.arange(
-                    self.num_experts, dtype=torch.int32, device=indices.device),
-                self.num_experts_per_rank,
-            )
-            parallel_top_expert = ops.replicate(
-                parallel_top_expert.unsqueeze(dim=0),
-                replicate_bins, tokens_received).flatten()
-
-            # TODO(tgale): The sort_end_bit here can be reduced.
-            parallel_bin_ids, parallel_indices = ops.sort(
-                parallel_top_expert, self.sort_end_bit)
-
-            # Calculate the bins boundaries from the token counts.
-            parallel_tokens_per_expert = parallel_tokens_per_expert.sum(
-                dim=0, dtype=torch.int)
-            parallel_bins = ops.inclusive_cumsum(
-                parallel_tokens_per_expert, 0)
-            parallel_bins = (
-                parallel_bins.view(1)
-                if not len(parallel_bins.size())
-                else parallel_bins
-            )
+            (parallel_tokens_per_expert,
+             parallel_indices,
+             parallel_bin_ids,
+             parallel_bins) = (
+                 self._compute_parallel_metadata(
+                     parallel_tokens_per_expert,
+                     tokens_received)
+             )
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
