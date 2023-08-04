@@ -21,7 +21,7 @@ ext_modules = [
 ]
 
 install_requires=[
-    'stanford-stk @ git+https://github.com/vchiley/stk.git@setup_deps',
+    'stanford-stk @ git+https://github.com/stanford-futuredata/stk.git@main',
 ]
 
 extra_deps = {}
