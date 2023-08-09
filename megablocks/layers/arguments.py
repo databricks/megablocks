@@ -27,6 +27,7 @@ class Arguments:
     # TODO(tgale): Delete the separate flag for EMP.
     moe_expert_model_parallelism : bool = False
     expert_parallel_group : Optional[torch.distributed.ProcessGroup] = None
+    moe_weight_parallelism : bool = False
     weight_parallel_group : Optional[torch.distributed.ProcessGroup] = None
     pipeline_model_parallel_size : int = 1
     num_layers_per_virtual_pipeline_stage : Optional[int] = None

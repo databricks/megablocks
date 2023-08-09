@@ -261,6 +261,9 @@ def create_dmoe_expert_weights(args : Arguments,
     weights = weights.view([-1, columns])
     rows, columns = weights.shape
 
+    if not args.moe_weight_parallelism:
+        return weights
+
     # Caclculate the number of rows on this weight parallel partition.
     # 'rows' must be divisible by weight parallel world size.
     weight_parallel_world_size = mpu.get_weight_parallel_world_size(args)
@@ -313,16 +316,10 @@ class SparseMLP(torch.nn.Module):
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
 
-            # Re-shape the weight matrices to be how we want them for
-            # the block-sparse matrix multiplication operations.
-            self.w1 = torch.nn.Parameter(self.w1.view(
-                [-1, args.hidden_size]))
-            self.w2 = torch.nn.Parameter(self.w2.view(
-                [-1, args.hidden_size]))
-            mpu.set_expert_model_parallel_attributes(
-                self.w1, args.moe_expert_model_parallelism)
-            mpu.set_expert_model_parallel_attributes(
-                self.w2, args.moe_expert_model_parallelism)
+        mpu.set_expert_model_parallel_attributes(
+            self.w1, args.moe_expert_model_parallelism)
+        mpu.set_expert_model_parallel_attributes(
+            self.w2, args.moe_expert_model_parallelism)
 
     def parallel_forward(self, x, topo):
         x = weight_parallel_sdd_nt(
