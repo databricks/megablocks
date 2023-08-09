@@ -38,6 +38,18 @@ def copy_expert_model_parallel_attributes(destination_tensor : torch.Tensor,
                 getattr(source_tensor,'expert_model_parallel'))
 
 
+def get_weight_parallel_world_size(args : Arguments) -> int:
+    if args.weight_parallel_group is None:
+        return 1
+    return torch.distributed.get_world_size(args.weight_parallel_group)
+
+
+def get_weight_parallel_rank(args : Arguments) -> int:
+    if args.weight_parallel_group is None:
+        return 0
+    return torch.distributed.get_rank(args.weight_parallel_group)
+
+
 def synchronized_print(args : Arguments, *x):
     rank = get_expert_parallel_rank(args)
     for i in range(get_expert_parallel_world_size(args)):
