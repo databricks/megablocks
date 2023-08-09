@@ -100,12 +100,13 @@ def _reduce_scatter(parallel_dw, group, async_op=False):
     world_size = torch.distributed.get_world_size(group)
     assert (n % world_size) == 0
 
+    # NOTE: Reduce in float32, always.
     dw = torch.empty(
         n // world_size, k,
         device=parallel_dw.device,
-        dtype=parallel_dw.dtype)
+        dtype=torch.float32)
     handle = torch.distributed.reduce_scatter_tensor(
-        dw, parallel_dw, group=group, async_op=async_op)
+        dw, parallel_dw.float(), group=group, async_op=async_op)
     return dw, handle
 
 
@@ -153,7 +154,11 @@ class WeightParallelSddNt(torch.autograd.Function):
         dx = None
         if ctx.needs_input_grad[0]:
             dx = stk.ops.dsd(grad, parallel_w)
+
+        # NOTE: Be careful to wait and only cast dw to the output dtype once
+        # we've blocked on the asynchronous NCCL operation.
         handle.wait()
+        dw = dw.to(w.dtype)
         return dx, dw, None, None
 
 
@@ -233,7 +238,11 @@ class WeightParallelDsdNn(torch.autograd.Function):
         dx = None
         if ctx.needs_input_grad[1]:
             dx = stk.ops.sdd(grad, parallel_w.t(), x)
+
+        # NOTE: Be careful to wait and only cast dw to the output dtype once
+        # we've blocked on the asynchronous NCCL operation.
         handle.wait()
+        dw = dw.to(w.dtype)
         return None, dx.data, None, None, None, None, None, None, dw, None
 
 
@@ -328,7 +337,7 @@ class SparseMLP(torch.nn.Module):
             gelu(x), self.w2, self.args.weight_parallel_group)
 
     def forward(self, x, topo):
-        if self.args.weight_parallel_group is not None:
+        if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
-        return stk.ops.dsd(gelu(
-            stk.ops.sdd(x, self.w1.t(), topo)), self.w2)
+        x = stk.ops.sdd(x, self.w1.t(), topo)
+        return stk.ops.dsd(gelu(x), self.w2)
