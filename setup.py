@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from torch
+import torch
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 
