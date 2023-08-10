@@ -18,8 +18,6 @@ Note: this assumes you have `numpy` and `torch` installed
 
 **Using MegaBlocks in other packages:** To install the MegaBlocks package for use in other frameworks, run `pip install megablocks`.
 
-Note that the block-sparse kernels used to implement dMoE are currently limited to A100 GPUs.
-
 # :steam_locomotive: Usage
 
 We provide scripts for pre-training Transformer MoE and dMoE language models under the [top-level directory](megablocks/). The quickest way to get started is to use one of the [experiment launch scripts](exp/). These scripts require a dataset in Megatron-LM's format, which can be created by following their [instructions](https://github.com/NVIDIA/Megatron-LM#data-preprocessing).
