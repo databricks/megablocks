@@ -23,8 +23,6 @@ class Arguments:
     moe_lbl_in_fp32 : bool = False
 
     # Parallelism arguments.
-    #
-    # TODO(tgale): Delete the separate flag for EMP.
     moe_expert_model_parallelism : bool = False
     expert_parallel_group : Optional[torch.distributed.ProcessGroup] = None
     moe_weight_parallelism : bool = False

@@ -148,7 +148,6 @@ class dMoE(moe.MoE):
 
         # Perform the expert computation.
         x = self.mlp(x, topo)
-        x = common.cast_if_autocast_enabled(x)
 
         # Un-route the data for the MoE output.
         x = ops.padded_scatter(
@@ -196,7 +195,6 @@ class dMoE(moe.MoE):
 
         # Perform the expert computation.
         x = self.mlp(x, topo)
-        x = common.cast_if_autocast_enabled(x)
 
         # Un-route the data for the MoE output.
         return ops.padded_scatter(

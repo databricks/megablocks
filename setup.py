@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
-from torch import cuda
+from torch
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 
-_dc = cuda.get_device_capability()
+_dc = torch.cuda.get_device_capability()
 _dc = f"{_dc[0]}{_dc[1]}"
 ext_modules = [
     CUDAExtension(
