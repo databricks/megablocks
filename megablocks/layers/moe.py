@@ -190,7 +190,6 @@ class MoE(torch.nn.Module):
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
         x = self.mlp(x)
-        x = common.cast_if_autocast_enabled(x)
 
         # Un-route the data for the MoE output.
         return ops.binned_scatter(
@@ -387,6 +386,8 @@ class MoE(torch.nn.Module):
         return x, tokens_per_expert.flatten()
 
     def forward(self, x):
+        # NOTE: If we're going to cast the activations to lower precision
+        # do it before we permute the tokens to save bandwidth.
         x = common.cast_if_autocast_enabled(x)
         sl, bs, hs = x.size()
 

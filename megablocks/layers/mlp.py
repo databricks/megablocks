@@ -103,7 +103,7 @@ def _scaled_reduce_scatter(parallel_dw, group, async_op=False):
     # Pre-scale the gradients by the world size.
     #
     # NOTE: Reduce in float32, always.
-    parallel_dw = parallel_dw.float() # / world_size
+    parallel_dw = parallel_dw.float() / world_size
 
     dw = torch.empty(
         n // world_size, k,

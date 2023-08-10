@@ -1,2 +1,4 @@
+torch
+numpy
 absl-py
 stanford-stk @ git+https://github.com/stanford-futuredata/stk.git@main
