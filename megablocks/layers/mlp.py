@@ -95,18 +95,22 @@ def _gather_weights(w, group, async_op=False):
     return parallel_w, handle
 
 
-def _reduce_scatter(parallel_dw, group, async_op=False):
+def _scaled_reduce_scatter(parallel_dw, group, async_op=False):
     n, k = parallel_dw.shape
     world_size = torch.distributed.get_world_size(group)
     assert (n % world_size) == 0
 
+    # Pre-scale the gradients by the world size.
+    #
     # NOTE: Reduce in float32, always.
+    parallel_dw = parallel_dw.float() # / world_size
+
     dw = torch.empty(
         n // world_size, k,
         device=parallel_dw.device,
         dtype=torch.float32)
     handle = torch.distributed.reduce_scatter_tensor(
-        dw, parallel_dw.float(), group=group, async_op=async_op)
+        dw, parallel_dw, group=group, async_op=async_op)
     return dw, handle
 
 
@@ -150,7 +154,7 @@ class WeightParallelSddNt(torch.autograd.Function):
         # Start the weight gradient reduce scatter to overlap with the
         # data gradient computation.
         handle.wait()
-        dw, handle = _reduce_scatter(parallel_dw, ctx.group, async_op=True)
+        dw, handle = _scaled_reduce_scatter(parallel_dw, ctx.group, async_op=True)
         dx = None
         if ctx.needs_input_grad[0]:
             dx = stk.ops.dsd(grad, parallel_w)
@@ -234,7 +238,7 @@ class WeightParallelDsdNn(torch.autograd.Function):
         # Start the weight gradient reduce scatter to overlap with the
         # data gradient computation.
         handle.wait()
-        dw, handle = _reduce_scatter(parallel_dw, ctx.group, async_op=True)
+        dw, handle = _scaled_reduce_scatter(parallel_dw, ctx.group, async_op=True)
         dx = None
         if ctx.needs_input_grad[1]:
             dx = stk.ops.sdd(grad, parallel_w.t(), x)
@@ -325,10 +329,12 @@ class SparseMLP(torch.nn.Module):
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
 
+        should_set_attribute = (
+            args.moe_expert_model_parallelism or args.moe_weight_parallelism)
         mpu.set_expert_model_parallel_attributes(
-            self.w1, args.moe_expert_model_parallelism)
+            self.w1, should_set_attribute)
         mpu.set_expert_model_parallel_attributes(
-            self.w2, args.moe_expert_model_parallelism)
+            self.w2, should_set_attribute)
 
     def parallel_forward(self, x, topo):
         x = weight_parallel_sdd_nt(

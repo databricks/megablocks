@@ -51,8 +51,8 @@ def test_expert_parallel_versus_weight_parallel(
     assert torch.allclose(out, expected_out)
 
     # Test backward.
-    out.sum().backward()
-    expected_out.sum().backward()
+    out.mean().backward()
+    expected_out.mean().backward()
 
     rank = torch.distributed.get_rank(group)
     for i in range(torch.distributed.get_world_size(group)):
@@ -61,15 +61,15 @@ def test_expert_parallel_versus_weight_parallel(
             np.testing.assert_allclose(
                 wp.mlp.w2.grad.float().cpu(),
                 ep.mlp.w2.grad.float().cpu(),
-                rtol=1e-2, atol=1e-2)
+                rtol=1e-5, atol=1e-5)
             np.testing.assert_allclose(
                 wp.mlp.w1.grad.float().cpu(),
                 ep.mlp.w1.grad.float().cpu(),
-                rtol=1e-2, atol=1e-2)
+                rtol=1e-5, atol=1e-5)
             np.testing.assert_allclose(
                 wp.router.layer.weight.grad.float().cpu(),
                 ep.router.layer.weight.grad.float().cpu(),
-                rtol=1e-2, atol=1e-2)
+                rtol=1e-5, atol=1e-5)
 
 
 if __name__ == '__main__':
