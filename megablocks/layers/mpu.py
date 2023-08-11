@@ -52,9 +52,45 @@ def get_weight_parallel_rank(args : Arguments) -> int:
     )
 
 
-def synchronized_print(args : Arguments, *x):
-    rank = get_expert_parallel_rank(args)
-    for i in range(get_expert_parallel_world_size(args)):
-        torch.distributed.barrier(args.expert_parallel_group)
+def synchronized_print(group, *x):
+    world_size = torch.distributed.get_world_size(group)
+    rank = torch.distributed.get_rank(group)
+    for i in range(world_size):
+        torch.distributed.barrier(group)
         if i == rank:
             print(f"rank = {rank}", *x)
+
+
+# Helpers for expert/tensor sharding.
+def expert_sharding_degree(args : Arguments) -> int:
+    world_size = get_expert_parallel_world_size(args)
+    esd = min(world_size, args.moe_num_experts)
+
+    if (args.moe_num_experts % esd) != 0:
+        raise ValueError(
+            f"Cannot shard {args.moe_num_experts} experts {esd} ways.")
+    return esd
+
+
+def hidden_sharding_degree(args : Arguments) -> int:
+    world_size = get_expert_parallel_world_size(args)
+    esd = expert_sharding_degree(args)
+    hsd = world_size // esd
+
+    if (args.ffn_hidden_size % hsd) != 0:
+        raise ValueError(
+            f"Cannot shard {args.ffn_hidden_size} features {hsd} ways.")
+    if (esd * hsd) != world_size:
+        raise ValueError(
+            f"Invalid sharding. 'expert_sharding_degree' "
+            f"({esd}) * hidden_sharding_degree "
+            f"({hsd}) != world_size ({world_size}).")
+    return hsd
+
+
+def experts_per_rank(args : Arguments) -> int:
+    return args.moe_num_experts // expert_sharding_degree(args)
+
+
+def features_per_rank(args : Arguments) -> int:
+    return args.ffn_hidden_size // hidden_sharding_degree(args)

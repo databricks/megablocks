@@ -1,6 +1,7 @@
 from megablocks.layers import common
 from megablocks.layers import mlp
 from megablocks.layers import moe
+from megablocks.layers import mpu
 from megablocks.layers.arguments import Arguments
 import megablocks.ops as ops
 import numpy as np
@@ -17,7 +18,7 @@ class dMoE(moe.MoE):
     def __init__(self, args : Arguments):
         super(dMoE, self).__init__(args)
         self.hidden_size = args.hidden_size
-        self.ffn_hidden_size = args.ffn_hidden_size
+        self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
 
         # Sparse expert MLP.
@@ -90,7 +91,10 @@ class dMoE(moe.MoE):
             self.blocking,
             dtype=common.dtype(self.args),
             device=x.device)
-        shape = (padded_tokens, self.ffn_hidden_size * self.num_experts_per_rank)
+        shape = (
+            padded_tokens,
+            self.ffn_hidden_size * mpu.experts_per_rank(self.args)
+        )
         row_indices = stk.ops.row_indices(
             shape, data, offsets, column_indices)
         column_indices_t, offsets_t, block_offsets_t = self.sparse_transpose(
@@ -195,6 +199,7 @@ class dMoE(moe.MoE):
 
         # Perform the expert computation.
         x = self.mlp(x, topo)
+
 
         # Un-route the data for the MoE output.
         return ops.padded_scatter(
