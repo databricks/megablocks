@@ -117,7 +117,7 @@ def _scaled_reduce_scatter(parallel_dw, group, async_op=False):
 class WeightParallelSddNt(torch.autograd.Function):
 
     @staticmethod
-    @stk.backend.autocast.custom_fwd
+    @torch.cuda.amp.custom_fwd
     def forward(ctx, x, w, topo, group):
         # [m, k] x [n, k] = [m, n]
         if not x.is_contiguous() or not w.is_contiguous():
@@ -139,7 +139,7 @@ class WeightParallelSddNt(torch.autograd.Function):
         return stk.ops.sdd(x, parallel_w.t(), topo).data
 
     @staticmethod
-    @stk.backend.autocast.custom_bwd
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, grad):
         x, w = ctx.saved_tensors[:2]
         grad = stk.Matrix(ctx.shape, grad, *ctx.saved_tensors[2:])
@@ -181,7 +181,7 @@ def weight_parallel_sdd_nt(a, b, topo, group):
 class WeightParallelDsdNn(torch.autograd.Function):
 
     @staticmethod
-    @stk.backend.autocast.custom_fwd
+    @torch.cuda.amp.custom_fwd
     def forward(ctx,
                 shape,
                 data,
@@ -223,7 +223,7 @@ class WeightParallelDsdNn(torch.autograd.Function):
         return stk.ops.dsd(x, parallel_w)
 
     @staticmethod
-    @stk.backend.autocast.custom_bwd
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, grad):
         x = stk.Matrix(ctx.shape, *ctx.saved_tensors[:-1])
         w = ctx.saved_tensors[-1]
