@@ -9,14 +9,14 @@ import torch.nn.functional as F
 
 def create_moe_expert_weights(args : Arguments,
                               num_experts : int,
-                              rows : int,
-                              columns : int,
+                              ffn_hidden_size : int,
+                              hidden_size : int,
                               init_method : InitFn):
     # Create the entire weight matrix such that the sampled weights will
     # not vary between data parallelism and expert model parallelism for
     # the same random seed.
     master_weights = torch.empty(
-        num_experts, rows, columns,
+        num_experts, ffn_hidden_size, hidden_size,
         device=args.device,
         dtype=common.dtype(args))
     init_method(master_weights)
@@ -24,18 +24,30 @@ def create_moe_expert_weights(args : Arguments,
     if not args.moe_expert_model_parallelism:
         return master_weights
 
-    # Calculate the number of experts on this weight parallel partition.
-    # 'num_experts' must be divisible by expert parallel world size.
-    expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
-    assert (num_experts % expert_parallel_world_size) == 0
-    num_experts_per_rank = num_experts // expert_parallel_world_size
+    # Calculate the amount of sharding in each dimension.
+    expert_sharding_degree = mpu.expert_sharding_degree(args)
+    hidden_sharding_degree = mpu.hidden_sharding_degree(args)
+
+    # Calculate the experts per rank.
+    #
+    # NOTE: We assign ranks to be expert parallel before going
+    # tensor parallel.
     rank = mpu.get_expert_parallel_rank(args)
-    start_expert = rank * num_experts_per_rank
-    end_expert = (rank + 1) * num_experts_per_rank
+    expert_rank = rank % expert_sharding_degree
+    num_experts_per_rank = num_experts // expert_sharding_degree
+    start_expert = expert_rank * num_experts_per_rank
+    end_expert = (expert_rank + 1) * num_experts_per_rank
+
+    # Calculate the rows per rank.
+    row_rank = rank // expert_sharding_degree
+    num_rows_per_rank = ffn_hidden_size // hidden_sharding_degree
+    start_row = row_rank * num_rows_per_rank
+    end_row = (row_rank + 1) * num_rows_per_rank
 
     # Slice the weight matrix to get the chunk for this rank.
     with torch.no_grad():
-        weights = master_weights[start_expert:end_expert]
+        weights = master_weights[
+            start_expert:end_expert, start_row:end_row]
     return weights
 
 
@@ -44,18 +56,18 @@ class MLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
-        num_experts_per_rank = (
-            args.moe_num_experts // expert_parallel_world_size)
+        experts_per_rank = mpu.experts_per_rank(args)
+
 
         self.w1 = torch.nn.Parameter(torch.empty(
-            num_experts_per_rank,
+            experts_per_rank,
             args.hidden_size,
-            args.ffn_hidden_size,
+            mpu.features_per_rank(args),
             device=args.device,
             dtype=common.dtype(args)))
         self.w2 = torch.nn.Parameter(torch.empty(
-            num_experts_per_rank,
-            args.ffn_hidden_size,
+            experts_per_rank,
+            mpu.features_per_rank(args),
             args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
@@ -73,9 +85,10 @@ class MLP(torch.nn.Module):
         # and the slice which causes large increases in our peak memory
         # usage.
         with torch.no_grad():
-            self.w1.copy_(create_moe_expert_weights(
-                args, args.moe_num_experts, args.hidden_size,
-                args.ffn_hidden_size, args.init_method))
+            w1 = create_moe_expert_weights(
+                args, args.moe_num_experts, args.ffn_hidden_size,
+                args.hidden_size, args.init_method)
+            self.w1.copy_(w1.transpose(1, 2).contiguous())
             self.w2.copy_(create_moe_expert_weights(
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
@@ -293,13 +306,9 @@ class SparseMLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         self.args = args
-        expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
-        weight_parallel_world_size = mpu.get_weight_parallel_world_size(args)
-        num_experts_per_rank = (
-            args.moe_num_experts // expert_parallel_world_size)
         num_rows_per_rank = (
-            (num_experts_per_rank * args.ffn_hidden_size) //
-            weight_parallel_world_size
+            (mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
+            mpu.get_weight_parallel_world_size(args)
         )
 
         self.w1 = torch.nn.Parameter(torch.empty(

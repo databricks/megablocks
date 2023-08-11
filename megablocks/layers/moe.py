@@ -104,7 +104,6 @@ class MoE(torch.nn.Module):
         # owned by this rank.
         world_size = mpu.get_expert_parallel_world_size(args)
         self.num_experts = args.moe_num_experts
-        self.num_experts_per_rank = self.num_experts // world_size
         self.top_k = self.args.moe_top_k
 
         # Calculate the number of bits needed to represent the expert indices
@@ -132,8 +131,9 @@ class MoE(torch.nn.Module):
             self.forward_once)
 
     def expert_capacity(self, tokens):
+        world_size = mpu.get_expert_parallel_world_size(self.args)
         tokens_per_expert = (
-            self.top_k * tokens / self.num_experts_per_rank)
+            self.top_k * tokens * world_size / self.num_experts)
         return int(self.args.moe_capacity_factor * tokens_per_expert)
 
     def load_balancing_loss(self, tokens_per_expert, expert_scores):
@@ -251,13 +251,18 @@ class MoE(torch.nn.Module):
             indices, bin_ids, bins, tokens_per_expert = (
                 self.indices_and_bins(top_experts))
 
+            # If we're sharding the experts along the hidden dimension
+            # multiple devices own parts of the same sets of experts.
+            # Replicate the token counts so every device gets the counts.
+            repeated_tokens_per_expert = tokens_per_expert.repeat(
+                mpu.hidden_sharding_degree(self.args))
+
             # Pass token count information to the device on which the
             # target expert resides.
-            parallel_tokens_per_expert = torch.empty_like(
-                tokens_per_expert)
+            parallel_tokens_per_expert = torch.empty_like(repeated_tokens_per_expert)
             tpe_handle = torch.distributed.all_to_all_single(
                 parallel_tokens_per_expert,
-                tokens_per_expert,
+                repeated_tokens_per_expert,
                 group=self.args.expert_parallel_group,
                 async_op=True)
 
@@ -284,22 +289,32 @@ class MoE(torch.nn.Module):
         # device and permute the input data across the devices.
         with torch.no_grad():
             tpe_handle.wait()
-            world_size = mpu.get_expert_parallel_world_size(self.args)
+            experts_per_rank = mpu.experts_per_rank(self.args)
 
             # Reshape to [world_size, num_experts_per_rank].
-            tokens_per_expert = tokens_per_expert.view(world_size, -1)
+            world_size = mpu.get_expert_parallel_world_size(self.args)
+            repeated_tokens_per_expert = (
+                repeated_tokens_per_expert.view(world_size, experts_per_rank))
             parallel_tokens_per_expert = (
-                parallel_tokens_per_expert.view(world_size, -1))
+                parallel_tokens_per_expert.view(world_size, experts_per_rank))
 
             # TODO(tgale): It might be faster to do this on the GPU and
             # then communicate the results back to the host.
-            send_counts = tokens_per_expert.cpu().sum(dim=-1)
+            send_counts = repeated_tokens_per_expert.cpu().sum(dim=-1)
             recv_counts = parallel_tokens_per_expert.cpu().sum(dim=-1)
 
             # Convert the send/recv counts to lists.
             send_counts = send_counts.tolist()
             recv_counts = recv_counts.tolist()
             tokens_received = sum(recv_counts)
+
+        # If we're sharding the experts along the hidden dimension
+        # multiple devices own parts of the same sets of experts.
+        # Replicate the token counts so devices that share experts
+        # get all of the tokens assigned to them.
+        #
+        # TODO(tgale): Fuse this into the prior, local permutation.
+        x = x.repeat(mpu.hidden_sharding_degree(self.args), 1)
 
         # Start the cross-device permutation asynchronously so we can
         # overlap communication with computation.
@@ -326,8 +341,11 @@ class MoE(torch.nn.Module):
             # Construct the expert indices for the permuted tokens.
             parallel_top_expert = torch.remainder(
                 torch.arange(
-                    self.num_experts, dtype=torch.int32, device=indices.device),
-                self.num_experts_per_rank,
+                    self.num_experts * mpu.hidden_sharding_degree(self.args),
+                    dtype=torch.int32,
+                    device=indices.device
+                ),
+                mpu.experts_per_rank(self.args),
             )
             parallel_top_expert = ops.replicate(
                 parallel_top_expert.unsqueeze(dim=0),
@@ -373,6 +391,16 @@ class MoE(torch.nn.Module):
         x, _ = all_to_all(
             parallel_x, send_counts, recv_counts,
             self.args.expert_parallel_group)
+
+        # Reduce along the hidden sharding to get the final outputs.
+        #
+        # TODO(tgale): Fuse this into the following local permutation.
+        shape = (
+            mpu.hidden_sharding_degree(self.args),
+            -1,
+            self.args.hidden_size
+        )
+        x = x.view(shape).sum(dim=0)
 
         # Un-permute locally to setup for the next series of operations.
         x = ops.padded_scatter(
