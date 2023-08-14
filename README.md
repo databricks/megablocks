@@ -25,11 +25,11 @@ We provide scripts for pre-training Transformer MoE and dMoE language models und
 # :writing_hand: Citation
 
 ```
-@article{megablocks-arxiv,
-  author    = {Trevor Gale and Deepak Narayanan and Cliff Young and Matei Zaharia},
-  title     = {MegaBlocks: Efficient Sparse Training with Mixture-of-Experts},
-  journal   = {CoRR},
-  volume    = {abs/2211.15841},
-  year      = {2022},
+@article{megablocks,
+  title={{MegaBlocks: Efficient Sparse Training with Mixture-of-Experts}},
+  author={Trevor Gale and Deepak Narayanan and Cliff Young and Matei Zaharia},
+  journal={Proceedings of Machine Learning and Systems},
+  volume={5},
+  year={2023}
 }
 ```
