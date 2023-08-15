@@ -4,16 +4,6 @@ import torch.nn.functional as F
 
 
 @torch.jit.script
-def _gelu_forward(x):
-    return  x * 0.5 * (1.0 + torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x)))
-
-
-@torch.jit.script
-def _gelu_forward_inplace(x):
-    return  x.mul_(0.5 * (1.0 + torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))))
-
-
-@torch.jit.script
 def _gelu_backward_inplace(g, x):
     tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
     ff = (
@@ -29,7 +19,7 @@ def gelu_forward(x: stk.Matrix):
     assert isinstance(x, stk.Matrix)
     return stk.Matrix(
         x.size(),
-        _gelu_forward(x.data),
+        F.gelu(x.data, approximate="tanh"),
         x.row_indices,
         x.column_indices,
         x.offsets,
@@ -38,20 +28,7 @@ def gelu_forward(x: stk.Matrix):
         x.block_offsets_t)
 
 
-def gelu_forward_inplace(x: stk.Matrix):
-    assert isinstance(x, stk.Matrix)
-    return stk.Matrix(
-        x.size(),
-        _gelu_forward_inplace(x.data),
-        x.row_indices,
-        x.column_indices,
-        x.offsets,
-        x.column_indices_t,
-        x.offsets_t,
-        x.block_offsets_t)
-
-
-def gelu_backward_inplace(grad: stk.Matrix, x: stk.Matrix):
+def gelu_backward_(grad: stk.Matrix, x: stk.Matrix):
     # NOTE: The two sparse matrices must have the same topology.
     assert isinstance(grad, stk.Matrix)
     assert isinstance(x, stk.Matrix)

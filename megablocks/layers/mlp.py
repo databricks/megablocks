@@ -188,7 +188,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # Compute dsdd_out.
         #
         # NOTE: This reuses the dgelu_out allocation.
-        dsdd_out = gelu.gelu_backward_inplace(dgelu_out, sdd_out)
+        dsdd_out = gelu.gelu_backward_(dgelu_out, sdd_out)
 
         # Compute dw1.
         dw1 = stk.ops.dsd(dsdd_out.t(), x)
