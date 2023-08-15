@@ -1,8 +1,8 @@
 from megablocks.layers import common
+from megablocks.layers import gelu
 from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn
-from megablocks.layers.gelu import gelu
 import stk
 import torch
 import torch.nn.functional as F
@@ -123,6 +123,97 @@ def create_dmoe_expert_weights(args : Arguments,
     return weights[start_row:end_row]
 
 
+class MemoryOptimizedMLP(torch.autograd.Function):
+    """Sparse MLP with manually scheduled memory reuse."""
+
+    @staticmethod
+    @torch.cuda.amp.custom_fwd
+    def forward(ctx, x, w1, w2, topo):
+        # x: [m, k], w1: [n, k], w2: [n, k]
+        if (not x.is_contiguous() or not w1.is_contiguous() or
+            not w2.is_contiguous()):
+            raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
+
+        # Layer 0: x @ w1.t().
+        sdd_out = stk.ops.sdd(x, w1.t(), topo)
+
+        # GeLU.
+        gelu_out = gelu.gelu_forward(sdd_out)
+
+        # Layer 1: x @ w2.
+        dsd_out = stk.ops.dsd(gelu_out, w2)
+
+        # NOTE: Save the input to the layer and the gelu input for
+        # gradient computation. We'll re-compute the gelu forward
+        # pass in the backward pass to avoid materializing another
+        # intermediate.
+        ctx.shape = topo.shape
+        ctx.save_for_backward(
+            x, w1, w2, sdd_out.data,
+            topo.row_indices,
+            topo.column_indices,
+            topo.offsets,
+            topo.column_indices_t,
+            topo.offsets_t,
+            topo.block_offsets_t)
+        return dsd_out
+
+    @staticmethod
+    @torch.cuda.amp.custom_bwd
+    def backward(ctx, ddsd_out):
+        x, w1, w2 = ctx.saved_tensors[:3]
+        sdd_out = stk.Matrix(ctx.shape, *ctx.saved_tensors[3:])
+
+        if (not ctx.needs_input_grad[0] or
+            not ctx.needs_input_grad[1] or
+            not ctx.needs_input_grad[2]):
+            raise ValueError("Expected all MLP inputs to need grad.")
+
+        # Compute dw2 with recomputed gelu output.
+        gelu_out = gelu.gelu_forward(sdd_out)
+        dw2 = stk.ops.dsd(gelu_out.t(), ddsd_out)
+
+        # Compute dgelu_out.
+        #
+        # NOTE: We reuse the gelu_out allocation.
+        stk.backend.triton_kernels.sdd(
+            ddsd_out, w2.t(),
+            sdd_out.shape,
+            gelu_out.data,
+            sdd_out.offsets,
+            sdd_out.row_indices,
+            sdd_out.column_indices)
+        dgelu_out = gelu_out
+
+        # Compute dsdd_out.
+        #
+        # NOTE: This reuses the dgelu_out allocation.
+        dsdd_out = gelu.gelu_backward_inplace(dgelu_out, sdd_out)
+
+        # Compute dw1.
+        dw1 = stk.ops.dsd(dsdd_out.t(), x)
+
+        # Compute dx.
+        #
+        # NOTE: This reuses the ddsd_out allocation.
+        stk.backend.triton_kernels.dsd(
+            dsdd_out.shape,
+            dsdd_out.data,
+            dsdd_out.offsets,
+            dsdd_out.row_indices,
+            dsdd_out.column_indices,
+            dsdd_out.offsets_t,
+            dsdd_out.column_indices_t,
+            dsdd_out.block_offsets_t,
+            False,
+            w1,
+            ddsd_out)
+        dx = ddsd_out
+        return dx, dw1, dw2, None
+
+memory_optimized_mlp = MemoryOptimizedMLP.apply
+
+
 class SparseMLP(torch.nn.Module):
 
     def __init__(self, args : Arguments):
@@ -169,10 +260,9 @@ class SparseMLP(torch.nn.Module):
 
     def parallel_forward(self, x, topo):
         x = wp.sdd_nt(x, self.w1, topo, self.args.weight_parallel_group)
-        return wp.dsd_nn(gelu(x), self.w2, self.args.weight_parallel_group)
+        return wp.dsd_nn(gelu.gelu(x), self.w2, self.args.weight_parallel_group)
 
     def forward(self, x, topo):
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
-        x = stk.ops.sdd(x, self.w1.t(), topo)
-        return stk.ops.dsd(gelu(x), self.w2)
+        return memory_optimized_mlp(x, self.w1, self.w2, topo)
