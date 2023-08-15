@@ -118,4 +118,6 @@ if __name__ == '__main__':
     torch.cuda.set_device(local_rank)
 
     for args in _TESTS:
+        if local_rank == 0:
+            print(f"TEST: {args}")
         test_expert_parallel_versus_weight_parallel(group, *args)
