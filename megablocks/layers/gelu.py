@@ -15,19 +15,6 @@ def _gelu_backward_inplace(g, x):
     return g.mul_(ff)
 
 
-def gelu_forward(x: stk.Matrix):
-    assert isinstance(x, stk.Matrix)
-    return stk.Matrix(
-        x.size(),
-        F.gelu(x.data, approximate="tanh"),
-        x.row_indices,
-        x.column_indices,
-        x.offsets,
-        x.column_indices_t,
-        x.offsets_t,
-        x.block_offsets_t)
-
-
 def gelu_backward_(grad: stk.Matrix, x: stk.Matrix):
     # NOTE: The two sparse matrices must have the same topology.
     assert isinstance(grad, stk.Matrix)

@@ -138,7 +138,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         sdd_out = stk.ops.sdd(x, w1.t(), topo)
 
         # GeLU.
-        gelu_out = gelu.gelu_forward(sdd_out)
+        gelu_out = gelu.gelu(sdd_out)
 
         # Layer 1: x @ w2.
         dsd_out = stk.ops.dsd(gelu_out, w2)
@@ -170,7 +170,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Compute dw2 with recomputed gelu output.
-        gelu_out = gelu.gelu_forward(sdd_out)
+        gelu_out = gelu.gelu(sdd_out)
         dw2 = stk.ops.dsd(gelu_out.t(), ddsd_out)
 
         # Compute dgelu_out.
@@ -259,10 +259,21 @@ class SparseMLP(torch.nn.Module):
             self.w2, should_set_attribute)
 
     def parallel_forward(self, x, topo):
-        x = wp.sdd_nt(x, self.w1, topo, self.args.weight_parallel_group)
-        return wp.dsd_nn(gelu.gelu(x), self.w2, self.args.weight_parallel_group)
+        group = self.args.weight_parallel_group
+        if self.args.memory_optimized_mlp:
+            return wp.memory_optimized_weight_parallel_mlp(
+                x, self.w1, self.w2, topo, group)
+
+        # Compute the MLP.
+        x = wp.sdd_nt(x, self.w1, topo, group)
+        return wp.dsd_nn(gelu.gelu(x), self.w2, group)
 
     def forward(self, x, topo):
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
-        return memory_optimized_mlp(x, self.w1, self.w2, topo)
+        elif self.args.memory_optimized_mlp:
+            return memory_optimized_mlp(x, self.w1, self.w2, topo)
+
+        # Compute the MLP.
+        x = stk.ops.sdd(x, self.w1.t(), topo)
+        return stk.ops.dsd(gelu.gelu(x), self.w2)
