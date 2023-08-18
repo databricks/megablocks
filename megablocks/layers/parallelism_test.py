@@ -6,14 +6,23 @@ import numpy as np
 import torch
 
 _TESTS = (
-    (64, 1024, 512, 2048, 64, 1),
+    (64, 1024, 512, 2048, 64, 1, False),
+    (64, 1024, 512, 2048, 64, 1, True),
     # Test with fewer experts than ranks to verify tensor
     # sharding in tandem with expert sharding.
-    (4, 1, 512, 2048, 4, 1),
+    (4, 1, 512, 2048, 4, 1, False),
+    (4, 1, 512, 2048, 4, 1, True),
 )
 
 def test_expert_parallel_versus_weight_parallel(
-        group, batch_size, sequence_length, hidden_size, ffn_hidden_size, num_experts, top_k):
+        group,
+        batch_size,
+        sequence_length,
+        hidden_size,
+        ffn_hidden_size,
+        num_experts,
+        top_k,
+        memory_optimized):
     init_fn = functools.partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     ep_args = arguments.Arguments(
         hidden_size=hidden_size,
@@ -25,7 +34,8 @@ def test_expert_parallel_versus_weight_parallel(
         fp16=False,
         bf16=False,
         device=torch.cuda.current_device(),
-        init_method=init_fn)
+        init_method=init_fn,
+        memory_optimized_mlp=memory_optimized)
     wp_args = arguments.Arguments(
         hidden_size=hidden_size,
         ffn_hidden_size=ffn_hidden_size,
@@ -36,7 +46,8 @@ def test_expert_parallel_versus_weight_parallel(
         fp16=False,
         bf16=False,
         device=torch.cuda.current_device(),
-        init_method=init_fn)
+        init_method=init_fn,
+        memory_optimized_mlp=memory_optimized)
 
     # NOTE: Reset the seed so that the models get identical weights.
     torch.manual_seed(1234)
@@ -118,4 +129,6 @@ if __name__ == '__main__':
     torch.cuda.set_device(local_rank)
 
     for args in _TESTS:
+        if local_rank == 0:
+            print(f"TEST: {args}")
         test_expert_parallel_versus_weight_parallel(group, *args)
