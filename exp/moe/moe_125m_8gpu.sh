@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXP_DIR=$1
+EXP_DIR="./checkpoint"
 
 # 512 * 1k * 400k = 200b tokens.
 # 512 * 1k * 200k = 100b tokens.
@@ -31,7 +31,7 @@ if [ -n "${6}" ]; then
     LOSS_WEIGHT=$6;
 fi
 
-BATCH_SIZE=32
+BATCH_SIZE=16
 if [ -n "${7}" ]; then
     BATCH_SIZE=$7;
 fi
@@ -47,13 +47,32 @@ MOE_ARGUMENTS="\
 --moe-loss-weight=${LOSS_WEIGHT} \
 --moe-top-k=${TOP_K}"
 
+if [ -z "$MLP_WORKER_GPU" ]; then
 # Distributed hyperparameters.
 DISTRIBUTED_ARGUMENTS="\
---nproc_per_node 8 \
+--nproc_per_node 2 \
 --nnodes 1 \
 --node_rank 0 \
 --master_addr localhost \
 --master_port 6000"
+export GLOBLE_BATCH_SIZE=$((2 * $BATCH_SIZE))
+else
+echo "MLP_WORKER_GPU=$MLP_WORKER_GPU"
+echo "MLP_WORKER_NUM=$MLP_WORKER_NUM"
+echo "MLP_ROLE_INDEX=$MLP_ROLE_INDEX"
+echo "MLP_WORKER_0_HOST=$MLP_WORKER_0_HOST"
+echo "MLP_WORKER_0_PORT=$MLP_WORKER_0_PORT"
+echo "RUN_ROOT=$RUN_ROOT"
+
+DISTRIBUTED_ARGUMENTS="
+    --nproc_per_node $MLP_WORKER_GPU \
+    --nnodes $MLP_WORKER_NUM \
+    --node_rank $MLP_ROLE_INDEX \
+    --master_addr $MLP_WORKER_0_HOST \
+    --master_port $MLP_WORKER_0_PORT
+"
+export GLOBLE_BATCH_SIZE=$(($BATCH_SIZE*$MLP_WORKER_GPU*$MLP_WORKER_NUM))
+fi
 
 # Model hyperparameters.
 MODEL_ARGUMENTS="\
@@ -66,7 +85,7 @@ MODEL_ARGUMENTS="\
 # Training hyperparameters.
 TRAINING_ARGUMENTS="\
 --micro-batch-size ${BATCH_SIZE} \
---global-batch-size 512 \
+--global-batch-size ${GLOBLE_BATCH_SIZE} \
 --train-iters ${TRAINING_STEPS} \
 --lr-decay-iters ${TRAINING_STEPS} \
 --lr 0.00015 \
@@ -76,79 +95,26 @@ TRAINING_ARGUMENTS="\
 --clip-grad 1.0 \
 --init-method-std 0.01"
 
-PILE_DATASET="\
-1.0 \
-../pile_gpt2/01_text_document \
-1.0 \
-../pile_gpt2/02_text_document \
-1.0 \
-../pile_gpt2/03_text_document \
-1.0 \
-../pile_gpt2/04_text_document \
-1.0 \
-../pile_gpt2/05_text_document \
-1.0 \
-../pile_gpt2/06_text_document \
-1.0 \
-../pile_gpt2/07_text_document \
-1.0 \
-../pile_gpt2/08_text_document \
-1.0 \
-../pile_gpt2/09_text_document \
-1.0 \
-../pile_gpt2/10_text_document \
-1.0 \
-../pile_gpt2/11_text_document \
-1.0 \
-../pile_gpt2/12_text_document \
-1.0 \
-../pile_gpt2/13_text_document \
-1.0 \
-../pile_gpt2/14_text_document \
-1.0 \
-../pile_gpt2/15_text_document \
-1.0 \
-../pile_gpt2/16_text_document \
-1.0 \
-../pile_gpt2/17_text_document \
-1.0 \
-../pile_gpt2/18_text_document \
-1.0 \
-../pile_gpt2/19_text_document \
-1.0 \
-../pile_gpt2/20_text_document \
-1.0 \
-../pile_gpt2/21_text_document \
-1.0 \
-../pile_gpt2/22_text_document \
-1.0 \
-../pile_gpt2/23_text_document \
-1.0 \
-../pile_gpt2/24_text_document \
-1.0 \
-../pile_gpt2/25_text_document \
-1.0 \
-../pile_gpt2/26_text_document \
-1.0 \
-../pile_gpt2/27_text_document \
-1.0 \
-../pile_gpt2/28_text_document \
-1.0 \
-../pile_gpt2/29_text_document"
-
+TOK=LLAMATokenizer
+DATA_PATH=/share_nfs/process_data/pile_tokenized/chinese_llama/megatron/merged/tokenized
+VOCAB_FILE=/share_nfs/process_data/pile_tokenized/chinese_llama/chinese_llama_tokenizer.model
 # NOTE: We don't train for enough tokens for the
 # split to matter.
-DATA_ARGUMENTS="\
---data-path ${PILE_DATASET} \
---vocab-file ../gpt2-vocab.json \
---merge-file ../gpt2-merges.txt \
---make-vocab-size-divisible-by 1024 \
---split 969,30,1"
+
+DATA_ARGUMENTS="
+    --data-path $DATA_PATH \
+    --vocab-file $VOCAB_FILE \
+    --data-impl mmap \
+    --num-workers 4 \
+    --split 969,30,1 \
+    --tokenizer-type $TOK 
+"
 
 COMPUTE_ARGUMENTS="\
 --fp16 \
 --DDP-impl local \
 --moe-expert-model-parallelism \
+--tensor-model-parallel-size 2 \
 --no-async-tensor-model-parallel-allreduce"
 
 CHECKPOINT_ARGUMENTS="\
@@ -160,7 +126,7 @@ EVALUATION_ARGUMENTS="\
 --log-interval 100 \
 --eval-interval 1000"
 
-python -m torch.distributed.launch ${DISTRIBUTED_ARGUMENTS} \
+torchrun ${DISTRIBUTED_ARGUMENTS} \
        third_party/Megatron-LM/pretrain_gpt.py \
        ${MOE_ARGUMENTS} \
        ${MODEL_ARGUMENTS} \
