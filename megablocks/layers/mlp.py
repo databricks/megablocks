@@ -11,10 +11,13 @@ import torch.nn.functional as F
 class ScaleGradient(torch.autograd.Function):
 
     @staticmethod
+    @torch.cuda.amp.custom_fwd
     def forward(ctx, x, scale):
         ctx.scale = scale
         return x
 
+    @staticmethod
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, grad):
         return grad * ctx.scale, None
 scale_gradient = ScaleGradient.apply
