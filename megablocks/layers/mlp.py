@@ -8,6 +8,18 @@ import torch
 import torch.nn.functional as F
 
 
+class ScaleGradient(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, x, scale):
+        ctx.scale = scale
+        return x
+
+    def backward(ctx, grad):
+        return grad * ctx.scale, None
+scale_gradient = ScaleGradient.apply
+
+
 def create_moe_expert_weights(args : Arguments,
                               num_experts : int,
                               ffn_hidden_size : int,
@@ -56,9 +68,9 @@ class MLP(torch.nn.Module):
 
     def __init__(self, args : Arguments):
         super().__init__()
+        self.args = args
         expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
         experts_per_rank = mpu.experts_per_rank(args)
-
 
         self.w1 = torch.nn.Parameter(torch.empty(
             experts_per_rank,
@@ -94,9 +106,19 @@ class MLP(torch.nn.Module):
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
 
+        self.gradient_scale = None
+        if self.args.moe_expert_model_parallelism:
+            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args)
+
+    def scale_grad(self, w):
+        if self.gradient_scale is None:
+            return w
+        return scale_gradient(w, self.gradient_scale)
+
     def forward(self, x):
-        return torch.bmm(F.gelu(
-            torch.bmm(x, self.w1), approximate="tanh"), self.w2)
+        return torch.bmm(
+            F.gelu(torch.bmm(x, self.scale_grad(self.w1)), approximate="tanh"),
+            self.scale_grad(self.w2))
 
 
 def create_dmoe_expert_weights(args : Arguments,
@@ -258,22 +280,33 @@ class SparseMLP(torch.nn.Module):
         mpu.set_expert_model_parallel_attributes(
             self.w2, should_set_attribute)
 
+        self.gradient_scale = None
+        if self.args.moe_expert_model_parallelism:
+            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args)
+
+    def scale_grad(self, w):
+        if self.gradient_scale is None:
+            return w
+        return scale_gradient(w, self.gradient_scale)
+
     def parallel_forward(self, x, topo):
         group = self.args.weight_parallel_group
+        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.memory_optimized_mlp:
             return wp.memory_optimized_weight_parallel_mlp(
-                x, self.w1, self.w2, topo, group)
+                x, w1, w2, topo, group)
 
         # Compute the MLP.
-        x = wp.sdd_nt(x, self.w1, topo, group)
-        return wp.dsd_nn(gelu.gelu(x), self.w2, group)
+        x = wp.sdd_nt(x, w1, topo, group)
+        return wp.dsd_nn(gelu.gelu(x), w2, group)
 
     def forward(self, x, topo):
+        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
         elif self.args.memory_optimized_mlp:
-            return memory_optimized_mlp(x, self.w1, self.w2, topo)
+            return memory_optimized_mlp(x, w1, w2, topo)
 
         # Compute the MLP.
-        x = stk.ops.sdd(x, self.w1.t(), topo)
-        return stk.ops.dsd(gelu.gelu(x), self.w2)
+        x = stk.ops.sdd(x, w1.t(), topo)
+        return stk.ops.dsd(gelu.gelu(x), w2)
