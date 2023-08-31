@@ -119,7 +119,7 @@ class MoE(torch.nn.Module):
         # Note that the output bias is not parallelized with expert
         # model parallelism.
         self.bias = torch.nn.Parameter(torch.empty(
-            1, 1, args.hidden_size,
+            args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
         torch.nn.init.zeros_(self.bias)
