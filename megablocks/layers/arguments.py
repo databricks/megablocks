@@ -30,6 +30,9 @@ class Arguments:
     pipeline_model_parallel_size : int = 1
     num_layers_per_virtual_pipeline_stage : Optional[int] = None
 
+    # Compute arguments.
+    memory_optimized_mlp : bool = False
+
     # Initialization arguments.
     fp16 : bool = True
     bf16: bool = False

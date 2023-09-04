@@ -31,8 +31,8 @@ class dMoE(moe.MoE):
         self.transpose_sort_end_bit = max(
             int(np.ceil(np.log2(max_column_index))), 1)
 
-    def sparse_transpose(self, size, data, row_indices, column_indices, offsets):
-        block_columns = size[1] // data.shape[1]
+    def sparse_transpose(self, size, row_indices, column_indices, offsets):
+        block_columns = size[1] // self.blocking
 
         # Sort row indices by column indices to get the transposed matrix's
         # column indices.
@@ -53,7 +53,7 @@ class dMoE(moe.MoE):
         column_indices_t = row_indices.gather(0, gather_indices.long())
         block_offsets_t = gather_indices.int()
 
-        zero = torch.zeros((1,), dtype=torch.int32, device=data.device)
+        zero = torch.zeros((1,), dtype=torch.int32, device=row_indices.device)
         nnz_per_column = ops.histogram(column_indices, block_columns)
         nnz_per_column = ops.inclusive_cumsum(nnz_per_column, 0)
         offsets_t = torch.cat([zero, nnz_per_column])
@@ -85,12 +85,13 @@ class dMoE(moe.MoE):
                                       blocks_per_row)
 
         # TODO(tgale): This is unused. Remove the need for this in stk.
+        # For now, use meta init to save the device memory.
         data = torch.empty(
             column_indices.numel(),
             self.blocking,
             self.blocking,
             dtype=common.dtype(self.args),
-            device=x.device)
+            device='meta')
         shape = (
             padded_tokens,
             self.ffn_hidden_size * mpu.experts_per_rank(self.args)
@@ -98,7 +99,7 @@ class dMoE(moe.MoE):
         row_indices = stk.ops.row_indices(
             shape, data, offsets, column_indices)
         column_indices_t, offsets_t, block_offsets_t = self.sparse_transpose(
-            shape, data, row_indices, column_indices, offsets)
+            shape, row_indices, column_indices, offsets)
         return stk.Matrix(shape, data, row_indices, column_indices, offsets,
                           column_indices_t, offsets_t, block_offsets_t)
 
