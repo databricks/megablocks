@@ -6,17 +6,17 @@ EXP_DIR="./checkpoint"
 # 512 * 1k * 200k = 100b tokens.
 # 512 * 1k * 100k = 50b tokens (default).
 # 512 * 1k * 20k = 10b tokens.
-TRAINING_STEPS=20000
+TRAINING_STEPS=50
 if [ -n "${2}" ]; then
     TRAINING_STEPS=$2;
 fi
 
-NUM_EXPERTS=64
+NUM_EXPERTS=1
 if [ -n "${3}" ]; then
     NUM_EXPERTS=$3;
 fi
 
-CAPACITY_FACTOR=1
+CAPACITY_FACTOR=0
 if [ -n "${4}" ]; then
     CAPACITY_FACTOR=$4;
 fi
@@ -31,7 +31,7 @@ if [ -n "${6}" ]; then
     LOSS_WEIGHT=$6;
 fi
 
-BATCH_SIZE=16
+BATCH_SIZE=4
 if [ -n "${7}" ]; then
     BATCH_SIZE=$7;
 fi
@@ -48,30 +48,30 @@ MOE_ARGUMENTS="\
 --moe-top-k=${TOP_K}"
 
 if [ -z "$MLP_WORKER_GPU" ]; then
-# Distributed hyperparameters.
-DISTRIBUTED_ARGUMENTS="\
---nproc_per_node 2 \
---nnodes 1 \
---node_rank 0 \
---master_addr localhost \
---master_port 6000"
-export GLOBLE_BATCH_SIZE=$((2 * $BATCH_SIZE))
+    # Distributed hyperparameters.
+    DISTRIBUTED_ARGUMENTS="\
+    --nproc_per_node 2 \
+    --nnodes 1 \
+    --node_rank 0 \
+    --master_addr localhost \
+    --master_port 6000"
+    export GLOBLE_BATCH_SIZE=$((2 * $BATCH_SIZE))
 else
-echo "MLP_WORKER_GPU=$MLP_WORKER_GPU"
-echo "MLP_WORKER_NUM=$MLP_WORKER_NUM"
-echo "MLP_ROLE_INDEX=$MLP_ROLE_INDEX"
-echo "MLP_WORKER_0_HOST=$MLP_WORKER_0_HOST"
-echo "MLP_WORKER_0_PORT=$MLP_WORKER_0_PORT"
-echo "RUN_ROOT=$RUN_ROOT"
+    echo "MLP_WORKER_GPU=$MLP_WORKER_GPU"
+    echo "MLP_WORKER_NUM=$MLP_WORKER_NUM"
+    echo "MLP_ROLE_INDEX=$MLP_ROLE_INDEX"
+    echo "MLP_WORKER_0_HOST=$MLP_WORKER_0_HOST"
+    echo "MLP_WORKER_0_PORT=$MLP_WORKER_0_PORT"
+    echo "RUN_ROOT=$RUN_ROOT"
 
-DISTRIBUTED_ARGUMENTS="
-    --nproc_per_node $MLP_WORKER_GPU \
-    --nnodes $MLP_WORKER_NUM \
-    --node_rank $MLP_ROLE_INDEX \
-    --master_addr $MLP_WORKER_0_HOST \
-    --master_port $MLP_WORKER_0_PORT
-"
-export GLOBLE_BATCH_SIZE=$(($BATCH_SIZE*$MLP_WORKER_GPU*$MLP_WORKER_NUM))
+    DISTRIBUTED_ARGUMENTS="
+        --nproc_per_node $MLP_WORKER_GPU \
+        --nnodes $MLP_WORKER_NUM \
+        --node_rank $MLP_ROLE_INDEX \
+        --master_addr $MLP_WORKER_0_HOST \
+        --master_port $MLP_WORKER_0_PORT
+    "
+    export GLOBLE_BATCH_SIZE=$(($BATCH_SIZE*$MLP_WORKER_GPU*$MLP_WORKER_NUM))
 fi
 
 # Model hyperparameters.
@@ -113,9 +113,12 @@ DATA_ARGUMENTS="
 COMPUTE_ARGUMENTS="\
 --fp16 \
 --DDP-impl local \
---moe-expert-model-parallelism \
+--moe-weight-parallelism \
 --tensor-model-parallel-size 2 \
 --no-async-tensor-model-parallel-allreduce"
+
+
+# --moe-expert-model-parallelism \
 
 CHECKPOINT_ARGUMENTS="\
 --save-interval 2000 \
