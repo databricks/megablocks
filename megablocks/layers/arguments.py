@@ -32,6 +32,7 @@ class Arguments:
 
     # Compute arguments.
     memory_optimized_mlp : bool = False
+    quantize_activations_num_bits: int = -1  # -1 = no quantization
 
     # Initialization arguments.
     fp16 : bool = True
