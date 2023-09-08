@@ -280,7 +280,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1,
             ddsd_out)
         dx = ddsd_out
-        return dx, dw1, dw2, None
+        return dx, dw1, dw2, None, None
 
 memory_optimized_mlp = MemoryOptimizedMLP.apply
 
