@@ -56,5 +56,13 @@ class PaddedScatterOp(torch.autograd.Function):
 
 
 # wrap apply so that num_bits is optional and defaults to no quantization
-def padded_scatter(*args, num_bits: int = -1):
-    return PaddedScatterOp.apply(*args, num_bits)
+def padded_scatter(x: torch.Tensor,
+                   indices: torch.Tensor,
+                   bin_ids: torch.Tensor,
+                   weights: torch.Tensor,
+                   bins: torch.Tensor,
+                   padded_bins: torch.Tensor,
+                   top_k: int,
+                   num_bits: int = -1):
+    return PaddedScatterOp.apply(x, indices, bin_ids, weights, bins,
+                                 padded_bins, top_k, num_bits)
