@@ -179,15 +179,15 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             input_save_args = (x, sdd_out.data)
         else:
             # safe version: allocate new mem for the gelu output
-            hidden_q, hidden_scales, gelu_out_data = turbo.quantize_signed(
-                sdd_out.data, num_bits=num_bits, op=turbo.ElemwiseOps.GELU_FORWARD)
-            gelu_out = stk.Matrix(sdd_out.shape, gelu_out_data, *topo_tensors)
-
-            # # bold version: lie about __restrict__ and do the GELU in-place
             # hidden_q, hidden_scales, gelu_out_data = turbo.quantize_signed(
-            #     sdd_out.data, num_bits=num_bits,
-            #     op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out.data)
-            # gelu_out = sdd_out
+            #     sdd_out.data, num_bits=num_bits, op=turbo.ElemwiseOps.GELU_FORWARD)
+            # gelu_out = stk.Matrix(sdd_out.shape, gelu_out_data, *topo_tensors)
+
+            # bold version: lie about __restrict__ and do the GELU in-place
+            hidden_q, hidden_scales, gelu_out_data = turbo.quantize_signed(
+                sdd_out.data, num_bits=num_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out.data)
+            gelu_out = sdd_out
 
             x_q, x_scales = turbo.quantize_signed(x, num_bits=num_bits)
             input_save_args = (x_q, x_scales, hidden_q, hidden_scales)
@@ -238,11 +238,11 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # NOTE: We reuse the gelu_out allocation.
         stk.backend.triton_kernels.sdd(
             ddsd_out, w2.t(),
-            sdd_out.shape,
+            gelu_out.shape,
             gelu_out.data,
-            sdd_out.offsets,
-            sdd_out.row_indices,
-            sdd_out.column_indices)
+            gelu_out.offsets,
+            gelu_out.row_indices,
+            gelu_out.column_indices)
         dgelu_out = gelu_out
 
         # Compute dsdd_out.
