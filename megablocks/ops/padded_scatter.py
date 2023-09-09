@@ -25,6 +25,7 @@ class PaddedScatterOp(torch.autograd.Function):
     @custom_bwd
     def backward(ctx, grad):
         grad = grad.contiguous()
+        num_bits = ctx.num_bits
 
         if ctx.num_bits == -1:
             x = ctx.saved_tensors[0]
