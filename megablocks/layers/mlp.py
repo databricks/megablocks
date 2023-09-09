@@ -201,6 +201,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # intermediate.
         ctx.shape = topo.shape
         ctx.num_bits = num_bits
+        ctx.dtype = x.dtype
         ctx.save_for_backward(
             *input_save_args,
             w1, w2, #sdd_out.data,
@@ -217,6 +218,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
 
         # rematerialize gelu output
         num_bits = ctx.num_bits
+        dtype = ctx.dtype
         topo_tensors = ctx.saved_tensors[-6:]
         if num_bits == -1:
             x, sdd_out_data, w1, w2 = ctx.saved_tensors[:4]
@@ -227,7 +229,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1, w2 = ctx.saved_tensors[4:6]
             gelu_out_tensor = turbo.dequantize_signed(
                 hidden_q, hidden_scales, num_bits=num_bits,
-                op=turbo.ElemwiseOps.GELU_FORWARD)
+                op=turbo.ElemwiseOps.GELU_FORWARD, out_dtype=dtype)
             gelu_out = stk.Matrix(ctx.shape, gelu_out_tensor, *topo_tensors)
 
         # Compute dw2 with recomputed gelu output.
@@ -259,7 +261,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             dsdd_out = stk.Matrix(ctx.shape, ddsd_out_tensor, *topo_tensors)
 
             # we also need to dequantize x
-            x = turbo.dequantize_signed(x_q, x_scales, num_bits=num_bits)
+            x = turbo.dequantize_signed(
+                x_q, x_scales, num_bits=num_bits, out_dtype=dtype)
 
         # Compute dw1.
         dw1 = stk.ops.dsd(dsdd_out.t(), x)
