@@ -59,6 +59,16 @@ _FORWARD_TESTS = (
     (16, 1024, 512, 8, 2),
     (16, 1024, 512, 8, 4),
     (16, 1024, 512, 8, 8),
+    # quantization tests; assorted small sizes, systematic bitwidths
+    (1, 2, 128, 2, 2, -1, -1),
+    (1, 8, 128, 2, 2, -1, 4),
+    (2, 8, 128, 2, 1, -1, 8),
+    (1, 2, 128, 2, 1, 4, -1),
+    (2, 2, 128, 2, 2, 4, 4),
+    (1, 8, 128, 4, 2, 4, 8),
+    (2, 8, 128, 4, 1, 8, -1),
+    (1, 2, 128, 4, 2, 8, 4),
+    (2, 2, 128, 4, 2, 8, 8),
 )
 
 
@@ -75,8 +85,8 @@ class dMoETest(parameterized.TestCase):
         moe.clear_load_balancing_loss()
 
     @parameterized.parameters(*_FORWARD_TESTS)
-    def testdMoE_Forward(
-            self, bs, sl, hs, num_experts, top_k):
+    def testdMoE_Forward(self, bs, sl, hs, num_experts, top_k,
+                         input_num_bits=-1, remat_num_bits=-1):
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, _, _, layer = test_modules(
@@ -90,7 +100,8 @@ class dMoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardBackward(
-            self, bs, sl, hs, num_experts, top_k):
+            self, bs, sl, hs, num_experts, top_k,
+            input_num_bits=-1, remat_num_bits=-1):
         x = torch.randn(sl, bs, hs).half().cuda()
         x.requires_grad_(True)
 
@@ -124,7 +135,8 @@ class dMoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardVersusMoE(
-            self, bs, sl, hs, num_experts, top_k):
+            self, bs, sl, hs, num_experts, top_k,
+            input_num_bits=-1, remat_num_bits=-1):
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, _, moe_mlp, dmoe_mlp = test_modules(
@@ -137,7 +149,8 @@ class dMoETest(parameterized.TestCase):
         out, _ = dmoe_mlp(x)
         self.assertSequenceEqual(out.shape, x.shape)
         self.assertSequenceEqual(expected_out.shape, x.shape)
-        self.assertTrue(testing.allclose(out, expected_out))
+        if remat_num_bits == -1:
+            self.assertTrue(testing.allclose(out, expected_out))
 
 
 if __name__ == '__main__':

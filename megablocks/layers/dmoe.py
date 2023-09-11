@@ -20,7 +20,6 @@ class dMoE(moe.MoE):
         self.hidden_size = args.hidden_size
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
-        self.actq_num_bits = args.quantize_activations_num_bits
 
         # Sparse expert MLP.
         self.mlp = mlp.SparseMLP(args)
@@ -164,7 +163,7 @@ class dMoE(moe.MoE):
             bins,
             padded_bins,
             self.top_k,
-            self.actq_num_bits)
+            self.args.quantize_scatter_num_bits)
         return x, tokens_per_expert
 
     # For use in the base-class parallel_forward_once.
