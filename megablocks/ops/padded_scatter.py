@@ -8,14 +8,18 @@ class PaddedScatterOp(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k, num_bits):
-        saved_x = None if weights is None else x
-        if num_bits == -1:
+    def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k,
+                num_bits):
+        saved_x = None if (weights is None) and weights.requires_grad else x
+        if saved_x is None:
+            save_inputs = []
+        elif num_bits == -1:
             save_inputs = (saved_x,)
         else:
             save_inputs = turbo.quantize_signed(saved_x, num_bits=num_bits)
 
-        ctx.save_for_backward(*save_inputs, indices, bin_ids, weights, bins, padded_bins)
+        ctx.save_for_backward(
+            *save_inputs, indices, bin_ids, weights, bins, padded_bins)
         ctx.top_k = top_k
         ctx.num_bits = num_bits
         return kernels.padded_scatter(
@@ -25,26 +29,28 @@ class PaddedScatterOp(torch.autograd.Function):
     @custom_bwd
     def backward(ctx, grad):
         grad = grad.contiguous()
-        num_bits = ctx.num_bits
-
-        if ctx.num_bits == -1:
-            x = ctx.saved_tensors[0]
-        else:
-            x_q, x_scales = ctx.saved_tensors[:2]
-            x = turbo.dequantize_signed(x_q, x_scales, num_bits=num_bits)
 
         indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors[-5:]
-        out = kernels.padded_gather(
-            grad,
-            indices,
-            bin_ids,
-            weights,
-            bins,
-            padded_bins,
-            ctx.top_k)
+        dgrad = None
+        if ctx.needs_input_grad[0]:
+            dgrad = kernels.padded_gather(
+                grad,
+                indices,
+                bin_ids,
+                weights,
+                bins,
+                padded_bins,
+                ctx.top_k)
 
         wgrad = None
-        if ctx.needs_input_grad[3]:
+        if ctx.needs_input_grad[3]:  # need wgrad
+            if ctx.num_bits == -1:
+                x = ctx.saved_tensors[0]
+            else:
+                x_q, x_scales = ctx.saved_tensors[:2]
+                x = turbo.dequantize_signed(
+                    x_q, x_scales, num_bits=ctx.num_bits)
+
             wgrad = kernels.padded_scatter_wgrad(
                 x,
                 grad,
@@ -53,7 +59,7 @@ class PaddedScatterOp(torch.autograd.Function):
                 bins,
                 padded_bins,
                 ctx.top_k)
-        return out, None, None, wgrad, None, None, None, None
+        return dgrad, None, None, wgrad, None, None, None, None
 
 
 # wrap apply so that num_bits is optional and defaults to no quantization
