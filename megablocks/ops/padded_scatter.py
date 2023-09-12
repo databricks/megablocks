@@ -10,13 +10,14 @@ class PaddedScatterOp(torch.autograd.Function):
     @custom_fwd
     def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k,
                 num_bits):
-        saved_x = x if (weights is not None and weights.requires_grad) else None
+        saved_x = x if (weights is not None and ctx.needs_input_grad[3]) else None
         if saved_x is None:
             save_inputs = []
         elif num_bits == -1:
             save_inputs = (saved_x,)
         else:
-            save_inputs = turbo.quantize_signed(saved_x, num_bits=num_bits)
+            x_q, x_scales = turbo.quantize_signed(saved_x, num_bits=num_bits)
+            save_inputs = (x_q, x_scales)
 
         ctx.save_for_backward(
             *save_inputs, indices, bin_ids, weights, bins, padded_bins)
