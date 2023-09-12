@@ -22,7 +22,7 @@ ext_modules = [
 
 install_requires=[
     'stanford-stk @ git+https://github.com/stanford-futuredata/stk.git@main',
-    'mosaicml-turbo==0.0.3',
+    'mosaicml-turbo==0.0.4',
 ]
 
 extra_deps = {}
