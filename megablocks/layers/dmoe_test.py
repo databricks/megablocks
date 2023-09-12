@@ -14,7 +14,9 @@ def test_modules(
         ffn_hidden_size,
         moe_num_experts=1,
         moe_capacity_factor=1,
-        moe_top_k=1):
+        moe_top_k=1,
+        num_input_bits=-1,
+        num_remat_bits=-1):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,
@@ -22,7 +24,10 @@ def test_modules(
         moe_num_experts=moe_num_experts,
         moe_capacity_factor=moe_capacity_factor,
         moe_top_k=moe_top_k,
-        init_method=init_method)
+        init_method=init_method,
+        memory_optimized_mlp=True,
+        quantize_inputs_num_bits=num_input_bits,
+        quantize_rematerialize_num_bits=num_remat_bits)
 
     mlp = testing.FFN(args)
     moe_mlp = moe.MoE(args)
@@ -86,14 +91,16 @@ class dMoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_Forward(self, bs, sl, hs, num_experts, top_k,
-                         input_num_bits=-1, remat_num_bits=-1):
+                         num_input_bits=-1, num_remat_bits=-1):
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, _, _, layer = test_modules(
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
-            moe_top_k=top_k)
+            moe_top_k=top_k,
+            num_input_bits=num_input_bits,
+            num_remat_bits=num_remat_bits)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -101,7 +108,7 @@ class dMoETest(parameterized.TestCase):
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardBackward(
             self, bs, sl, hs, num_experts, top_k,
-            input_num_bits=-1, remat_num_bits=-1):
+            num_input_bits=-1, num_remat_bits=-1):
         x = torch.randn(sl, bs, hs).half().cuda()
         x.requires_grad_(True)
 
@@ -109,7 +116,9 @@ class dMoETest(parameterized.TestCase):
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
-            moe_top_k=top_k)
+            moe_top_k=top_k,
+            num_input_bits=num_input_bits,
+            num_remat_bits=num_remat_bits)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -136,7 +145,10 @@ class dMoETest(parameterized.TestCase):
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardVersusMoE(
             self, bs, sl, hs, num_experts, top_k,
-            input_num_bits=-1, remat_num_bits=-1):
+            num_input_bits=-1, num_remat_bits=-1):
+        if num_input_bits > 0 or num_remat_bits > 0:
+            return
+
         x = torch.randn(sl, bs, hs).half().cuda()
 
         _, _, moe_mlp, dmoe_mlp = test_modules(
@@ -149,7 +161,7 @@ class dMoETest(parameterized.TestCase):
         out, _ = dmoe_mlp(x)
         self.assertSequenceEqual(out.shape, x.shape)
         self.assertSequenceEqual(expected_out.shape, x.shape)
-        if remat_num_bits == -1:
+        if num_remat_bits == -1:
             self.assertTrue(testing.allclose(out, expected_out))
 
 

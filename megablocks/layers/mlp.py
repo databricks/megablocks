@@ -179,7 +179,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # GeLU.
         if num_remat_bits == -1:
             gelu_out = gelu.gelu(sdd_out)
-            input_save_args += (sdd_out.data)
+            input_save_args += (sdd_out.data,)
         else:
             # fused GELU into sdd_out buffer while quantizing input
             hidden_q, hidden_scales, gelu_out_data = turbo.quantize_signed(
@@ -198,6 +198,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         ctx.shape = topo.shape
         ctx.num_input_bits = num_input_bits
         ctx.num_remat_bits = num_remat_bits
+        ctx.x_shape = x.shape
+        ctx.sdd_out_shape = sdd_out.data.shape
         ctx.dtype = x.dtype
         ctx.save_for_backward(*input_save_args, w1, w2, *topo_tensors)
         return dsd_out
@@ -213,7 +215,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # unpack saved tensors; ugly because quantizing changes tensor count
         dtype = ctx.dtype
         topo_tensors = ctx.saved_tensors[-6:]
-        w1, w2 = saved_tensors[-8:-6]
+        w1, w2 = ctx.saved_tensors[-8:-6]
         saved_tensors = ctx.saved_tensors
         if ctx.num_input_bits == -1:
             x = saved_tensors[0]
@@ -233,7 +235,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         else:
             gelu_out_tensor = turbo.dequantize_signed(
                 hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_FORWARD, out_dtype=dtype)
+                op=turbo.ElemwiseOps.GELU_FORWARD,
+                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
             gelu_out = stk.Matrix(ctx.shape, gelu_out_tensor, *topo_tensors)
 
         # Compute dw2 with recomputed gelu output.
@@ -267,7 +270,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # rematerialize MLP input now that we need it
         if ctx.num_input_bits != -1:
             x = turbo.dequantize_signed(
-                x_q, x_scales, num_bits=num_bits, out_dtype=dtype)
+                x_q, x_scales, num_bits=ctx.num_input_bits,
+                out_dtype=dtype, out_shape=ctx.x_shape)
 
         # Compute dw1.
         dw1 = stk.ops.dsd(dsdd_out.t(), x)
