@@ -10,7 +10,7 @@ class PaddedScatterOp(torch.autograd.Function):
     @custom_fwd
     def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k,
                 num_bits):
-        saved_x = x if (weights is not None and ctx.needs_input_grad[3]) else None
+        saved_x = x if ctx.needs_input_grad[3] else None
         if saved_x is None:
             save_inputs = []
         elif num_bits == -1:
@@ -49,6 +49,7 @@ class PaddedScatterOp(torch.autograd.Function):
             if ctx.num_bits == -1:
                 x = ctx.saved_tensors[0]
             else:
+                assert len(ctx.saved_tensors) == 7, f'Actual saved tensor count, shapes, dtypes: {len(ctx.saved_tensors)}, {[t.shape for t in ctx.saved_tensors]}, {[t.dtype for t in ctx.saved_tensors]}'
                 x_q, x_scales = ctx.saved_tensors[:2]
                 x = turbo.dequantize_signed(
                     x_q, x_scales, num_bits=ctx.num_bits, out_shape=ctx.x_shape)
