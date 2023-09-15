@@ -147,8 +147,8 @@ class dMoETest(parameterized.TestCase):
             self, bs, sl, hs, num_experts, top_k,
             num_input_bits=-1, num_remat_bits=-1):
         if num_input_bits > 0:
-            # quantizing input doesn't affect this test; quantizing the
-            # hidden activations *slightly* does
+            # quantizing input doesn't affect this test, so just skip configs
+            # that do this to avoid testing redundant cases
             return
         torch.manual_seed(42)
 

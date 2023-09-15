@@ -49,15 +49,6 @@ class PaddedScatterOp(torch.autograd.Function):
             if ctx.num_bits == -1:  # input saved without quantization
                 x = ctx.saved_tensors[-1]
             else:  # dequantize input
-                if len(ctx.saved_tensors) != 7:
-                    # handle transient error that's probably fixed, but I can't
-                    # be sure since I could never repro it
-                    raise AssertionError(
-                        'Programming error! Forward and backward disagree ' +
-                        'on whether weights need a gradient. Saved tensor ' +
-                        f'count, shapes, dtypes: {len(ctx.saved_tensors)}, ' +
-                        f'{[t.shape for t in ctx.saved_tensors]}, ' +
-                        f'{[t.dtype for t in ctx.saved_tensors]}')
                 x_q, x_scales = ctx.saved_tensors[-2:]
                 x = turbo.dequantize_signed(
                     x_q, x_scales, num_bits=ctx.num_bits, out_shape=ctx.x_shape)
