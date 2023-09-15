@@ -50,7 +50,7 @@ def test_modules(
     return args, mlp, moe_mlp, dmoe_mlp
 
 # min size: (1, 2, 128, 2, 1)
-_FORWARD_TESTS = (
+_FORWARD_TESTS_NO_QUANTIZE = (
     (16, 1024, 512, 1, 1),
     (16, 1024, 512, 2, 1),
     (16, 1024, 512, 4, 1),
@@ -64,17 +64,29 @@ _FORWARD_TESTS = (
     (16, 1024, 512, 8, 2),
     (16, 1024, 512, 8, 4),
     (16, 1024, 512, 8, 8),
-    # quantization tests; assorted small sizes, systematic bitwidths
+)
+
+# quantization tests; assorted small sizes, systematic bitwidths
+_FORWARD_TESTS_QUANTIZE_HIDDEN = (
     (1, 2, 128, 2, 2, -1, -1),
     (1, 8, 128, 2, 2, -1, 4),
     (2, 8, 128, 2, 1, -1, 8),
+)
+_FORWARD_TESTS_QUANTIZE_INPUT = (
     (1, 2, 128, 2, 1, 4, -1),
+    (2, 8, 128, 4, 1, 8, -1),
+)
+_FORWARD_TESTS_QUANTIZE_BOTH = (
     (2, 2, 128, 2, 2, 4, 4),
     (1, 8, 128, 4, 2, 4, 8),
-    (2, 8, 128, 4, 1, 8, -1),
     (1, 2, 128, 4, 2, 8, 4),
     (2, 2, 128, 4, 2, 8, 8),
 )
+
+_FORWARD_TESTS = (_FORWARD_TESTS_NO_QUANTIZE +
+                  _FORWARD_TESTS_QUANTIZE_HIDDEN +
+                  _FORWARD_TESTS_QUANTIZE_INPUT +
+                  _FORWARD_TESTS_QUANTIZE_BOTH)
 
 
 _DENSE_TESTS = (
@@ -142,14 +154,13 @@ class dMoETest(parameterized.TestCase):
         self.assertSequenceEqual(expected_out.shape, x.shape)
         self.assertTrue(testing.allclose(out, expected_out))
 
-    @parameterized.parameters(*_FORWARD_TESTS)
+    # we don't run the input quantization cases just to avoid redundancy,
+    # since input quantization doesn't affect any of these asserts
+    @parameterized.parameters(*_FORWARD_TESTS_NO_QUANTIZE,
+                              *_FORWARD_TESTS_QUANTIZE_HIDDEN)
     def testdMoE_ForwardVersusMoE(
             self, bs, sl, hs, num_experts, top_k,
             num_input_bits=-1, num_remat_bits=-1):
-        if num_input_bits > 0:
-            # quantizing input doesn't affect this test, so just skip configs
-            # that do this to avoid testing redundant cases
-            return
         torch.manual_seed(42)
 
         x = torch.randn(sl, bs, hs).half().cuda()
