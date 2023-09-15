@@ -20,7 +20,7 @@ class PaddedScatterOp(torch.autograd.Function):
             save_inputs = (x_q, x_scales)
 
         ctx.save_for_backward(
-            *save_inputs, indices, bin_ids, weights, bins, padded_bins)
+            indices, bin_ids, weights, bins, padded_bins, *save_inputs)
         ctx.top_k = top_k
         ctx.x_shape = x.shape
         ctx.num_bits = num_bits
@@ -32,7 +32,7 @@ class PaddedScatterOp(torch.autograd.Function):
     def backward(ctx, grad):
         grad = grad.contiguous()
 
-        indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors[-5:]
+        indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors[:5]
         dgrad = None
         if ctx.needs_input_grad[0]:
             dgrad = kernels.padded_gather(
@@ -46,9 +46,9 @@ class PaddedScatterOp(torch.autograd.Function):
 
         wgrad = None
         if ctx.needs_input_grad[3]:  # need wgrad
-            if ctx.num_bits == -1:
-                x = ctx.saved_tensors[0]
-            else:
+            if ctx.num_bits == -1:  # input saved without quantization
+                x = ctx.saved_tensors[-1]
+            else:  # dequantize input
                 if len(ctx.saved_tensors) != 7:
                     # handle transient error that's probably fixed, but I can't
                     # be sure since I could never repro it
@@ -58,7 +58,7 @@ class PaddedScatterOp(torch.autograd.Function):
                         f'count, shapes, dtypes: {len(ctx.saved_tensors)}, ' +
                         f'{[t.shape for t in ctx.saved_tensors]}, ' +
                         f'{[t.dtype for t in ctx.saved_tensors]}')
-                x_q, x_scales = ctx.saved_tensors[:2]
+                x_q, x_scales = ctx.saved_tensors[-2:]
                 x = turbo.dequantize_signed(
                     x_q, x_scales, num_bits=ctx.num_bits, out_shape=ctx.x_shape)
 

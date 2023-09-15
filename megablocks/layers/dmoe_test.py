@@ -146,8 +146,11 @@ class dMoETest(parameterized.TestCase):
     def testdMoE_ForwardVersusMoE(
             self, bs, sl, hs, num_experts, top_k,
             num_input_bits=-1, num_remat_bits=-1):
-        if num_input_bits > 0 or num_remat_bits > 0:
+        if num_input_bits > 0:
+            # quantizing input doesn't affect this test; quantizing the
+            # hidden activations *slightly* does
             return
+        torch.manual_seed(42)
 
         x = torch.randn(sl, bs, hs).half().cuda()
 
@@ -161,8 +164,7 @@ class dMoETest(parameterized.TestCase):
         out, _ = dmoe_mlp(x)
         self.assertSequenceEqual(out.shape, x.shape)
         self.assertSequenceEqual(expected_out.shape, x.shape)
-        if num_remat_bits == -1:
-            self.assertTrue(testing.allclose(out, expected_out))
+        self.assertTrue(testing.allclose(out, expected_out))
 
 
 if __name__ == '__main__':

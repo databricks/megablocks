@@ -201,7 +201,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         ctx.x_shape = x.shape
         ctx.sdd_out_shape = sdd_out.data.shape
         ctx.dtype = x.dtype
-        ctx.save_for_backward(*input_save_args, w1, w2, *topo_tensors)
+        ctx.save_for_backward(w1, w2, *topo_tensors, *input_save_args)
         return dsd_out
 
     @staticmethod
@@ -213,20 +213,20 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # unpack saved tensors; ugly because quantizing changes tensor count
+        #
         dtype = ctx.dtype
-        topo_tensors = ctx.saved_tensors[-6:]
-        w1, w2 = ctx.saved_tensors[-8:-6]
-        saved_tensors = ctx.saved_tensors
+        w1, w2 = ctx.saved_tensors[:2]
+        topo_tensors = ctx.saved_tensors[2:8]
+        # either 1 or 2 tensors for MLP input after the always-present tensors
         if ctx.num_input_bits == -1:
-            x = saved_tensors[0]
-            saved_tensors = saved_tensors[1:]
+            x = ctx.saved_tensors[8]
         else:
-            x_q, x_scales = ctx.saved_tensors[:2]
-            saved_tensors = saved_tensors[2:]
+            x_q, x_scales = ctx.saved_tensors[8:10]
+        # either 1 or 2 tensors at the end for saved GELU input / sdd output
         if ctx.num_remat_bits == -1:
-            sdd_out_data = saved_tensors[0]
+            sdd_out_data = ctx.saved_tensors[-1]
         else:
-            hidden_q, hidden_scales = saved_tensors[:2]
+            hidden_q, hidden_scales = ctx.saved_tensors[-2:]
 
         # rematerialize gelu output
         if ctx.num_remat_bits == -1:

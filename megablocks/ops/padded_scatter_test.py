@@ -116,7 +116,7 @@ class PaddedScatterTest(parameterized.TestCase):
         expected_out = padded_scatter(
             x, indices, bin_ids, weights, bins, padded_bins, top_k)
 
-        out.backward(torch.randn_like(out)) # sanity check that backward pass
+        out.backward(torch.randn_like(out)) # sanity check backward pass
 
         # NOTE: We need to check approximate equality because the
         # scatter reduce uses atomics.
