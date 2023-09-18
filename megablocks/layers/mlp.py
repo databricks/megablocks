@@ -6,6 +6,7 @@ from megablocks.layers.arguments import Arguments, InitFn
 import stk
 import torch
 import torch.nn.functional as F
+import turbo
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -153,17 +154,39 @@ class MemoryOptimizedMLP(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, w1, w2, topo):
+    def forward(ctx, x, w1, w2, topo, num_input_bits, num_remat_bits):
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
+        topo_tensors = (topo.row_indices,
+                        topo.column_indices,
+                        topo.offsets,
+                        topo.column_indices_t,
+                        topo.offsets_t,
+                        topo.block_offsets_t)
+
         # Layer 0: x @ w1.t().
         sdd_out = stk.ops.sdd(x, w1.t(), topo)
 
+        # save input tensor, quantizing if needed
+        input_save_args = (x,)
+        if num_input_bits != -1:
+            x_q, x_scales = turbo.quantize_signed(x, num_bits=num_input_bits)
+            input_save_args = (x_q, x_scales)
+
         # GeLU.
-        gelu_out = gelu.gelu(sdd_out)
+        if num_remat_bits == -1:
+            gelu_out = gelu.gelu(sdd_out)
+            input_save_args += (sdd_out.data,)
+        else:
+            # fused GELU into sdd_out buffer while quantizing input
+            hidden_q, hidden_scales, gelu_out_data = turbo.quantize_signed(
+                sdd_out.data, num_bits=num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out.data)
+            gelu_out = sdd_out
+            input_save_args += (hidden_q, hidden_scales)
 
         # Layer 1: x @ w2.
         dsd_out = stk.ops.dsd(gelu_out, w2)
@@ -173,29 +196,50 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # pass in the backward pass to avoid materializing another
         # intermediate.
         ctx.shape = topo.shape
-        ctx.save_for_backward(
-            x, w1, w2, sdd_out.data,
-            topo.row_indices,
-            topo.column_indices,
-            topo.offsets,
-            topo.column_indices_t,
-            topo.offsets_t,
-            topo.block_offsets_t)
+        ctx.num_input_bits = num_input_bits
+        ctx.num_remat_bits = num_remat_bits
+        ctx.x_shape = x.shape
+        ctx.sdd_out_shape = sdd_out.data.shape
+        ctx.dtype = x.dtype
+        ctx.save_for_backward(w1, w2, *topo_tensors, *input_save_args)
         return dsd_out
 
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        x, w1, w2 = ctx.saved_tensors[:3]
-        sdd_out = stk.Matrix(ctx.shape, *ctx.saved_tensors[3:])
-
         if (not ctx.needs_input_grad[0] or
             not ctx.needs_input_grad[1] or
             not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
+        # unpack saved tensors; ugly because quantizing changes tensor count
+        #
+        dtype = ctx.dtype
+        w1, w2 = ctx.saved_tensors[:2]
+        topo_tensors = ctx.saved_tensors[2:8]
+        # either 1 or 2 tensors for MLP input after the always-present tensors
+        if ctx.num_input_bits == -1:
+            x = ctx.saved_tensors[8]
+        else:
+            x_q, x_scales = ctx.saved_tensors[8:10]
+        # either 1 or 2 tensors at the end for saved GELU input / sdd output
+        if ctx.num_remat_bits == -1:
+            sdd_out_data = ctx.saved_tensors[-1]
+        else:
+            hidden_q, hidden_scales = ctx.saved_tensors[-2:]
+
+        # rematerialize gelu output
+        if ctx.num_remat_bits == -1:
+            sdd_out = stk.Matrix(ctx.shape, sdd_out_data, *topo_tensors)
+            gelu_out = gelu.gelu(sdd_out)
+        else:
+            gelu_out_tensor = turbo.dequantize_signed(
+                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD,
+                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
+            gelu_out = stk.Matrix(ctx.shape, gelu_out_tensor, *topo_tensors)
+
         # Compute dw2 with recomputed gelu output.
-        gelu_out = gelu.gelu(sdd_out)
         dw2 = stk.ops.dsd(gelu_out.t(), ddsd_out)
 
         # Compute dgelu_out.
@@ -203,17 +247,31 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # NOTE: We reuse the gelu_out allocation.
         stk.backend.triton_kernels.sdd(
             ddsd_out, w2.t(),
-            sdd_out.shape,
+            gelu_out.shape,
             gelu_out.data,
-            sdd_out.offsets,
-            sdd_out.row_indices,
-            sdd_out.column_indices)
+            gelu_out.offsets,
+            gelu_out.row_indices,
+            gelu_out.column_indices)
         dgelu_out = gelu_out
 
         # Compute dsdd_out.
         #
         # NOTE: This reuses the dgelu_out allocation.
-        dsdd_out = gelu.gelu_backward_(dgelu_out, sdd_out)
+        if ctx.num_remat_bits == -1:
+            dsdd_out = gelu.gelu_backward_(dgelu_out, sdd_out)
+        else:
+            # confusingly, x_out is interpreted as the gradient to overwrite
+            # in-place when the elemwise op is a backwards op
+            ddsd_out_tensor = turbo.dequantize_signed(
+                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dgelu_out.data)
+            dsdd_out = stk.Matrix(ctx.shape, ddsd_out_tensor, *topo_tensors)
+
+        # rematerialize MLP input now that we need it
+        if ctx.num_input_bits != -1:
+            x = turbo.dequantize_signed(
+                x_q, x_scales, num_bits=ctx.num_input_bits,
+                out_dtype=dtype, out_shape=ctx.x_shape)
 
         # Compute dw1.
         dw1 = stk.ops.dsd(dsdd_out.t(), x)
@@ -234,7 +292,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1,
             ddsd_out)
         dx = ddsd_out
-        return dx, dw1, dw2, None
+        return dx, dw1, dw2, None, None, None
 
 memory_optimized_mlp = MemoryOptimizedMLP.apply
 
@@ -308,7 +366,9 @@ class SparseMLP(torch.nn.Module):
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
         elif self.args.memory_optimized_mlp:
-            return memory_optimized_mlp(x, w1, w2, topo)
+            return memory_optimized_mlp(
+                x, w1, w2, topo, self.args.quantize_inputs_num_bits,
+                self.args.quantize_rematerialize_num_bits)
 
         # Compute the MLP.
         x = stk.ops.sdd(x, w1.t(), topo)

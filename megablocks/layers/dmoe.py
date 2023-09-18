@@ -162,7 +162,8 @@ class dMoE(moe.MoE):
             expert_weights,
             bins,
             padded_bins,
-            self.top_k)
+            self.top_k,
+            self.args.quantize_scatter_num_bits)
         return x, tokens_per_expert
 
     # For use in the base-class parallel_forward_once.

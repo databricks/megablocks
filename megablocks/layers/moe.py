@@ -410,7 +410,8 @@ class MoE(torch.nn.Module):
             expert_weights,
             bins,
             bins,
-            self.top_k)
+            self.top_k,
+            self.args.quantize_scatter_num_bits)
         return x, tokens_per_expert.flatten()
 
     def forward(self, x):

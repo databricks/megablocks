@@ -6,6 +6,8 @@ from typing import Callable, Optional
 # Type annotation for in-place Tensor initialization function.
 InitFn = Callable[[torch.Tensor], None]
 
+_ALLOWED_BITWIDTHS = (-1, 4, 8)
+
 
 @dataclasses.dataclass
 class Arguments:
@@ -32,6 +34,9 @@ class Arguments:
 
     # Compute arguments.
     memory_optimized_mlp : bool = False
+    quantize_inputs_num_bits: int = -1  # -1 = no quantization
+    quantize_rematerialize_num_bits: int = -1
+    quantize_scatter_num_bits: int = -1
 
     # Initialization arguments.
     fp16 : bool = True
@@ -42,6 +47,15 @@ class Arguments:
 
     # Benchmarking arguments.
     uniform_expert_assignment : bool = False
+
+    def __post_init__(self):
+        for attr in ('quantize_inputs_num_bits',
+                     'quantize_rematerialize_num_bits',
+                     'quantize_scatter_num_bits'):
+            nbits = self.__getattribute__(attr)
+            if nbits not in _ALLOWED_BITWIDTHS:
+                raise ValueError(f'{attr} must be one of ' +
+                                 f'{_ALLOWED_BITWIDTHS}; got {nbits}')
 
 
 def from_megatron(megatron_args):
