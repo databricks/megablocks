@@ -82,7 +82,7 @@ class MatmulBenchmark(parameterized.TestCase):
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)
         padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
-        out = ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+        out = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, 1)
         return out, padded_bins
 
     def build_weight_matrix(self, ne, hs, fhs):
