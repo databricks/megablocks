@@ -1,7 +1,8 @@
 import torch
 from megablocks.backend import kernels
+from megablocks import turbo_util as turbo
 from stk.backend.autocast import custom_fwd, custom_bwd
-import turbo
+
 
 # Autograd wrapper for padded_scatter kernel.
 class PaddedScatterOp(torch.autograd.Function):

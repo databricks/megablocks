@@ -3,10 +3,10 @@ from megablocks.layers import gelu
 from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn
+from megablocks import turbo_util as turbo
 import stk
 import torch
 import torch.nn.functional as F
-import turbo
 
 
 class ScaleGradient(torch.autograd.Function):

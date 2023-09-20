@@ -1,6 +1,7 @@
 import unittest
 
 from absl.testing import parameterized
+from grouped_gemm import ops as gg
 from megablocks import benchmark_util
 from megablocks import ops
 import stk
@@ -13,6 +14,14 @@ import torch
 def transpose_view(x):
     return torch.as_strided(
         x, (x.shape[1], x.shape[0]), (x.stride()[1], x.stride()[0]))
+
+
+def bmm(a, b):
+    bs, rows, cols = a.shape
+    batch_sizes = torch.tensor([rows] * bs)
+    out = gg.grouped_gemm(a.view(-1, cols), b, batch_sizes)
+    return out.view(bs, rows, -1)
+
 
 
 _MATMUL_TESTS = (
@@ -88,57 +97,57 @@ class MatmulBenchmark(parameterized.TestCase):
     def build_weight_matrix(self, ne, hs, fhs):
         return torch.randn((hs, ne * fhs)).cuda().half()
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear0_Fwd_SDD_NT(self, sl, hs, fhs, ne):
-        x, padded_bins = self.build_input_matrix(sl, hs, ne)
-        w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
-        topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
-        w = transpose_view(w)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear0_Fwd_SDD_NT(self, sl, hs, fhs, ne):
+    #     x, padded_bins = self.build_input_matrix(sl, hs, ne)
+    #     w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
+    #     topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
+    #     w = transpose_view(w)
 
-        benchmark = lambda: stk.ops.sdd(x, w, topo)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("0::Fwd::SDD::NT", arguments, mean_t, std_t,
-                      x.numel() * fhs * 2)
+    #     benchmark = lambda: stk.ops.sdd(x, w, topo)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("0::Fwd::SDD::NT", arguments, mean_t, std_t,
+    #                   x.numel() * fhs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear0_GradX_DSD_NN(self, sl, hs, fhs, ne):
-        x, padded_bins = self.build_input_matrix(sl, hs, ne)
-        w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
-        topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear0_GradX_DSD_NN(self, sl, hs, fhs, ne):
+    #     x, padded_bins = self.build_input_matrix(sl, hs, ne)
+    #     w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
+    #     topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
 
-        benchmark = lambda: stk.ops.dsd(topo, w)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("0::GradX::DSD::NN", arguments, mean_t, std_t,
-                      x.numel() * fhs * 2)
+    #     benchmark = lambda: stk.ops.dsd(topo, w)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("0::GradX::DSD::NN", arguments, mean_t, std_t,
+    #                   x.numel() * fhs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear0_GradW_DSD_TN(self, sl, hs, fhs, ne):
-        x, padded_bins = self.build_input_matrix(sl, hs, ne)
-        topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
-        topo = topo.t()
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear0_GradW_DSD_TN(self, sl, hs, fhs, ne):
+    #     x, padded_bins = self.build_input_matrix(sl, hs, ne)
+    #     topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
+    #     topo = topo.t()
 
-        benchmark = lambda: stk.ops.dsd(topo, x)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("0::GradW::DSD::TN", arguments, mean_t, std_t,
-                      x.numel() * fhs * 2)
+    #     benchmark = lambda: stk.ops.dsd(topo, x)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("0::GradW::DSD::TN", arguments, mean_t, std_t,
+    #                   x.numel() * fhs * 2)
 
     @parameterized.parameters(*_MATMUL_TESTS)
     def testFFN_Linear1_Fwd_DSD_NN(self, sl, hs, fhs, ne):
@@ -157,101 +166,101 @@ class MatmulBenchmark(parameterized.TestCase):
         log_benchmark("1::Fwd::DSD::NN", arguments, mean_t, std_t,
                       x.nnz * hs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear1_GradX_SDD_NT(self, sl, hs, fhs, ne):
-        x, padded_bins = self.build_input_matrix(sl, hs, ne)
-        w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
-        x = self.build_sparse_matrix(x, padded_bins, fhs, ne)
-        out = stk.ops.dsd(x, w)
-        w = transpose_view(w)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear1_GradX_SDD_NT(self, sl, hs, fhs, ne):
+    #     x, padded_bins = self.build_input_matrix(sl, hs, ne)
+    #     w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
+    #     x = self.build_sparse_matrix(x, padded_bins, fhs, ne)
+    #     out = stk.ops.dsd(x, w)
+    #     w = transpose_view(w)
 
-        benchmark = lambda: stk.ops.sdd(out, w, x)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("1::GradX::SDD::NT", arguments, mean_t, std_t,
-                      x.nnz * hs * 2)
+    #     benchmark = lambda: stk.ops.sdd(out, w, x)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("1::GradX::SDD::NT", arguments, mean_t, std_t,
+    #                   x.nnz * hs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear1_GradW_DSD_TN(self, sl, hs, fhs, ne):
-        x, padded_bins = self.build_input_matrix(sl, hs, ne)
-        w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
-        x = self.build_sparse_matrix(x, padded_bins, fhs, ne)
-        out = stk.ops.dsd(x, w)
-        x = x.t()
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear1_GradW_DSD_TN(self, sl, hs, fhs, ne):
+    #     x, padded_bins = self.build_input_matrix(sl, hs, ne)
+    #     w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
+    #     x = self.build_sparse_matrix(x, padded_bins, fhs, ne)
+    #     out = stk.ops.dsd(x, w)
+    #     x = x.t()
 
-        benchmark = lambda: stk.ops.dsd(x, out)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("1::GradW::DSD::TN", arguments, mean_t, std_t,
-                      x.nnz * hs * 2)
+    #     benchmark = lambda: stk.ops.dsd(x, out)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("1::GradW::DSD::TN", arguments, mean_t, std_t,
+    #                   x.nnz * hs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear0_Fwd_DDD_NT(self, sl, hs, fhs, ne):
-        assert (sl % ne) == 0
-        x = torch.randn((ne, sl // ne, hs)).cuda().half()
-        w = torch.randn((ne, hs, fhs)).cuda().half()
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear0_Fwd_DDD_NT(self, sl, hs, fhs, ne):
+    #     assert (sl % ne) == 0
+    #     x = torch.randn((ne, sl // ne, hs)).cuda().half()
+    #     w = torch.randn((ne, hs, fhs)).cuda().half()
 
-        w = w.transpose(1, 2).contiguous()
-        w = w.transpose(1, 2)
-        
-        benchmark = lambda: torch.bmm(x, w)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("0::Fwd:DDD::NT", arguments, mean_t, std_t,
-                      x.numel() * fhs * 2)
+    #     w = w.transpose(1, 2).contiguous()
+    #     w = w.transpose(1, 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear0_GradX_DDD_NN(self, sl, hs, fhs, ne):
-        assert (sl % ne) == 0
-        x = torch.randn((ne, sl // ne, hs)).cuda().half()
-        w = torch.randn((ne, hs, fhs)).cuda().half()
-        out = torch.bmm(x, w)
-        w = w.transpose(1, 2).contiguous()
+    #     benchmark = lambda: torch.bmm(x, w)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("0::Fwd:DDD::NT", arguments, mean_t, std_t,
+    #                   x.numel() * fhs * 2)
 
-        benchmark = lambda: torch.bmm(out, w)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("0:GradX:DDD::NN", arguments, mean_t, std_t,
-                      x.numel() * fhs * 2)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear0_GradX_DDD_NN(self, sl, hs, fhs, ne):
+    #     assert (sl % ne) == 0
+    #     x = torch.randn((ne, sl // ne, hs)).cuda().half()
+    #     w = torch.randn((ne, hs, fhs)).cuda().half()
+    #     out = torch.bmm(x, w)
+    #     w = w.transpose(1, 2).contiguous()
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear0_GradW_DDD_TN(self, sl, hs, fhs, ne):
-        assert (sl % ne) == 0
-        x = torch.randn((ne, sl // ne, hs)).cuda().half()
-        w = torch.randn((ne, hs, fhs)).cuda().half()
-        out = torch.bmm(x, w)
-        out = out.transpose(1, 2)
+    #     benchmark = lambda: torch.bmm(out, w)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("0:GradX:DDD::NN", arguments, mean_t, std_t,
+    #                   x.numel() * fhs * 2)
 
-        benchmark = lambda: torch.bmm(out, x)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("0:GradW:DDD::TN", arguments, mean_t, std_t,
-                      x.numel() * fhs * 2)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear0_GradW_DDD_TN(self, sl, hs, fhs, ne):
+    #     assert (sl % ne) == 0
+    #     x = torch.randn((ne, sl // ne, hs)).cuda().half()
+    #     w = torch.randn((ne, hs, fhs)).cuda().half()
+    #     out = torch.bmm(x, w)
+    #     out = out.transpose(1, 2)
+
+    #     benchmark = lambda: torch.bmm(out, x)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("0:GradW:DDD::TN", arguments, mean_t, std_t,
+    #                   x.numel() * fhs * 2)
 
     @parameterized.parameters(*_MATMUL_TESTS)
     def testFFN_Linear1_Fwd_DDD_NN(self, sl, hs, fhs, ne):
@@ -259,7 +268,10 @@ class MatmulBenchmark(parameterized.TestCase):
         x = torch.randn((ne, sl // ne, fhs)).cuda().half()
         w = torch.randn((ne, fhs, hs)).cuda().half()
 
-        benchmark = lambda: torch.bmm(x, w)
+        x = x.to(torch.bfloat16)
+        w = w.to(torch.bfloat16)
+
+        benchmark = lambda: bmm(x, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -270,43 +282,43 @@ class MatmulBenchmark(parameterized.TestCase):
         log_benchmark("1::Fwd::DDD::NN", arguments, mean_t, std_t,
                       x.numel() * hs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear1_GradX_DDD_NT(self, sl, hs, fhs, ne):
-        assert (sl % ne) == 0
-        x = torch.randn((ne, sl // ne, fhs)).cuda().half()
-        w = torch.randn((ne, fhs, hs)).cuda().half()
-        out = torch.bmm(x, w)
-        w = torch.transpose(w, 1, 2)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear1_GradX_DDD_NT(self, sl, hs, fhs, ne):
+    #     assert (sl % ne) == 0
+    #     x = torch.randn((ne, sl // ne, fhs)).cuda().half()
+    #     w = torch.randn((ne, fhs, hs)).cuda().half()
+    #     out = torch.bmm(x, w)
+    #     w = torch.transpose(w, 1, 2)
 
-        benchmark = lambda: torch.bmm(out, w)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("1::GradX::DDD::NT", arguments, mean_t, std_t,
-                      x.numel() * hs * 2)
+    #     benchmark = lambda: torch.bmm(out, w)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("1::GradX::DDD::NT", arguments, mean_t, std_t,
+    #                   x.numel() * hs * 2)
 
-    @parameterized.parameters(*_MATMUL_TESTS)
-    def testFFN_Linear1_GradW_DDD_TN(self, sl, hs, fhs, ne):
-        assert (sl % ne) == 0
-        x = torch.randn((ne, sl // ne, fhs)).cuda().half()
-        w = torch.randn((ne, fhs, hs)).cuda().half()
-        out = torch.bmm(x, w)
-        x = torch.transpose(x, 1, 2)
+    # @parameterized.parameters(*_MATMUL_TESTS)
+    # def testFFN_Linear1_GradW_DDD_TN(self, sl, hs, fhs, ne):
+    #     assert (sl % ne) == 0
+    #     x = torch.randn((ne, sl // ne, fhs)).cuda().half()
+    #     w = torch.randn((ne, fhs, hs)).cuda().half()
+    #     out = torch.bmm(x, w)
+    #     x = torch.transpose(x, 1, 2)
 
-        benchmark = lambda: torch.bmm(x, out)
-        mean_t, std_t = benchmark_util.benchmark_function(benchmark)
-        arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne
-        }
-        log_benchmark("1::GradW::DDD::TN", arguments, mean_t, std_t,
-                      x.numel() * hs * 2)
+    #     benchmark = lambda: torch.bmm(x, out)
+    #     mean_t, std_t = benchmark_util.benchmark_function(benchmark)
+    #     arguments = {
+    #         "sequence_length": sl,
+    #         "hidden_size": hs,
+    #         "ffn_hidden_size": fhs,
+    #         "num_experts": ne
+    #     }
+    #     log_benchmark("1::GradW::DDD::TN", arguments, mean_t, std_t,
+    #                   x.numel() * hs * 2)
 
 
 if __name__ == '__main__':
