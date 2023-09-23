@@ -135,6 +135,40 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     return out
 
 
+def gather(x, indices, bin_ids, weights, bins, top_k):
+    # Validate the input shapes.
+    assert_is_matrix(x)
+    assert_is_vector(indices)
+    assert_is_vector(bin_ids)
+    assert_is_vector(bins)
+    assert_equal(indices.shape[0], x.shape[0] * top_k)
+    assert_equal(bin_ids.shape[0], x.shape[0] * top_k)
+
+    if weights is not None:
+        assert_equal(weights.shape[0], x.shape[0] * top_k)
+
+    # NOTE: There is no padding so the output rows equals the
+    # input rows multiplied by top_k.
+    output_rows = x.shape[0] * top_k
+    out = torch.zeros(
+        (output_rows, x.shape[1]),
+        dtype=x.dtype,
+        device=x.device)
+    _padded_copy[(indices.shape[0],)](
+        x,
+        out,
+        indices,
+        bin_ids,
+        weights,
+        bins,
+        bins,
+        NUM_COLUMNS=x.shape[1],
+        A_TO_B=True,
+        TOP_K=top_k,
+        SCALE=weights is not None)
+    return out
+
+
 def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     # Validate the input shapes.
     assert_is_matrix(x)
@@ -168,6 +202,10 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
 
     # Reduce along the top-k dimension, if needed.
     return out.sum(dim=1) if top_k > 1 else out.view(tokens, x.shape[1])
+
+
+def scatter(x, indices, bin_ids, weights, bins, top_k):
+    return padded_scatter(x, indices, bin_ids, weights, bins, bins, top_k)
 
 
 # x: (tokens, top_k, hidden_size), real
@@ -265,6 +303,10 @@ def padded_scatter_wgrad(x, grad, indices, bin_ids, bins, padded_bins, top_k):
         NUM_COLUMNS=x.shape[1],
         TOP_K=top_k)
     return out
+
+
+def scatter_wgrad(x, grad, indices, bin_ids, bins, top_k):
+    return padded_scatter_wgrad(x, grad, indices, bin_ids, bins, bins, top_k)
 
 
 # a: (tokens, hidden_size), real.

@@ -4,6 +4,7 @@ from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks import turbo_util as turbo
+from grouped_gemm.ops import gmm
 import stk
 import torch
 import torch.nn.functional as F
@@ -373,3 +374,26 @@ class SparseMLP(torch.nn.Module):
         # Compute the MLP.
         x = stk.ops.sdd(x, w1.t(), topo)
         return stk.ops.dsd(gelu.gelu(x), w2)
+
+
+class GroupedMLP(SparseMLP):
+
+    def forward(self, x, tokens_per_expert):
+        batch_sizes = tokens_per_expert.cpu().to(torch.long)
+        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
+        if self.args.moe_weight_parallelism:
+            raise ValueError(
+                "Weight parallelism not yet supported with GroupedMLP.")
+        if self.args.memory_optimized_mlp:
+            raise ValueError(
+                "Memory optimization not yet supported with GroupedMLP.")
+
+        # Re-shape the weights for the grouped GEMMs.
+        ne = mpu.experts_per_rank(self.args)
+        w1 = w1.view(ne, -1, self.args.hidden_size)
+        w2 = w2.view(ne, -1, self.args.hidden_size)
+
+        # Compute the MLP.
+        x = gmm(x, w1, batch_sizes, trans_b=True)
+        x = F.gelu(x, approximate="tanh")
+        return gmm(x, w2, batch_sizes)
