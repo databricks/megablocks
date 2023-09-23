@@ -1,0 +1,133 @@
+cluster: r9z1
+command: |-
+  pip install --no-dependencies git+https://github.com/stanford-futuredata/megablocks.git@main
+  cd llm-foundry-private/scripts
+  composer train/train.py /mnt/config/parameters.yaml || (echo "Command failed - killing python" && pkill python && exit 1)
+gpu_num: 8
+image: mosaicml/llm-foundry:2.1.0_cu121-9541d07
+scheduling:
+  preemptible: false
+  priority: high
+integrations:
+- git_repo: mosaicml/llm-foundry-private
+  git_branch: main
+  integration_type: git_repo
+  pip_install: .[gpu]
+  ssh_clone: true
+name: 7b-moe-h100
+parameters:
+  ## Modeling 
+  fsdp_config:
+    activation_checkpointing: false
+    activation_checkpointing_reentrant: true
+    activation_cpu_offload: false
+    backward_prefetch: BACKWARD_POST
+    forward_prefetch: true
+    limit_all_gathers: true
+    mixed_precision: PURE
+    sharding_strategy: SHARD_GRAD_OP
+    state_dict_type: sharded
+    use_orig_params: false
+    verbose: false
+  model:
+    attn_config:
+      alibi: true
+      attn_impl: triton
+      clip_qkv: 8
+      qk_ln: false
+    d_model: 4096
+    expansion_ratio: 1
+    ffn_config:
+      ffn_type: mb_dmoe
+      memory_optimized_mlp: true
+      moe_lbl_in_fp32: false
+      moe_loss_weight: 0.01
+      moe_num_experts: 32
+      moe_top_k: 4
+      moe_world_size: 8
+      moe_weight_parallelism: false
+      uniform_expert_assignment: true
+    init_device: meta
+    init_nonlinearity: relu
+    low_precision_layernorm: true
+    max_seq_len: ${max_seq_len}
+    n_heads: 32
+    n_layers: 24
+    name: mpt_causal_lm
+    no_bias: true
+    param_init_fn: kaiming_normal_
+    vocab_size: 100352
+  ## Checkpointing
+  # save_interval: 1000ba
+  # save_folder: oci://mosaicml-internal-checkpoints/mihir/moe-testing/chkpt-mpt-small-test/checkpoints
+  # autoresume: true
+  ## Batch Size
+  device_eval_batch_size: 4
+  device_train_microbatch_size: 4
+  global_train_batch_size: 256
+  eval_subset_num_batches: 2
+  ## Misc
+  loggers:
+    wandb: {}
+  algorithms:
+    gradient_clipping:
+      clipping_threshold: 1
+      clipping_type: norm
+  callbacks:
+    lr_monitor: {}
+    memory_monitor: {}
+    runtime_estimator: {}
+    speed_monitor:
+      window_size: 1
+  console_log_interval: 1ba
+  data_local: /tmp/c4_train
+  data_remote: oci://mosaicml-internal-dataset-c4/preconcat-gpt_neox/0pt8/
+  eval_first: false
+  eval_interval: 5000ba
+  eval_loader:
+    dataset:
+      local: /tmp/c4_eval
+      max_seq_len: ${max_seq_len}
+      remote: oci://mosaicml-internal-dataset-c4/preconcat-gpt_neox/
+      shuffle: false
+      shuffle_seed: ${global_seed}
+      split: val
+      download_timeout: 3000
+    drop_last: false
+    name: text
+    num_workers: 8
+  global_seed: 17
+  log_to_console: true
+  max_duration: 1000ba
+  max_seq_len: 2048
+  optimizer:
+    betas:
+    - 0.9
+    - 0.95
+    lr: 0.00012
+    name: decoupled_lionw  # One of [decoupled_lionw, decoupled_lionw_8b]
+    weight_decay: 0.00012
+  precision: amp_bf16
+  progress_bar: false
+  run_name: null
+  scheduler:
+    alpha_f: 0.1
+    name: cosine_with_warmup
+    t_warmup: 100ba
+  seed: ${global_seed}
+  tokenizer:
+    kwargs:
+      model_max_length: ${max_seq_len}
+    name: EleutherAI/gpt-neox-20b
+  train_loader:
+    dataset:
+      local: /tmp/c4_train
+      max_seq_len: ${max_seq_len}
+      remote: oci://mosaicml-internal-dataset-c4/preconcat-gpt_neox/0pt8/
+      shuffle: true
+      shuffle_seed: ${global_seed}
+      split: train
+      download_timeout: 3000
+    drop_last: true
+    name: text
+    num_workers: 8
