@@ -6,7 +6,7 @@ gpu_type: h100_80gb
 integrations:
   - integration_type: git_repo
     git_repo: stanford-futuredata/megablocks
-    git_branch: mcloud
+    git_branch: main
     pip_install: absl-py 'git+https://github.com/openai/triton.git@main#egg=triton&subdirectory=python'
     ssh_clone: false
 command: |-
