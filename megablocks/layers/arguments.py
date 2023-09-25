@@ -1,7 +1,7 @@
 import dataclasses
 from functools import partial
-from megablocks import turbo_util as turbo
-from megablocks import grouped_gemm_util as gemm
+import megablocks.turbo_util as turbo
+import megablocks.grouped_gemm_util as gemm
 import torch
 from typing import Callable, Optional
 
