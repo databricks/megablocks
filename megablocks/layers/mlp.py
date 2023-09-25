@@ -4,10 +4,10 @@ from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks import turbo_util as turbo
-from grouped_gemm.ops import gmm
 import stk
 import torch
 import torch.nn.functional as F
+import textwrap
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -377,6 +377,16 @@ class SparseMLP(torch.nn.Module):
 
 
 class GroupedMLP(SparseMLP):
+
+    def __init__ (self, **kwargs):
+        try:
+            from grouped_gemm.ops import gmm
+        except ImportError as e:
+            raise ImportError(textwrap.dedent(
+                'GroupedMLP requires the grouped_gemm package, which can be pip installed as follows: '
+                '`pip install --no-dependencies git+https://github.com/tgale96/grouped_gemm@main`'
+            )) from e
+        super().__init__(**kwargs)
 
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
