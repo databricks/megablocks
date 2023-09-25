@@ -1,5 +1,6 @@
 import dataclasses
 from functools import partial
+from megablocks import turbo_util as turbo
 import torch
 from typing import Callable, Optional
 
@@ -34,6 +35,7 @@ class Arguments:
 
     # Compute arguments.
     memory_optimized_mlp : bool = False
+    grouped_mlp : bool = False
     quantize_inputs_num_bits: int = -1  # -1 = no quantization
     quantize_rematerialize_num_bits: int = -1
     quantize_scatter_num_bits: int = -1
@@ -56,6 +58,9 @@ class Arguments:
             if nbits not in _ALLOWED_BITWIDTHS:
                 raise ValueError(f'{attr} must be one of ' +
                                  f'{_ALLOWED_BITWIDTHS}; got {nbits}')
+
+            if nbits != -1:
+                turbo.assert_turbo_is_available()
 
 
 def from_megatron(megatron_args):

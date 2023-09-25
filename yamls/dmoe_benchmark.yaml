@@ -1,0 +1,18 @@
+run_name: megablocks-matmul-benchmark
+image: mosaicml/llm-foundry:2.0.1_cu118-latest
+cluster: r9z1
+gpu_num: 8
+gpu_type: h100_80gb
+integrations:
+  - integration_type: git_repo
+    git_repo: stanford-futuredata/megablocks
+    git_branch: mcloud
+    pip_install: absl-py 'git+https://github.com/openai/triton.git@main#egg=triton&subdirectory=python'
+    ssh_clone: false
+command: |-
+  cd megablocks
+  pip install git+https://github.com/stanford-futuredata/stk.git@main --no-dependencies
+  pip install git+https://github.com/tgale96/grouped_gemm.git@main --no-dependencies
+  pip install . --no-dependencies
+
+  bash megablocks/layers/dmoe_benchmark.sh
