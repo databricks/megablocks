@@ -389,6 +389,8 @@ class GroupedMLP(SparseMLP):
         super().__init__(**kwargs)
 
     def forward(self, x, tokens_per_expert):
+        from grouped_gemm.ops import gmm
+        
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.moe_weight_parallelism:
