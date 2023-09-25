@@ -150,7 +150,7 @@ def gather(x, indices, bin_ids, weights, bins, top_k):
     # NOTE: There is no padding so the output rows equals the
     # input rows multiplied by top_k.
     output_rows = x.shape[0] * top_k
-    out = torch.zeros(
+    out = torch.empty(
         (output_rows, x.shape[1]),
         dtype=x.dtype,
         device=x.device)
