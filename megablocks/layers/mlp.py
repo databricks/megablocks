@@ -4,6 +4,7 @@ from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks import turbo_util as turbo
+from megablocks import grouped_gemm_util as grouped_gemm
 import stk
 import torch
 import torch.nn.functional as F
@@ -378,19 +379,7 @@ class SparseMLP(torch.nn.Module):
 
 class GroupedMLP(SparseMLP):
 
-    def __init__ (self, **kwargs):
-        try:
-            from grouped_gemm.ops import gmm
-        except ImportError as e:
-            raise ImportError(textwrap.dedent(
-                'GroupedMLP requires the grouped_gemm package, which can be pip installed as follows: '
-                '`pip install --no-dependencies git+https://github.com/tgale96/grouped_gemm@main`'
-            )) from e
-        super().__init__(**kwargs)
-
     def forward(self, x, tokens_per_expert):
-        from grouped_gemm.ops import gmm
-        
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.moe_weight_parallelism:
@@ -406,6 +395,6 @@ class GroupedMLP(SparseMLP):
         w2 = w2.view(ne, -1, self.args.hidden_size)
 
         # Compute the MLP.
-        x = gmm(x, w1, batch_sizes, trans_b=True)
+        x = grouped_gemm.gmm(x, w1, batch_sizes, trans_b=True)
         x = F.gelu(x, approximate="tanh")
-        return gmm(x, w2, batch_sizes)
+        return grouped_gemm.gmm(x, w2, batch_sizes)
