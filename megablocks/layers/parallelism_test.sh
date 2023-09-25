@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DISTRIBUTED_ARGUMENTS="\
---nproc_per_node 1 \
+--nproc_per_node 8 \
 --nnodes 1 \
 --node_rank 0 \
 --master_addr localhost \
