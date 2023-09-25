@@ -8,6 +8,6 @@ def grouped_gemm_is_available():
 
 def assert_grouped_gemm_is_available():
     assert grouped_gemm_is_available(), (
-        'Turbo not available. Please run `pip install mosaicml-turbo==0.0.4`.')
+        'Grouped Gemm not available. Please run `pip install --no-dependencies git+https://github.com/tgale96/grouped_gemm@main`.')
 
 gmm = grouped_gemm.ops.gmm if grouped_gemm_is_available() else None
