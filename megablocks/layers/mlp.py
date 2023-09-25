@@ -377,24 +377,158 @@ class SparseMLP(torch.nn.Module):
         return stk.ops.dsd(gelu.gelu(x), w2)
 
 
+class MemoryOptimizedGroupedMLP(torch.autograd.Function):
+    """GroupedMLP with manually scheduled memory reuse."""
+
+    @staticmethod
+    @torch.cuda.amp.custom_fwd
+    def forward(ctx, x, w1, w2, batch_sizes, num_input_bits, num_remat_bits):
+        # x: [m, k], w1: [n, k], w2: [n, k]
+        if (not x.is_contiguous() or not w1.is_contiguous() or
+            not w2.is_contiguous()):
+            raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
+
+        # Layer 0: x @ w1.t().
+        sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
+
+        # Save input tensor, quantizing if needed
+        input_save_args = (x,)
+        if num_input_bits != -1:
+            x_q, x_scales = turbo.quantize_signed(x, num_bits=num_input_bits)
+            input_save_args = (x_q, x_scales)
+
+        # GeLU.
+        if num_remat_bits == -1:
+            gelu_out = F.gelu(sdd_out, approximate="tanh")
+            input_save_args += (sdd_out,)
+        else:
+            # Fused GELU into sdd_out buffer while quantizing input
+            hidden_q, hidden_scales, gelu_out_data = turbo.quantize_signed(
+                sdd_out, num_bits=num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out)
+            gelu_out = sdd_out
+            input_save_args += (hidden_q, hidden_scales)
+
+        # Layer 1: x @ w2.
+        dsd_out = gg.backend.gmm(gelu_out, w2, batch_sizes)
+
+        # NOTE: Save the input to the layer and the gelu input for
+        # gradient computation. We'll re-compute the gelu forward
+        # pass in the backward pass to avoid materializing another
+        # intermediate.
+        ctx.num_input_bits = num_input_bits
+        ctx.num_remat_bits = num_remat_bits
+        ctx.x_shape = x.shape
+        ctx.sdd_out_shape = sdd_out.shape
+        ctx.dtype = x.dtype
+        ctx.save_for_backward(w1, w2, batch_sizes, *input_save_args)
+        return dsd_out
+
+    @staticmethod
+    @torch.cuda.amp.custom_bwd
+    def backward(ctx, ddsd_out):
+        if (not ctx.needs_input_grad[0] or
+            not ctx.needs_input_grad[1] or
+            not ctx.needs_input_grad[2]):
+            raise ValueError("Expected all MLP inputs to need grad.")
+
+        # Unpack saved tensors; ugly because quantizing changes tensor count
+        #
+        dtype = ctx.dtype
+        w1, w2 = ctx.saved_tensors[:2]
+        batch_sizes = ctx.saved_tensors[2]
+
+        # Either 1 or 2 tensors for MLP input after the always-present tensors
+        if ctx.num_input_bits == -1:
+            x = ctx.saved_tensors[3]
+        else:
+            x_q, x_scales = ctx.saved_tensors[3:10]
+
+        # Either 1 or 2 tensors at the end for saved GELU input / sdd output
+        if ctx.num_remat_bits == -1:
+            sdd_out = ctx.saved_tensors[-1]
+        else:
+            hidden_q, hidden_scales = ctx.saved_tensors[-2:]
+
+        # Rematerialize gelu output.
+        if ctx.num_remat_bits == -1:
+            gelu_out = F.gelu(sdd_out, approximate="tanh")
+        else:
+            gelu_out = turbo.dequantize_signed(
+                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD,
+                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
+
+        # Compute dw2 with recomputed gelu output.
+        dw2 = gg.backend.gmm(
+            gelu_out, ddsd_out, batch_sizes, trans_a=True)
+
+        # Compute dgelu_out.
+        #
+        # NOTE: We reuse the gelu_out allocation.
+        gg.backend.gmm(
+            ddsd_out, w2, batch_sizes, trans_b=True, c=gelu_out)
+        dgelu_out = gelu_out
+
+        # Compute dsdd_out.
+        #
+        # NOTE: This reuses the dgelu_out allocation.
+        if ctx.num_remat_bits == -1:
+            dsdd_out = gelu.gelu_backward_(dgelu_out, sdd_out)
+        else:
+            # confusingly, x_out is interpreted as the gradient to overwrite
+            # in-place when the elemwise op is a backwards op
+            ddsd_out = turbo.dequantize_signed(
+                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dgelu_out.data)
+
+        # rematerialize MLP input now that we need it
+        if ctx.num_input_bits != -1:
+            x = turbo.dequantize_signed(
+                x_q, x_scales, num_bits=ctx.num_input_bits,
+                out_dtype=dtype, out_shape=ctx.x_shape)
+
+        # Compute dw1.
+        dw1 = gg.backend.gmm(dsdd_out, x, batch_sizes, trans_a=True)
+
+        # Compute dx.
+        #
+        # NOTE: This reuses the ddsd_out allocation.
+        gg.backend.gmm(dsdd_out, w1, batch_sizes, c=ddsd_out)
+        dx = ddsd_out
+        return dx, dw1, dw2, None, None, None
+
+memory_optimized_grouped_mlp = MemoryOptimizedGroupedMLP.apply
+
+
 class GroupedMLP(SparseMLP):
 
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
-        if self.args.moe_weight_parallelism:
-            raise ValueError(
-                "Weight parallelism not yet supported with GroupedMLP.")
-        if self.args.memory_optimized_mlp:
-            raise ValueError(
-                "Memory optimization not yet supported with GroupedMLP.")
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
         w1 = w1.view(ne, -1, self.args.hidden_size)
         w2 = w2.view(ne, -1, self.args.hidden_size)
 
+        if self.args.moe_weight_parallelism:
+            raise ValueError(
+                "Weight parallelism not yet supported with GroupedMLP.")
+
+        if self.args.memory_optimized_mlp:
+            return memory_optimized_grouped_mlp(
+                x, w1, w2, batch_sizes,
+                self.args.quantize_inputs_num_bits,
+                self.args.quantize_rematerialize_num_bits)
+
         # Compute the MLP.
+<<<<<<< HEAD
         x = grouped_gemm.gmm(x, w1, batch_sizes, trans_b=True)
         x = F.gelu(x, approximate="tanh")
         return grouped_gemm.gmm(x, w2, batch_sizes)
+=======
+        x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
+        x = F.gelu(x, approximate="tanh")
+        return gg.ops.gmm(x, w2, batch_sizes)
+>>>>>>> b520aec (Support memory_optimized_mlp with grouped_mlp.)
