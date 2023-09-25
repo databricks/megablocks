@@ -254,8 +254,8 @@ class MoE(torch.nn.Module):
             # If we're sharding the experts along the hidden dimension
             # multiple devices own parts of the same sets of experts.
             # Replicate the token counts so every device gets the counts.
-            repeated_tokens_per_expert = tokens_per_expert.repeat(
-                mpu.hidden_sharding_degree(self.args))
+            repeated_tokens_per_expert = ops.repeat(
+                tokens_per_expert, mpu.hidden_sharding_degree(self.args))
 
             # Pass token count information to the device on which the
             # target expert resides.
@@ -314,7 +314,7 @@ class MoE(torch.nn.Module):
         # get all of the tokens assigned to them.
         #
         # TODO(tgale): Fuse this into the prior, local permutation.
-        x = x.repeat(mpu.hidden_sharding_degree(self.args), 1)
+        x = ops.repeat(x, (mpu.hidden_sharding_degree(self.args), 1))
 
         # Start the cross-device permutation asynchronously so we can
         # overlap communication with computation.
@@ -400,7 +400,7 @@ class MoE(torch.nn.Module):
             -1,
             self.args.hidden_size
         )
-        x = x.view(shape).sum(dim=0)
+        x = ops.sum(x.view(shape), dim=0)
 
         # Un-permute locally to setup for the next series of operations.
         x = ops.padded_scatter(
