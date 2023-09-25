@@ -255,7 +255,7 @@ class MoE(torch.nn.Module):
             # multiple devices own parts of the same sets of experts.
             # Replicate the token counts so every device gets the counts.
             repeated_tokens_per_expert = ops.repeat(
-                tokens_per_expert, mpu.hidden_sharding_degree(self.args))
+                tokens_per_expert, (mpu.hidden_sharding_degree(self.args),))
 
             # Pass token count information to the device on which the
             # target expert resides.
@@ -269,19 +269,13 @@ class MoE(torch.nn.Module):
         # Permute locally and without any padding so that tokens for each
         # parallel device are stored contiguously.
         #
-        # TODO(tgale): We can tune these kernels for this special case by
-        # skipping the memset if tokens == padded_tokens and also taking
-        # in an optional padded_tokens rather than copying it from the
-        # device.
-        #
         # This view updates the shape of the tensor from [sl, bs, hs] to
         # [sl * bs, hs] prior to the permutation.
         x = x.view(-1, x.shape[-1])
-        x = ops.padded_gather(
+        x = ops.gather(
             x,
             indices,
             bin_ids,
-            bins,
             bins,
             self.top_k)
 
@@ -403,12 +397,11 @@ class MoE(torch.nn.Module):
         x = ops.sum(x.view(shape), dim=0)
 
         # Un-permute locally to setup for the next series of operations.
-        x = ops.padded_scatter(
+        x = ops.scatter(
             x,
             indices,
             bin_ids,
             expert_weights,
-            bins,
             bins,
             self.top_k,
             self.args.quantize_scatter_num_bits)
