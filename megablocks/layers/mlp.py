@@ -8,7 +8,6 @@ from megablocks import turbo_util as turbo
 import stk
 import torch
 import torch.nn.functional as F
-import textwrap
 
 
 class ScaleGradient(torch.autograd.Function):
