@@ -8,7 +8,6 @@ from megablocks import grouped_gemm_util as grouped_gemm
 import stk
 import torch
 import torch.nn.functional as F
-import textwrap
 
 
 class ScaleGradient(torch.autograd.Function):
