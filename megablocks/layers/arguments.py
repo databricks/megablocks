@@ -1,7 +1,7 @@
 import dataclasses
 from functools import partial
 import megablocks.turbo_util as turbo
-import megablocks.grouped_gemm_util as gemm
+import megablocks.grouped_gemm_util as grouped_gemm
 import torch
 from typing import Callable, Optional
 
@@ -62,8 +62,9 @@ class Arguments:
 
             if nbits != -1:
                 turbo.assert_turbo_is_available()
+
         if self.__getattribute__('grouped_mlp'):
-            gemm.assert_grouped_gemm_is_available()
+            grouped_gemm.assert_grouped_gemm_is_available()
 
 
 def from_megatron(megatron_args):
