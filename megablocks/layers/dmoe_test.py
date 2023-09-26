@@ -27,7 +27,7 @@ def test_modules(
         moe_capacity_factor=moe_capacity_factor,
         moe_top_k=moe_top_k,
         init_method=init_method,
-        memory_optimized_mlp=num_input_bits != -1 or num_remat_bits != -1,
+        memory_optimized_mlp=True,
         quantize_inputs_num_bits=num_input_bits,
         quantize_rematerialize_num_bits=num_remat_bits,
         grouped_mlp=grouped_mlp,

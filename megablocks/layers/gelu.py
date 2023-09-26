@@ -17,17 +17,17 @@ def _gelu_backward_inplace(g, x):
 
 def gelu_backward_(grad: stk.Matrix, x: stk.Matrix):
     # NOTE: The two sparse matrices must have the same topology.
-    assert isinstance(grad, stk.Matrix)
-    assert isinstance(x, stk.Matrix)
-    return stk.Matrix(
-        x.size(),
-        _gelu_backward_inplace(grad.data, x.data),
-        x.row_indices,
-        x.column_indices,
-        x.offsets,
-        x.column_indices_t,
-        x.offsets_t,
-        x.block_offsets_t)
+    if isinstance(grad, stk.Matrix) and isinstance(x, stk.Matrix):
+        return stk.Matrix(
+            x.size(),
+            _gelu_backward_inplace(grad.data, x.data),
+            x.row_indices,
+            x.column_indices,
+            x.offsets,
+            x.column_indices_t,
+            x.offsets_t,
+            x.block_offsets_t)
+    return _gelu_backward_inplace(grad, x)
 
 
 def gelu(x: stk.Matrix):
