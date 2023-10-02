@@ -477,7 +477,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         else:
             # confusingly, x_out is interpreted as the gradient to overwrite
             # in-place when the elemwise op is a backwards op
-            ddsd_out = turbo.dequantize_signed(
+            dsdd_out = turbo.dequantize_signed(
                 hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
                 op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dgelu_out.data)
 
