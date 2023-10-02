@@ -441,7 +441,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         if ctx.num_input_bits == -1:
             x = ctx.saved_tensors[3]
         else:
-            x_q, x_scales = ctx.saved_tensors[3:10]
+            x_q, x_scales = ctx.saved_tensors[3:5]
 
         # Either 1 or 2 tensors at the end for saved GELU input / sdd output
         if ctx.num_remat_bits == -1:
