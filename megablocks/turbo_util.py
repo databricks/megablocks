@@ -12,3 +12,4 @@ def assert_turbo_is_available():
 
 quantize_signed = turbo.quantize_signed if turbo_is_available() else None
 dequantize_signed = turbo.dequantize_signed if turbo_is_available() else None
+ElemwiseOps = turbo.ElemwiseOps if turbo_is_available() else None
