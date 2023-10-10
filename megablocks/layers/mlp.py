@@ -4,7 +4,7 @@ from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks import turbo_util as turbo
-from megablocks import grouped_gemm_util as grouped_gemm
+from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
@@ -522,6 +522,6 @@ class GroupedMLP(SparseMLP):
                 self.args.quantize_rematerialize_num_bits)
 
         # Compute the MLP.
-        x = grouped_gemm.gmm(x, w1, batch_sizes, trans_b=True)
+        x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x = F.gelu(x, approximate="tanh")
-        return grouped_gemm.gmm(x, w2, batch_sizes)
+        return gg.ops.gmm(x, w2, batch_sizes)
