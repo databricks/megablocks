@@ -522,12 +522,6 @@ class GroupedMLP(SparseMLP):
                 self.args.quantize_rematerialize_num_bits)
 
         # Compute the MLP.
-<<<<<<< HEAD
         x = grouped_gemm.gmm(x, w1, batch_sizes, trans_b=True)
         x = F.gelu(x, approximate="tanh")
         return grouped_gemm.gmm(x, w2, batch_sizes)
-=======
-        x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
-        x = F.gelu(x, approximate="tanh")
-        return gg.ops.gmm(x, w2, batch_sizes)
->>>>>>> b520aec (Support memory_optimized_mlp with grouped_mlp.)
