@@ -116,13 +116,16 @@ class MoE(torch.nn.Module):
         # Expert MLP.
         self.mlp = mlp.MLP(args)
 
-        # Note that the output bias is not parallelized with expert
-        # model parallelism.
-        self.bias = torch.nn.Parameter(torch.empty(
-            args.hidden_size,
-            device=args.device,
-            dtype=common.dtype(args)))
-        torch.nn.init.zeros_(self.bias)
+        if self.args.bias:
+            # Note that the output bias is not parallelized with expert
+            # model parallelism.
+            self.bias = torch.nn.Parameter(torch.empty(
+                args.hidden_size,
+                device=args.device,
+                dtype=common.dtype(args)))
+            torch.nn.init.zeros_(self.bias)
+        else:
+            self.register_parameter('bias', None)
 
         # Select the forward function for the operating mode.
         self.forward_fn = (
@@ -420,4 +423,9 @@ class MoE(torch.nn.Module):
         x, tokens_per_expert = self.forward_fn(
             x, expert_weights, top_experts)
         save_load_balancing_loss((tokens_per_expert, scores))
-        return x.view(sl, bs, hs), self.bias
+        x = x.view(sl, bs, hs)
+        if self.bias is not None:
+            if self.args.return_bias:
+                return x, self.bias
+            return x + self.bias
+        return x
