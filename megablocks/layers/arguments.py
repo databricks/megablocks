@@ -17,6 +17,8 @@ class Arguments:
     hidden_size : int = 1024
     ffn_hidden_size : int = 4096
     num_layers : int = 1
+    bias : bool = True
+    return_bias : bool = True
 
     # MoE arguments.
     moe_num_experts : int = 1
