@@ -94,10 +94,14 @@ def batched_load_balancing_loss(args : Arguments):
     return scale * torch.dot(tokens_per_expert, expert_scores)
 
 
-class MoE(torch.nn.Module):
+# NOTE: This class defines MoE expert computation, including expert model parallel
+# communication. When using FSDP on top of MegaBlocks this is the module that should
+# be wrapped s.t. the weight all-gathers can be scheduled *before* the expert model
+# parallel all2all.
+class ParallelMLP(torch.nn.Module):
 
     def __init__(self, args : Arguments):
-        super(MoE, self).__init__()
+        super(ParallelMLP, self).__init__()
         self.args = args
 
         # Calculate the number of experts in total and the number of experts
@@ -109,9 +113,6 @@ class MoE(torch.nn.Module):
         # Calculate the number of bits needed to represent the expert indices
         # so that we can pass it to radix sort.
         self.sort_end_bit = max(int(np.ceil(np.log2(self.num_experts))), 1)
-
-        # Token router.
-        self.router = router.LearnedRouter(args)
 
         # Expert MLP.
         self.mlp = mlp.MLP(args)
@@ -410,14 +411,8 @@ class MoE(torch.nn.Module):
             self.args.quantize_scatter_num_bits)
         return x, tokens_per_expert.flatten()
 
-    def forward(self, x):
-        # NOTE: If we're going to cast the activations to lower precision
-        # do it before we permute the tokens to save bandwidth.
-        x = common.cast_if_autocast_enabled(x)
+    def forward(self, x, scores, expert_weights, top_experts):
         sl, bs, hs = x.size()
-
-        # Compute the expert scores and assignments.
-        scores, expert_weights, top_experts = self.router(x)
 
         # Compute the experts.
         x, tokens_per_expert = self.forward_fn(
@@ -429,3 +424,27 @@ class MoE(torch.nn.Module):
                 return x, self.bias
             return x + self.bias
         return x
+
+
+class MoE(torch.nn.Module):
+
+    def __init__(self, args : Arguments):
+        super(MoE, self).__init__()
+
+        # Token router.
+        self.router = router.LearnedRouter(args)
+
+        # Expert computation helper.
+        self.experts = ParallelMLP(args)
+
+    def forward(self, x):
+        # NOTE: If we're going to cast the activations to lower precision
+        # do it before we permute the tokens to save bandwidth.
+        x = common.cast_if_autocast_enabled(x)
+        sl, bs, hs = x.size()
+
+        # Compute the expert scores and assignments.
+        scores, expert_weights, top_experts = self.router(x)
+
+        # Compute the experts.
+        return self.experts(x, scores, expert_weights, top_experts)

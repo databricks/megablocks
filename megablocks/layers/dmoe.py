@@ -2,6 +2,7 @@ from megablocks.layers import common
 from megablocks.layers import mlp
 from megablocks.layers import moe
 from megablocks.layers import mpu
+from megablocks.layers import router
 from megablocks.layers.arguments import Arguments
 import megablocks.ops as ops
 import numpy as np
@@ -13,10 +14,10 @@ def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
 
 
-class dMoE(moe.MoE):
+class ParallelDroplessMLP(moe.ParallelMLP):
 
     def __init__(self, args : Arguments):
-        super(dMoE, self).__init__(args)
+        super(ParallelDroplessMLP, self).__init__(args)
         self.hidden_size = args.hidden_size
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
@@ -307,3 +308,27 @@ class dMoE(moe.MoE):
             bins,
             expert_capactiy,
             top_k)
+
+
+class dMoE(torch.nn.Module):
+
+    def __init__(self, args : Arguments):
+        super(dMoE, self).__init__()
+
+        # Token router.
+        self.router = router.LearnedRouter(args)
+
+        # Expert computation helper.
+        self.experts = ParallelDroplessMLP(args)
+
+    def forward(self, x):
+        # NOTE: If we're going to cast the activations to lower precision
+        # do it before we permute the tokens to save bandwidth.
+        x = common.cast_if_autocast_enabled(x)
+        sl, bs, hs = x.size()
+
+        # Compute the expert scores and assignments.
+        scores, expert_weights, top_experts = self.router(x)
+
+        # Compute the experts.
+        return self.experts(x, scores, expert_weights, top_experts)

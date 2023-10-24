@@ -96,16 +96,16 @@ def test_expert_parallel_versus_weight_parallel(
         out = x.view(hsd, esd, -1).transpose(1, 0).contiguous()
         return out.view(num_experts * ffn_hidden_size, hidden_size)
 
-    wp_w2_grad = gather(wp.mlp.w2.grad)
-    ep_w2_grad = permute(gather(ep.mlp.w2.grad))
+    wp_w2_grad = gather(wp.experts.mlp.w2.grad)
+    ep_w2_grad = permute(gather(ep.experts.mlp.w2.grad))
     if rank == 0:
         np.testing.assert_allclose(
             wp_w2_grad.float().cpu(),
             ep_w2_grad.float().cpu(),
             rtol=1e-5, atol=1e-5)
 
-    wp_w1_grad = gather(wp.mlp.w1.grad)
-    ep_w1_grad = permute(gather(ep.mlp.w1.grad))
+    wp_w1_grad = gather(wp.experts.mlp.w1.grad)
+    ep_w1_grad = permute(gather(ep.experts.mlp.w1.grad))
     if rank == 0:
         np.testing.assert_allclose(
             wp_w1_grad.float().cpu(),
