@@ -65,8 +65,8 @@ def test_memory(
     # Calculate weight and gradient memory usage.
     weight_memory = 2 * (
         layer.router.layer.weight.numel() +
-        layer.mlp.w1.numel() +
-        layer.mlp.w2.numel())
+        layer.experts.mlp.w1.numel() +
+        layer.experts.mlp.w2.numel())
 
     def grad_numel(x):
         if x.grad is not None:
@@ -75,8 +75,8 @@ def test_memory(
 
     grad_memory = 2 * (
         grad_numel(layer.router.layer.weight) +
-        grad_numel(layer.mlp.w1) +
-        grad_numel(layer.mlp.w2))
+        grad_numel(layer.experts.mlp.w1) +
+        grad_numel(layer.experts.mlp.w2))
     weight_memory += grad_memory
 
     print("Weight Memory Allocated = {:0.0f}MiB".format(

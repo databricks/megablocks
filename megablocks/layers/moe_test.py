@@ -32,8 +32,8 @@ def test_modules(
     # Set the baseline parameters to match exactly.
     if moe_num_experts == 1:
         with torch.no_grad():
-            mlp.w1.copy_(moe_mlp.mlp.w1.squeeze())
-            mlp.w2.copy_(moe_mlp.mlp.w2.squeeze())
+            mlp.w1.copy_(moe_mlp.experts.mlp.w1.squeeze())
+            mlp.w2.copy_(moe_mlp.experts.mlp.w2.squeeze())
     return args, mlp, moe_mlp
 
 
@@ -126,8 +126,8 @@ class MoETest(parameterized.TestCase):
         out, _ = moe_mlp(x)
         loss = out.sum()
         loss.backward()
-        w1_grad = moe_mlp.mlp.w1.grad.detach().squeeze()
-        w2_grad = moe_mlp.mlp.w2.grad.detach().squeeze()
+        w1_grad = moe_mlp.experts.mlp.w1.grad.detach().squeeze()
+        w2_grad = moe_mlp.experts.mlp.w2.grad.detach().squeeze()
         moe_mlp.zero_grad(set_to_none=True)
         x.grad = None
         moe.clear_load_balancing_loss()
