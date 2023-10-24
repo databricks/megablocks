@@ -216,18 +216,19 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # unpack saved tensors; ugly because quantizing changes tensor count
         #
         dtype = ctx.dtype
-        w1, w2 = ctx.saved_tensors[:2]
-        topo_tensors = ctx.saved_tensors[2:8]
+        saved_tensors = ctx.saved_tensors
+        w1, w2 = saved_tensors[:2]
+        topo_tensors = saved_tensors[2:8]
         # either 1 or 2 tensors for MLP input after the always-present tensors
         if ctx.num_input_bits == -1:
-            x = ctx.saved_tensors[8]
+            x = saved_tensors[8]
         else:
-            x_q, x_scales = ctx.saved_tensors[8:10]
+            x_q, x_scales = saved_tensors[8:10]
         # either 1 or 2 tensors at the end for saved GELU input / sdd output
         if ctx.num_remat_bits == -1:
-            sdd_out_data = ctx.saved_tensors[-1]
+            sdd_out_data = saved_tensors[-1]
         else:
-            hidden_q, hidden_scales = ctx.saved_tensors[-2:]
+            hidden_q, hidden_scales = saved_tensors[-2:]
 
         # rematerialize gelu output
         if ctx.num_remat_bits == -1:
@@ -434,20 +435,21 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # Unpack saved tensors; ugly because quantizing changes tensor count
         #
         dtype = ctx.dtype
-        w1, w2 = ctx.saved_tensors[:2]
-        batch_sizes = ctx.saved_tensors[2]
+        saved_tensors = ctx.saved_tensors
+        w1, w2 = saved_tensors[:2]
+        batch_sizes = saved_tensors[2]
 
         # Either 1 or 2 tensors for MLP input after the always-present tensors
         if ctx.num_input_bits == -1:
-            x = ctx.saved_tensors[3]
+            x = saved_tensors[3]
         else:
-            x_q, x_scales = ctx.saved_tensors[3:5]
+            x_q, x_scales = saved_tensors[3:5]
 
         # Either 1 or 2 tensors at the end for saved GELU input / sdd output
         if ctx.num_remat_bits == -1:
-            sdd_out = ctx.saved_tensors[-1]
+            sdd_out = saved_tensors[-1]
         else:
-            hidden_q, hidden_scales = ctx.saved_tensors[-2:]
+            hidden_q, hidden_scales = saved_tensors[-2:]
 
         # Rematerialize gelu output.
         if ctx.num_remat_bits == -1:

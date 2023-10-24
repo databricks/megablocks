@@ -32,8 +32,9 @@ class PaddedScatterOp(torch.autograd.Function):
     @custom_bwd
     def backward(ctx, grad):
         grad = grad.contiguous()
+        saved_tensors = ctx.saved_tensors
 
-        indices, bin_ids, weights, bins, padded_bins = ctx.saved_tensors[:5]
+        indices, bin_ids, weights, bins, padded_bins = saved_tensors[:5]
         dgrad = None
         if ctx.needs_input_grad[0]:
             dgrad = kernels.padded_gather(
@@ -48,9 +49,9 @@ class PaddedScatterOp(torch.autograd.Function):
         wgrad = None
         if ctx.needs_input_grad[3]:  # need wgrad
             if ctx.num_bits == -1:  # input saved without quantization
-                x = ctx.saved_tensors[-1]
+                x = saved_tensors[-1]
             else:  # dequantize input
-                x_q, x_scales = ctx.saved_tensors[-2:]
+                x_q, x_scales = saved_tensors[-2:]
                 x = turbo.dequantize_signed(
                     x_q, x_scales, num_bits=ctx.num_bits, out_shape=ctx.x_shape)
 
