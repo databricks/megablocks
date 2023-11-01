@@ -1,5 +1,7 @@
+from enum import Enum
 from megablocks.layers import common
 from megablocks.layers import mlp
+from megablocks.layers import glu
 from megablocks.layers import moe
 from megablocks.layers import mpu
 from megablocks.layers import router
@@ -9,10 +11,13 @@ import numpy as np
 import stk
 import torch
 
-
 def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
 
+class MLPType(Enum):
+    GROUPED_MLP = 0
+    SPARSE_MLP = 1
+    GLU = 2
 
 class ParallelDroplessMLP(moe.ParallelMLP):
 
@@ -22,12 +27,17 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
 
-        # Grouped or sparse MLP.
-        self.mlp = (
-            mlp.GroupedMLP(args)
-            if args.grouped_mlp
-            else mlp.SparseMLP(args)
-        )
+        if args.mlp_type == 'grouped_mlp':
+            self.mlp = mlp.GroupedMLP(args)
+            self.mlp_type = MLPType.GROUPED_MLP
+        elif args.mlp_type == 'sparse_mlp':
+            self.mlp = mlp.SparseMLP(args)
+            self.mlp_type = MLPType.SPARSE_MLP
+        elif args.mlp_type == 'glu':
+            self.mlp = glu.GLU(args)
+            self.mlp_type = MLPType.GLU
+        else:
+            raise ValueError(f'Unsupported mlp_type: {args.mlp_type}')
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
@@ -273,7 +283,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
-        if self.args.grouped_mlp:
+        if self.mlp_type == MLPType.GROUPED_MLP:
             return self.grouped_forward_once(
                 x, expert_weights, top_experts)
         return self.sparse_forward_once(
@@ -289,7 +299,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bins,
             expert_capactiy,
             top_k):
-        if self.args.grouped_mlp:
+        if self.mlp_type == MLPType.GROUPED_MLP:
             return self.grouped_permute_and_compute(
                 x,
                 tokens_per_expert,
