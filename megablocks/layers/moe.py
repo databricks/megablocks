@@ -299,8 +299,8 @@ class ParallelMLP(torch.nn.Module):
             # TODO(tgale): It might be faster to do this on the GPU and
             # then communicate the results back to the host.
             send_counts = repeated_tokens_per_expert.cpu().sum(dim=-1)
-            print(f'Parallel tokens per expert: {parallel_tokens_per_expert}')
-            recv_counts = parallel_tokens_per_expert.cpu().sum(dim=-1)
+            parallel_tokens_per_expert_cpu = parallel_tokens_per_expert.cpu()
+            recv_counts = parallel_tokens_per_expert_cpu.sum(dim=-1)
 
             # Convert the send/recv counts to lists.
             send_counts = send_counts.tolist()
@@ -357,6 +357,8 @@ class ParallelMLP(torch.nn.Module):
             # Calculate the bins boundaries from the token counts.
             parallel_tokens_per_expert = parallel_tokens_per_expert.sum(
                 dim=0, dtype=torch.int)
+            parallel_tokens_per_expert_cpu = parallel_tokens_per_expert_cpu.sum(
+                dim=0, dtype=torch.int)
             parallel_bins = ops.inclusive_cumsum(
                 parallel_tokens_per_expert, 0)
             parallel_bins = (
@@ -376,7 +378,7 @@ class ParallelMLP(torch.nn.Module):
         # Locally permute the tokens and perform the expert computation.
         # Block to make sure that the cross-device permutation is complete.
         print(f'Recv counts: {recv_counts}')
-        print(f'Tokens per expert: {parallel_tokens_per_expert}')
+        print(f'Tokens per expert CPU: {parallel_tokens_per_expert_cpu}')
         parallel_x_handle.wait()
         parallel_x = self.permute_and_compute(
             parallel_x,
