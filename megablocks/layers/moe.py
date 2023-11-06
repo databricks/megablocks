@@ -377,7 +377,7 @@ class ParallelMLP(torch.nn.Module):
         # Block to make sure that the cross-device permutation is complete.
         if isinstance(self.mlp, mlp.GroupedMLP):
             # GroupedMLP requires counts on CPU. We can use the tensor already
-            # moved to CPU in the prior all_to_all, which avoids an extra
+            # moved to CPU for the prior all_to_all, which avoids an extra
             # device synchronization.
             parallel_tokens_per_expert = parallel_tokens_per_expert_cpu.sum(
                 dim=0, dtype=torch.int)
