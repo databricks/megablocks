@@ -374,6 +374,8 @@ class ParallelMLP(torch.nn.Module):
 
         # Locally permute the tokens and perform the expert computation.
         # Block to make sure that the cross-device permutation is complete.
+        print(f'Recv counts: {recv_counts}')
+        print(f'Tokens per expert: {parallel_tokens_per_expert}')
         parallel_x_handle.wait()
         parallel_x = self.permute_and_compute(
             parallel_x,
