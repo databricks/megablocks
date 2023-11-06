@@ -357,8 +357,6 @@ class ParallelMLP(torch.nn.Module):
             # Calculate the bins boundaries from the token counts.
             parallel_tokens_per_expert = parallel_tokens_per_expert.sum(
                 dim=0, dtype=torch.int)
-            parallel_tokens_per_expert_cpu = parallel_tokens_per_expert_cpu.sum(
-                dim=0, dtype=torch.int)
             parallel_bins = ops.inclusive_cumsum(
                 parallel_tokens_per_expert, 0)
             parallel_bins = (
@@ -377,7 +375,9 @@ class ParallelMLP(torch.nn.Module):
 
         # Locally permute the tokens and perform the expert computation.
         # Block to make sure that the cross-device permutation is complete.
-        parallel_tokens_per_expert = parallel_tokens_per_expert_cpu if isinstance(self.mlp, mlp.GroupedMLP) else parallel_tokens_per_expert
+        if isinstance(self.mlp, mlp.GroupedMLP):  # GroupedMLP requires counts on CPU
+            parallel_tokens_per_expert = parallel_tokens_per_expert_cpu.sum(
+                dim=0, dtype=torch.int)
         parallel_x_handle.wait()
         parallel_x = self.permute_and_compute(
             parallel_x,
