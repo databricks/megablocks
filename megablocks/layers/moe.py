@@ -376,8 +376,11 @@ class ParallelMLP(torch.nn.Module):
         # Locally permute the tokens and perform the expert computation.
         # Block to make sure that the cross-device permutation is complete.
         if isinstance(self.mlp, mlp.GroupedMLP):
+            # GroupedMLP requires counts on CPU. We can use the tensor already
+            # moved to CPU in the prior all_to_all, which avoids an extra
+            # device synchronization.
             parallel_tokens_per_expert = parallel_tokens_per_expert_cpu.sum(
-                dim=0, dtype=torch.int)  # GroupedMLP requires counts on CPU
+                dim=0, dtype=torch.int)
         parallel_x_handle.wait()
         parallel_x = self.permute_and_compute(
             parallel_x,
