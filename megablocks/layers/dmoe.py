@@ -1,4 +1,3 @@
-from enum import Enum
 from megablocks.layers import common
 from megablocks.layers import mlp
 from megablocks.layers import glu
