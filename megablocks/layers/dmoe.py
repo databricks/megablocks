@@ -27,10 +27,8 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
 
-        self.use_grouped_gemm = args.use_grouped_gemm
-
         if args.mlp_type in MLP_TYPE_REGISTRY: 
-            mlp_impl = 'grouped' if self.use_grouped_gemm else 'sparse'
+            mlp_impl = 'grouped' if self.args.use_grouped_gemm else 'sparse'
             if mlp_impl in MLP_TYPE_REGISTRY[args.mlp_type]:
                 self.mlp = MLP_TYPE_REGISTRY[args.mlp_type][mlp_impl](args)
             else:
@@ -283,7 +281,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
-        if self.use_grouped_gemm:
+        if self.args.use_grouped_gemm:
             return self.grouped_forward_once(
                 x, expert_weights, top_experts)
         return self.sparse_forward_once(
@@ -299,7 +297,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bins,
             expert_capactiy,
             top_k):
-        if self.use_grouped_gemm:
+        if self.args.use_grouped_gemm:
             return self.grouped_permute_and_compute(
                 x,
                 tokens_per_expert,
