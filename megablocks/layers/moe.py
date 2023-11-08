@@ -433,6 +433,193 @@ class ParallelMLP(torch.nn.Module):
         return x
 
 
+class PipelineParallelMLP(ParallelMLP):
+
+    def parallel_forward_once(self, x, expert_weights, top_experts):
+        # TODO: Rewrite comment
+        # NOTE: This function implements the same computation as forward_once
+        # but with expert model parallelism.
+        #
+        # 1. Permute the tokens locally so that they are grouped by their
+        # expert assignments. This allows us to transfer all of the tokens
+        # for a remote device in one communication primitive.
+        #
+        # 2. Permute the tokens across the expert parallel devices. After
+        # this is completed each device has all of the tokens assigned to
+        # its set of experts in its local HBM.
+        #
+        # 3. Permute the tokens locally so that they are grouped by their
+        # expert assignement. After the distributed permutation the tokens
+        # are grouped by which device they came from. We re-order them
+        # locally to allow for efficient computation.
+        #
+        # After this series of permutations we compute the linear layers
+        # and then repeat these three steps in reverse to produce the final
+        # output.
+        #
+        # Compute the mapping of local tokens to experts.
+        expert_weights = expert_weights.flatten()
+        top_experts = top_experts.flatten()
+        with torch.no_grad():
+            indices, bin_ids, bins, tokens_per_expert = (
+                self.indices_and_bins(top_experts))
+
+            # If we're sharding the experts along the hidden dimension
+            # multiple devices own parts of the same sets of experts.
+            # Replicate the token counts so every device gets the counts.
+            repeated_tokens_per_expert = ops.repeat(
+                tokens_per_expert, (mpu.hidden_sharding_degree(self.args),))
+
+            # Pass token count information to the device on which the
+            # target expert resides.
+            parallel_tokens_per_expert = torch.empty_like(repeated_tokens_per_expert)
+            tpe_handle = torch.distributed.all_to_all_single(
+                parallel_tokens_per_expert,
+                repeated_tokens_per_expert,
+                group=self.args.expert_parallel_group,
+                async_op=True)
+
+        # Permute locally and without any padding so that tokens for each
+        # parallel device are stored contiguously.
+        #
+        # This view updates the shape of the tensor from [sl, bs, hs] to
+        # [sl * bs, hs] prior to the permutation.
+        x = x.view(-1, x.shape[-1])
+        x = ops.gather(
+            x,
+            indices,
+            bin_ids,
+            bins,
+            self.top_k)
+
+        # Compute the number of tokens that will be received from each
+        # device and permute the input data across the devices.
+        with torch.no_grad():
+            tpe_handle.wait()
+            experts_per_rank = mpu.experts_per_rank(self.args)
+
+            # Reshape to [world_size, num_experts_per_rank].
+            world_size = mpu.get_expert_parallel_world_size(self.args)
+            repeated_tokens_per_expert = (
+                repeated_tokens_per_expert.view(world_size, experts_per_rank))
+            parallel_tokens_per_expert = (
+                parallel_tokens_per_expert.view(world_size, experts_per_rank))
+
+            # TODO(tgale): It might be faster to do this on the GPU and
+            # then communicate the results back to the host.
+            send_counts = repeated_tokens_per_expert.cpu().sum(dim=-1)
+            parallel_tokens_per_expert_cpu = parallel_tokens_per_expert.cpu()
+            recv_counts = parallel_tokens_per_expert_cpu.sum(dim=-1)
+
+            # Convert the send/recv counts to lists.
+            send_offsets = [0] + torch.cumsum(send_counts, dim=0).tolist()
+            send_counts = send_counts.tolist()
+            recv_counts = recv_counts.tolist()
+            tokens_received = sum(recv_counts)
+
+
+        # TODO: require world size >= 4
+        # TODO: move this to top
+        if mpu.hidden_sharding_degree(self.args) > 1:
+            raise ValueError("Tensor parallel not supported for PipelineParallelMLP.")
+
+        def irecv(receive_rank, counts):
+            next_tensor = torch.empty(counts[receive_rank, x.shape[-1]], device=x.device, dtype=x.dtype)
+            return next_tensor, torch.distributed.irecv(next_tensor, receive_rank, group=self.args.expert_parallel_group)
+
+        def isend(send_rank, send_tensor):
+            return torch.distributed.isend(send_tensor, send_rank, group=self.args.expert_parallel_group)
+
+
+        # TODO: Finish and use this abstraction
+        def permute(permute_receive_rank, permute_send_rank):
+            next_tensor, permute_recv_handle = irecv(permute_receive_rank, recv_counts)
+            permute_send_handle = isend(permute_send_rank,  x[offsets[permute_send_rank]:offsets[permute_send_rank+1]])
+            return next_tensor, permute_recv_handle, permute_send_handle
+        
+        # TODO: Finish and use this abstraction
+        def unpermute():
+            x[send_offsets[unpermute_send_rank]:send_offsets[unpermute_send_rank+1]], unpermute_recv_handle = irecv(unpermute_receive_rank, recv_counts)
+            unpermute_send_handle = isend(unpermute_send_rank, out)
+
+        # Loop over ranks
+        world_size = mpu.get_expert_parallel_world_size(self.args)
+        rank = mpu.get_expert_parallel_rank(self.args)
+        rank_tokens = x[send_offsets[rank]:send_offsets[rank+1]]
+
+        # Prologue TODO: write better comment
+        # Run block 0, receive block 1, send nothing
+        permute_receive_rank = (rank+1) % world_size
+        permute_send_rank = (rank-1) % world_size
+        next_tensor, permute_recv_handle = irecv(permute_receive_rank, recv_counts)
+        permute_send_handle = isend(permute_send_rank,  x[offsets[permute_send_rank]:offsets[permute_send_rank+1]])
+        x[send_offsets[rank]:send_offsets[rank+1]] = self.mlp(rank_tokens) # Use self-rank to hide first all2all
+        permute_recv_handle.wait()
+        permute_send_handle.wait()
+        rank_tokens = next_tensor
+        compute_receive_rank = permute_send_rank
+        compute_send_rank = permute_receive_rank
+        unpermute_receive_rank = None
+        unpermute_send_rank = None
+
+        # Run block 1, receive block 2, send nothing
+        permute_receive_rank = (rank+1+1) % world_size
+        permute_send_rank = (rank+1-1) % world_size
+        next_tensor, permute_recv_handle = irecv(permute_receive_rank, recv_counts)
+        permute_send_handle = isend(permute_send_rank,  x[offsets[permute_send_rank]:offsets[permute_send_rank+1]])
+        x[send_offsets[rank]:send_offsets[rank+1]] = self.mlp(rank_tokens) # Use self-rank to hide first all2all
+        permute_recv_handle.wait()
+        permute_send_handle.wait()
+        rank_tokens = next_tensor
+        unpermute_receive_rank = compute_receive_rank
+        unpermute_send_rank = compute_send_rank
+        compute_receive_rank = permute_send_rank
+        compute_send_rank = permute_receive_rank
+        
+
+        for i in range(2, world_size - 2):
+            permute_receive_rank = (rank+i+1) % world_size
+            permute_send_rank = (rank+i-1) % world_size
+
+            next_tensor, permute_recv_handle = irecv(permute_receive_rank, recv_counts)
+            permute_send_handle = isend(permute_send_rank,  x[offsets[permute_send_rank]:offsets[permute_send_rank+1]])
+
+            x[send_offsets[unpermute_send_rank]:send_offsets[unpermute_send_rank+1]], unpermute_recv_handle = irecv(unpermute_receive_rank, recv_counts)
+            unpermute_send_handle = isend(unpermute_send_rank, out)
+
+            next_out = self.mlp(rank_tokens)
+
+            permute_recv_handle.wait()
+            permute_send_handle.wait()
+            rank_tokens = next_tensor
+
+            unpermute_recv_handle.wait()
+            unpermute_send_handle.wait()
+            out = next_out
+
+            unpermute_receive_rank = compute_receive_rank
+            unpermute_send_rank = compute_send_rank
+            compute_receive_rank = permute_send_rank
+            compute_send_rank = permute_receive_rank
+
+        # Epilogue
+        x[send_offsets[unpermute_send_rank]:send_offsets[unpermute_send_rank+1]], unpermute_recv_handle = irecv(unpermute_receive_rank, recv_counts)
+        unpermute_send_handle = isend(unpermute_send_rank, out)
+        next_out = self.mlp(rank_tokens)
+        unpermute_recv_handle.wait()
+        unpermute_send_handle.wait()
+        out = next_out
+        unpermute_receive_rank = compute_receive_rank
+        unpermute_send_rank = compute_send_rank
+
+        x[send_offsets[unpermute_send_rank]:send_offsets[unpermute_send_rank+1]], unpermute_recv_handle = irecv(unpermute_receive_rank, recv_counts)
+        unpermute_send_handle = isend(unpermute_send_rank, out)
+        unpermute_recv_handle.wait()
+        unpermute_send_handle.wait()
+
+        return x, tokens_per_expert.flatten()
+
+
 class MoE(torch.nn.Module):
 
     def __init__(self, args : Arguments):
