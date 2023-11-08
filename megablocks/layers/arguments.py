@@ -66,7 +66,7 @@ class Arguments:
             if nbits != -1:
                 turbo.assert_turbo_is_available()
 
-        if self.__getattribute__('mlp_type') == 'grouped_mlp':
+        if self.__getattribute__('use_grouped_gemm'):
             grouped_gemm.assert_grouped_gemm_is_available()
 
 
