@@ -18,7 +18,8 @@ def test_modules(
         moe_top_k=1,
         num_input_bits=-1,
         num_remat_bits=-1,
-        grouped_mlp=False):
+        mlp_type='mlp',
+        use_grouped_gemm=False):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,
@@ -30,7 +31,8 @@ def test_modules(
         memory_optimized_mlp=True,
         quantize_inputs_num_bits=num_input_bits,
         quantize_rematerialize_num_bits=num_remat_bits,
-        grouped_mlp=grouped_mlp,
+        mlp_type=mlp_type,
+        use_grouped_gemm=use_grouped_gemm,
         fp16=False,
         bf16=True)
 
@@ -72,7 +74,7 @@ _FORWARD_TESTS_NO_QUANTIZE = (
 )
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
-    p + (-1, -1, True) for p in _FORWARD_TESTS_NO_QUANTIZE
+    p + (-1, -1, 'mlp', True) for p in _FORWARD_TESTS_NO_QUANTIZE
 ])
 
 # quantization tests; assorted small sizes, systematic bitwidths
@@ -121,7 +123,7 @@ class dMoETest(parameterized.TestCase):
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_Forward(self, bs, sl, hs, num_experts, top_k,
                          num_input_bits=-1, num_remat_bits=-1,
-                         grouped_mlp=False):
+                         mlp_type='mlp', use_grouped_gemm=False):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
         _, _, _, layer = test_modules(
@@ -131,7 +133,8 @@ class dMoETest(parameterized.TestCase):
             moe_top_k=top_k,
             num_input_bits=num_input_bits,
             num_remat_bits=num_remat_bits,
-            grouped_mlp=grouped_mlp)
+             mlp_type=mlp_type,
+            use_grouped_gemm=use_grouped_gemm)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -140,7 +143,7 @@ class dMoETest(parameterized.TestCase):
     def testdMoE_ForwardBackward(
             self, bs, sl, hs, num_experts, top_k,
             num_input_bits=-1, num_remat_bits=-1,
-            grouped_mlp=False):
+            mlp_type='mlp', use_grouped_gemm=False):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
         x.requires_grad_(True)
 
@@ -151,7 +154,8 @@ class dMoETest(parameterized.TestCase):
             moe_top_k=top_k,
             num_input_bits=num_input_bits,
             num_remat_bits=num_remat_bits,
-            grouped_mlp=grouped_mlp)
+            mlp_type=mlp_type,
+            use_grouped_gemm=use_grouped_gemm)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -182,7 +186,7 @@ class dMoETest(parameterized.TestCase):
     def testdMoE_ForwardVersusMoE(
             self, bs, sl, hs, num_experts, top_k,
             num_input_bits=-1, num_remat_bits=-1,
-            grouped_mlp=False):
+            mlp_type='mlp', use_grouped_gemm=False):
         torch.manual_seed(42)
 
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
@@ -192,7 +196,8 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs,
             moe_num_experts=num_experts,
             moe_capacity_factor=0,
-            grouped_mlp=grouped_mlp)
+             mlp_type=mlp_type,
+            use_grouped_gemm=use_grouped_gemm)
 
         expected_out, _= moe_mlp(x)
         out, _ = dmoe_mlp(x)

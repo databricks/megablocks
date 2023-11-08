@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 
 
-class GLU(SparseMLP):
+class SparseGLU(SparseMLP):
 
     def __init__(self, args : Arguments):
         super().__init__(args)
@@ -49,7 +49,7 @@ class GLU(SparseMLP):
 
         return stk.ops.dsd(x1, w2)
     
-class GroupedGLU(GLU):
+class GroupedGLU(SparseGLU):
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))

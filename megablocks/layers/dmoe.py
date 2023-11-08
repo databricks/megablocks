@@ -15,8 +15,8 @@ def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
 
 MLP_TYPE_REGISTRY = {
-    'mlp': {'grouped': mlp.GroupedMLP, 'triton' : mlp.MLP},
-    'glu': {'grouped': glu.GroupedGLU, 'triton': glu.GLU},
+    'mlp': {'grouped': mlp.GroupedMLP, 'sparse' : mlp.SparseMLP},
+    'glu': {'grouped': glu.GroupedGLU, 'sparse': glu.SparseGLU},
 }
 
 class ParallelDroplessMLP(moe.ParallelMLP):
@@ -30,7 +30,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.use_grouped_gemm = args.use_grouped_gemm
 
         if args.mlp_type in MLP_TYPE_REGISTRY: 
-            mlp_impl = 'grouped' if self.use_grouped_gemm else 'triton'
+            mlp_impl = 'grouped' if self.use_grouped_gemm else 'sparse'
             if mlp_impl in MLP_TYPE_REGISTRY[args.mlp_type]:
                 self.mlp = MLP_TYPE_REGISTRY[args.mlp_type][mlp_impl](args)
             else:
