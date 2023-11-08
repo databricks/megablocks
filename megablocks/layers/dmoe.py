@@ -15,10 +15,8 @@ def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
 
 MLP_TYPE_REGISTRY = {
-    'grouped_mlp': mlp.GroupedMLP,
-    'sparse_mlp': mlp.SparseMLP,
-    'glu': glu.GLU,
-    'grouped_glu': glu.GroupedGLU
+    'mlp': {'grouped': mlp.GroupedMLP, 'triton' : mlp.MLP},
+    'glu': {'grouped': glu.GroupedGLU, 'triton': glu.GLU},
 }
 
 class ParallelDroplessMLP(moe.ParallelMLP):
@@ -29,12 +27,17 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
 
+        self.use_grouped_gemm = args.use_grouped_gemm
+
         if args.mlp_type in MLP_TYPE_REGISTRY: 
-            self.mlp = MLP_TYPE_REGISTRY[args.mlp_type](args)
+            mlp_impl = 'grouped' if self.use_grouped_gemm else 'triton'
+            if mlp_impl in MLP_TYPE_REGISTRY[args.mlp_type]:
+                self.mlp = MLP_TYPE_REGISTRY[args.mlp_type][mlp_impl](args)
+            else:
+                raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')
         else:
             raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
 
-        self.uses_grouped_gemm = True if args.mlp_type in ['grouped_mlp', 'grouped_glu'] else False
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
@@ -280,7 +283,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
-        if self.uses_grouped_gemm:
+        if self.use_grouped_gemm:
             return self.grouped_forward_once(
                 x, expert_weights, top_experts)
         return self.sparse_forward_once(
@@ -296,7 +299,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bins,
             expert_capactiy,
             top_k):
-        if self.uses_grouped_gemm:
+        if self.use_grouped_gemm:
             return self.grouped_permute_and_compute(
                 x,
                 tokens_per_expert,

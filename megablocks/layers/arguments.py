@@ -38,7 +38,8 @@ class Arguments:
 
     # Compute arguments.
     memory_optimized_mlp : bool = False
-    mlp_type: str = 'sparse_mlp'
+    mlp_type: str = 'mlp'
+    use_grouped_gemm: bool = False
     quantize_inputs_num_bits: int = -1  # -1 = no quantization
     quantize_rematerialize_num_bits: int = -1
     quantize_scatter_num_bits: int = -1
