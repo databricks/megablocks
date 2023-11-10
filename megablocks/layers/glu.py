@@ -13,13 +13,8 @@ class SparseGLU(SparseMLP):
 
     def __init__(self, args : Arguments):
         super().__init__(args)
-        num_rows_per_rank = (
-            (mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
-            mpu.get_weight_parallel_world_size(args)
-        )
-
         self.v1 = torch.nn.Parameter(torch.empty(
-            num_rows_per_rank,
+            self._num_rows_per_rank,
             args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
@@ -28,11 +23,8 @@ class SparseGLU(SparseMLP):
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.init_method))
 
-        should_set_attribute = (
-            args.moe_expert_model_parallelism or args.moe_weight_parallelism)
-
         mpu.set_expert_model_parallel_attributes(
-            self.v1, should_set_attribute)
+            self.v1, self._should_set_parallelism_attribute)
 
     def forward(self, x, topo):
         w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))

@@ -1,6 +1,6 @@
 from megablocks.layers import common
 from megablocks.layers import moe
-from megablocks.layers.mlp_registry import MlpRegistry
+from megablocks.layers.dmlp_registry import DMlpRegistry
 from megablocks.layers import mpu
 from megablocks.layers import router
 from megablocks.layers.arguments import Arguments
@@ -19,7 +19,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.hidden_size = args.hidden_size
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
-        self.mlp = MlpRegistry.get(args)
+        self.mlp = DMlpRegistry.get(args)
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.

@@ -304,18 +304,18 @@ class SparseMLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         self.args = args
-        num_rows_per_rank = (
+        self._num_rows_per_rank = (
             (mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
             mpu.get_weight_parallel_world_size(args)
         )
 
         self.w1 = torch.nn.Parameter(torch.empty(
-            num_rows_per_rank,
+            self._num_rows_per_rank,
             args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
         self.w2 = torch.nn.Parameter(torch.empty(
-            num_rows_per_rank,
+            self._num_rows_per_rank,
             args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
@@ -336,12 +336,12 @@ class SparseMLP(torch.nn.Module):
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
 
-        should_set_attribute = (
+        self._should_set_parallelism_attribute = (
             args.moe_expert_model_parallelism or args.moe_weight_parallelism)
         mpu.set_expert_model_parallel_attributes(
-            self.w1, should_set_attribute)
+            self.w1, self._should_set_parallelism_attribute)
         mpu.set_expert_model_parallel_attributes(
-            self.w2, should_set_attribute)
+            self.w2, self._should_set_parallelism_attribute)
 
         self.gradient_scale = None
         if self.args.moe_expert_model_parallelism:
