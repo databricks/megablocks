@@ -1,7 +1,6 @@
 from megablocks.layers import common
-from megablocks.layers import mlp
-from megablocks.layers import glu
 from megablocks.layers import moe
+from megablocks.layers.mlp_registry import MlpRegistry
 from megablocks.layers import mpu
 from megablocks.layers import router
 from megablocks.layers.arguments import Arguments
@@ -13,11 +12,6 @@ import torch
 def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
 
-MLP_TYPE_REGISTRY = {
-    'mlp': {'grouped': mlp.GroupedMLP, 'sparse' : mlp.SparseMLP},
-    'glu': {'grouped': glu.GroupedGLU, 'sparse': glu.SparseGLU},
-}
-
 class ParallelDroplessMLP(moe.ParallelMLP):
 
     def __init__(self, args : Arguments):
@@ -25,16 +19,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.hidden_size = args.hidden_size
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
-
-        if args.mlp_type in MLP_TYPE_REGISTRY: 
-            mlp_impl = 'grouped' if self.args.use_grouped_gemm else 'sparse'
-            if mlp_impl in MLP_TYPE_REGISTRY[args.mlp_type]:
-                self.mlp = MLP_TYPE_REGISTRY[args.mlp_type][mlp_impl](args)
-            else:
-                raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')
-        else:
-            raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
-
+        self.mlp = MlpRegistry.get(args)
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
