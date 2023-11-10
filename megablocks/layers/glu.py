@@ -25,7 +25,7 @@ class SparseGLU(SparseMLP):
 
         mpu.set_expert_model_parallel_attributes(
             self.v1, self._should_set_parallelism_attribute)
-        
+
         if self.args.moe_weight_parallelism:
             raise NotImplementedError("Weight parallelism not yet supported with GLU.")
         elif self.args.memory_optimized_mlp:
@@ -41,7 +41,7 @@ class SparseGLU(SparseMLP):
         x1._data = gelu.gelu(x1)._data * x2._data
 
         return stk.ops.dsd(x1, w2)
-    
+
 class GroupedGLU(SparseGLU):
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
