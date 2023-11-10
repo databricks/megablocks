@@ -25,13 +25,14 @@ class SparseGLU(SparseMLP):
 
         mpu.set_expert_model_parallel_attributes(
             self.v1, self._should_set_parallelism_attribute)
-
-    def forward(self, x, topo):
-        w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))
+        
         if self.args.moe_weight_parallelism:
             raise NotImplementedError("Weight parallelism not yet supported with GLU.")
         elif self.args.memory_optimized_mlp:
             raise NotImplementedError("Memory optimized implementation not yet supported with GLU.")
+
+    def forward(self, x, topo):
+        w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))
 
         # Compute the GLU.
         x1 = stk.ops.sdd(x, w1.t(), topo)
@@ -51,14 +52,6 @@ class GroupedGLU(SparseGLU):
         w1 = w1.view(ne, -1, self.args.hidden_size)
         v1 = v1.view(ne, -1, self.args.hidden_size)
         w2 = w2.view(ne, -1, self.args.hidden_size)
-
-        if self.args.moe_weight_parallelism:
-            raise ValueError(
-                "Weight parallelism not yet supported with GroupedMLP.")
-
-        if self.args.memory_optimized_mlp:
-            raise ValueError(
-                "Memory optimized implementation not yet supported with GroupedGLU.")
 
         # Compute the MLP.
         x1 = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
