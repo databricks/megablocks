@@ -38,7 +38,7 @@ class SparseGLU(SparseMLP):
         x1 = stk.ops.sdd(x, w1.t(), topo)
         x2 = stk.ops.sdd(x, v1.t(), topo)
 
-        x1._data = gelu.gelu(x1)._data * x2._data
+        x1 = stk.ops.mul(gelu.gelu(x1), x2)
 
         return stk.ops.dsd(x1, w2)
 

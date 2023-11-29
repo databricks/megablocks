@@ -5,7 +5,7 @@ from megablocks.layers.arguments import Arguments
 
 MlpType = Union[mlp.SparseMLP, glu.SparseGLU]
 
-class DMlpRegistry:
+class dMlpRegistry:
     """
     Abstraction for creating different underlying MLPs.
     Currently only supports MLPs that are used by dMoE. 
@@ -18,12 +18,12 @@ class DMlpRegistry:
     @staticmethod
     def get(args: Arguments) -> MlpType:
 
-        if args.mlp_type not in DMlpRegistry.REGISTRY: 
+        if args.mlp_type not in dMlpRegistry.REGISTRY: 
             raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
 
-        mlp_impl = 'grouped' if args.use_grouped_gemm else 'sparse'
+        mlp_impl = 'grouped' if args.grouped_mlp else 'sparse'
 
-        if mlp_impl not in DMlpRegistry.REGISTRY[args.mlp_type]:
+        if mlp_impl not in dMlpRegistry.REGISTRY[args.mlp_type]:
             raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')
 
-        return DMlpRegistry.REGISTRY[args.mlp_type][mlp_impl](args)
+        return dMlpRegistry.REGISTRY[args.mlp_type][mlp_impl](args)

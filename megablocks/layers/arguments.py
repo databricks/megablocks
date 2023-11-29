@@ -39,7 +39,7 @@ class Arguments:
     # Compute arguments.
     memory_optimized_mlp : bool = False
     mlp_type: str = 'mlp'
-    use_grouped_gemm: bool = False
+    grouped_mlp: bool = False
     quantize_inputs_num_bits: int = -1  # -1 = no quantization
     quantize_rematerialize_num_bits: int = -1
     quantize_scatter_num_bits: int = -1
@@ -66,7 +66,7 @@ class Arguments:
             if nbits != -1:
                 turbo.assert_turbo_is_available()
 
-        if self.__getattribute__('use_grouped_gemm'):
+        if self.__getattribute__('grouped_mlp'):
             grouped_gemm.assert_grouped_gemm_is_available()
 
 
