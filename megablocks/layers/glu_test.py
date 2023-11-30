@@ -11,25 +11,13 @@ import torch
 import stk
 import numpy as np
 
+# The topology helper functions are based on dmoe.py, see that file for more details
 def _sparse_transpose(size, row_indices, column_indices, offsets, blocking, transpose_sort_end_bit):
     block_columns = size[1] // blocking
 
-    # Sort row indices by column indices to get the transposed matrix's
-    # column indices.
-    #
-    # NOTE: Our sort operation uses the same width indices as the input values.
-    # To avoid overflow when we have large activation matrices we cast to
-    # 32-bit before sorting.
     _, gather_indices = ops.sort(
         column_indices.int(), transpose_sort_end_bit)
 
-    # There are a constant number of blocks in every row of the sparse matrix.
-    # A blocks offset is:
-    #
-    # row_index * blocks_per_row + column_index % blocks_per_row
-    #
-    # Once we have the block offsets ordered for transposition we can divide
-    # by blocks_per_row to get the transposed column indices.
     column_indices_t = row_indices.gather(0, gather_indices.long())
     block_offsets_t = gather_indices.int()
 
@@ -45,7 +33,7 @@ def _setup_topology(bs, sl, ffn_hidden_size, blocking=128, dtype=torch.bfloat16)
     block_rows = padded_tokens // blocking
     blocks_per_row = ffn_hidden_size // blocking
 
-    # equivaelent to blocks_per_row in the 1 expert case
+    # equivalent to blocks_per_row in the 1 expert case
     max_column_index = blocks_per_row
 
     transpose_sort_end_bit = max(int(np.ceil(np.log2(max_column_index))), 1)
