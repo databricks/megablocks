@@ -48,7 +48,7 @@ _DENSE_TESTS = (
 class GLUTest(parameterized.TestCase):
 
     @parameterized.parameters(*_DENSE_TESTS)
-    def testGLU_forward_grouped_mlp(self, bs, sl, hs):
+    def testGLU_ForwardGroupedMLP(self, bs, sl, hs):
 
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
@@ -67,7 +67,7 @@ class GLUTest(parameterized.TestCase):
         self.assertTrue(testing.allclose(out, expected_out))
 
     @parameterized.parameters(*_DENSE_TESTS)
-    def testGLU_forward_sparse(self, bs, sl, hs):
+    def testGLU_ForwardSparseMLP(self, bs, sl, hs):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
         _, glu, dmoe_glu = test_modules(
