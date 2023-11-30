@@ -6,74 +6,9 @@ from megablocks.layers.arguments import Arguments
 from megablocks.layers.glu import SparseGLU, GroupedGLU
 from megablocks.layers import testing
 
-from megablocks import ops
 import torch
 import stk
 import numpy as np
-
-# The topology helper functions are based on dmoe.py, see that file for more details
-def _sparse_transpose(size, row_indices, column_indices, offsets, blocking, transpose_sort_end_bit):
-    block_columns = size[1] // blocking
-
-    _, gather_indices = ops.sort(
-        column_indices.int(), transpose_sort_end_bit)
-
-    column_indices_t = row_indices.gather(0, gather_indices.long())
-    block_offsets_t = gather_indices.int()
-
-    zero = torch.zeros((1,), dtype=torch.int32, device=row_indices.device)
-    nnz_per_column = ops.histogram(column_indices, block_columns)
-    nnz_per_column = ops.inclusive_cumsum(nnz_per_column, 0)
-    offsets_t = torch.cat([zero, nnz_per_column])
-    return column_indices_t, offsets_t, block_offsets_t
-
-def _setup_topology(bs, sl, ffn_hidden_size, blocking=128, dtype=torch.bfloat16):
-    padded_tokens = bs * sl
-    padded_bins = torch.tensor([bs * sl]).type(torch.int32).cuda()
-    block_rows = padded_tokens // blocking
-    blocks_per_row = ffn_hidden_size // blocking
-
-    # equivalent to blocks_per_row in the 1 expert case
-    max_column_index = blocks_per_row
-
-    transpose_sort_end_bit = max(int(np.ceil(np.log2(max_column_index))), 1)
-
-    offsets = torch.arange(
-        0,
-        block_rows * blocks_per_row + 1,
-        blocks_per_row,
-        dtype=torch.int32,
-        device='cuda')
-
-    column_indices = ops.topology(
-            padded_bins, 
-            blocking,
-            block_rows,
-            blocks_per_row
-        )
-    data = torch.empty(
-        column_indices.numel(),
-        blocking,
-        blocking,
-        dtype=dtype,
-        device='meta') 
-
-    padded_tokens = bs * sl
-
-    shape = (
-        padded_tokens,
-        ffn_hidden_size
-    )
-
-    row_indices = stk.ops.row_indices(
-        shape, data, offsets, column_indices)
-    
-    column_indices_t, offsets_t, block_offsets_t = _sparse_transpose(
-        shape, row_indices, column_indices, offsets, blocking, transpose_sort_end_bit)
-    
-    return stk.Matrix(shape, data, row_indices, column_indices, offsets,
-                        column_indices_t, offsets_t, block_offsets_t)
-
 
 def test_modules(
         hidden_size,
@@ -143,7 +78,8 @@ class GLUTest(parameterized.TestCase):
         expected_out = glu(x)
 
         with torch.no_grad():
-            topo = _setup_topology(bs, sl, hs * 2)
+            topo = stk.random.mask(bs * sl, hs * 2, 0, blocking=128).cuda()
+
         out = dmoe_glu(x.view(bs * sl, hs), topo)
 
         out = out.view(sl, bs, hs)
