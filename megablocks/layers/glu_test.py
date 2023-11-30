@@ -49,7 +49,6 @@ class GLUTest(parameterized.TestCase):
 
     @parameterized.parameters(*_DENSE_TESTS)
     def testGLU_ForwardGroupedMLP(self, bs, sl, hs):
-
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
         _, glu, dmoe_glu = test_modules(
