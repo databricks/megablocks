@@ -76,12 +76,9 @@ class GLUTest(parameterized.TestCase):
             grouped_mlp=False)
 
         expected_out = glu(x)
-
         with torch.no_grad():
             topo = stk.random.mask(bs * sl, hs * 2, 0, blocking=128).cuda()
-
         out = dmoe_glu(x.view(bs * sl, hs), topo)
-
         out = out.view(sl, bs, hs)
 
         self.assertSequenceEqual(out.shape, x.shape)
