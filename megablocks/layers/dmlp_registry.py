@@ -5,25 +5,31 @@ from megablocks.layers.arguments import Arguments
 
 MlpType = Union[mlp.SparseMLP, glu.SparseGLU]
 
-class dMlpRegistry:
+_REGISTRY = {
+    'mlp': {'grouped': mlp.GroupedMLP, 'sparse' : mlp.SparseMLP},
+    'glu': {'grouped': glu.GroupedGLU, 'sparse': glu.SparseGLU},
+}
+
+def get(args: Arguments) -> MlpType:
+    """Returns an MLP for use in a dMoE instance.
+
+    Uses the provided arguments to instantiate the appropriate
+    MLP instance. This only contains MLPs for use in dMoEs 
+    (ie. only for the dropless versions of MoEs).
+
+    Args:
+        args: propagated Arguments dataclass.
+
+    Returns:
+        An instantiated MLP constructed using the input args.
+
     """
-    Abstraction for creating different underlying MLPs.
-    Currently only supports MLPs that are used by dMoE. 
-    """
-    REGISTRY = {
-        'mlp': {'grouped': mlp.GroupedMLP, 'sparse' : mlp.SparseMLP},
-        'glu': {'grouped': glu.GroupedGLU, 'sparse': glu.SparseGLU},
-    }
+    if args.mlp_type not in _REGISTRY: 
+        raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
 
-    @staticmethod
-    def get(args: Arguments) -> MlpType:
+    mlp_impl = 'grouped' if args.grouped_mlp else 'sparse'
 
-        if args.mlp_type not in dMlpRegistry.REGISTRY: 
-            raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
+    if mlp_impl not in _REGISTRY[args.mlp_type]:
+        raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')
 
-        mlp_impl = 'grouped' if args.grouped_mlp else 'sparse'
-
-        if mlp_impl not in dMlpRegistry.REGISTRY[args.mlp_type]:
-            raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')
-
-        return dMlpRegistry.REGISTRY[args.mlp_type][mlp_impl](args)
+    return _REGISTRY[args.mlp_type][mlp_impl](args)
