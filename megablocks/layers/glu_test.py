@@ -68,7 +68,7 @@ def _setup_topology(bs, sl, ffn_hidden_size, blocking=128, dtype=torch.bfloat16)
         blocking,
         blocking,
         dtype=dtype,
-        device='cuda') 
+        device='meta') 
 
     padded_tokens = bs * sl
 
