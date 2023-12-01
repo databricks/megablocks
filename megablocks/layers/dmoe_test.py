@@ -30,6 +30,7 @@ def test_modules(
         memory_optimized_mlp=True,
         quantize_inputs_num_bits=num_input_bits,
         quantize_rematerialize_num_bits=num_remat_bits,
+        mlp_type='mlp',
         grouped_mlp=grouped_mlp,
         fp16=False,
         bf16=True)

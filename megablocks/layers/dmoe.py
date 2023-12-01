@@ -1,6 +1,6 @@
 from megablocks.layers import common
-from megablocks.layers import mlp
 from megablocks.layers import moe
+from megablocks.layers import dmlp_registry
 from megablocks.layers import mpu
 from megablocks.layers import router
 from megablocks.layers.arguments import Arguments
@@ -9,10 +9,8 @@ import numpy as np
 import stk
 import torch
 
-
 def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
-
 
 class ParallelDroplessMLP(moe.ParallelMLP):
 
@@ -21,13 +19,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.hidden_size = args.hidden_size
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
-
-        # Grouped or sparse MLP.
-        self.mlp = (
-            mlp.GroupedMLP(args)
-            if args.grouped_mlp
-            else mlp.SparseMLP(args)
-        )
+        self.mlp = dmlp_registry.get(args)
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
