@@ -193,6 +193,7 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs,
             moe_num_experts=num_experts,
             moe_capacity_factor=0,
+            top_k=top_k,
             grouped_mlp=grouped_mlp)
 
         expected_out, _= moe_mlp(x)

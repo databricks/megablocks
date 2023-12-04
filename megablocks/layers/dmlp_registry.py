@@ -6,7 +6,7 @@ from megablocks.layers.arguments import Arguments
 MlpType = Union[mlp.SparseMLP, glu.SparseGLU]
 
 _REGISTRY = {
-    'mlp': {'grouped': mlp.GroupedMLP, 'sparse' : mlp.SparseMLP},
+    'mlp': {'grouped': mlp.GroupedMLP, 'sparse' : mlp.SparseMLP, 'torch' : mlp.TorchMLP},
     'glu': {'grouped': glu.GroupedGLU, 'sparse': glu.SparseGLU},
 }
 
@@ -26,8 +26,12 @@ def get(args: Arguments) -> MlpType:
     """
     if args.mlp_type not in _REGISTRY: 
         raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
-
-    mlp_impl = 'grouped' if args.grouped_mlp else 'sparse'
+    if args.torch_mlp:
+        mlp_impl = 'torch'
+    elif args.grouped_mlp:
+        mlp_impl = 'grouped'
+    else: 
+        mlp_impl = 'sparse'
 
     if mlp_impl not in _REGISTRY[args.mlp_type]:
         raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')

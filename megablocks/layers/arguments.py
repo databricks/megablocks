@@ -40,6 +40,7 @@ class Arguments:
     memory_optimized_mlp : bool = False
     mlp_type : str = 'mlp'
     grouped_mlp : bool = False
+    torch_mlp: bool = False
     quantize_inputs_num_bits: int = -1  # -1 = no quantization
     quantize_rematerialize_num_bits: int = -1
     quantize_scatter_num_bits: int = -1
@@ -47,6 +48,7 @@ class Arguments:
     # Initialization arguments.
     fp16 : bool = True
     bf16: bool = False
+    fp8: bool = False
     device : torch.device = torch.cuda.current_device()
     init_method : InitFn =  partial(torch.nn.init.normal_, mean=0.0, std=0.02)
     output_layer_init_method : InitFn = init_method

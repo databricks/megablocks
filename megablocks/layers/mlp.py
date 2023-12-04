@@ -527,3 +527,37 @@ class GroupedMLP(SparseMLP):
         x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x = F.gelu(x, approximate="tanh")
         return gg.ops.gmm(x, w2, batch_sizes)
+
+class TorchMLP(SparseMLP):
+
+    def forward(self, x, tokens_per_expert):
+        batch_sizes = tokens_per_expert.cpu().to(torch.long)
+        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
+
+        # Re-shape the weights for the grouped GEMMs.
+        ne = mpu.experts_per_rank(self.args)
+        w1 = w1.view(ne, -1, self.args.hidden_size)
+        w2 = w2.view(ne, -1, self.args.hidden_size)
+
+        if self.args.moe_weight_parallelism:
+            raise ValueError(
+                "Weight parallelism not yet supported with TorchMLP.")
+
+        if self.args.memory_optimized_mlp:
+            raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
+
+        # Compute the MLP.
+        x = self.gmm(x, w1, batch_sizes, trans_b=True)
+        x = F.gelu(x, approximate="tanh")
+        return self.gmm(x, w2, batch_sizes)
+
+    def gmm(self, a, b, batch_sizes, trans_b=False):
+        """ https://github.com/tgale96/grouped_gemm/blob/26b67147c96de3ab757055810f0ca8c6e6945326/grouped_gemm/ops_test.py#L43-L52 """
+        batch_sizes = batch_sizes.numpy()
+        out = []
+        start = 0
+        for i, size in enumerate(batch_sizes):
+            rhs = b[i, :, :].t() if trans_b else b[i, :, :]
+            out.append(a[start:start + size, :] @ rhs)
+            start += size
+        return torch.cat(out)
