@@ -132,10 +132,9 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         with torch.no_grad():
             indices, bin_ids, bins, padded_bins, tokens_per_expert = (
                 self.indices_and_padded_bins(top_experts))
-        sl, bs, hs = x.size()
 
         # Route the tokens for MoE computation.
-        x = x.view(sl * bs, hs)
+        x = x.view(-1, x.shape[-1])
         x = ops.padded_gather(
             x,
             indices,

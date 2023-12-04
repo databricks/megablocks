@@ -419,13 +419,13 @@ class ParallelMLP(torch.nn.Module):
         return x, tokens_per_expert.flatten()
 
     def forward(self, x, scores, expert_weights, top_experts):
-        sl, bs, hs = x.size()
+        in_shape = x.size()
 
         # Compute the experts.
         x, tokens_per_expert = self.forward_fn(
             x, expert_weights, top_experts)
         save_load_balancing_loss((tokens_per_expert, scores))
-        x = x.view(sl, bs, hs)
+        x = x.view(in_shape)
         if self.bias is not None:
             if self.args.return_bias:
                 return x, self.bias
@@ -448,7 +448,6 @@ class MoE(torch.nn.Module):
         # NOTE: If we're going to cast the activations to lower precision
         # do it before we permute the tokens to save bandwidth.
         x = common.cast_if_autocast_enabled(x)
-        sl, bs, hs = x.size()
 
         # Compute the expert scores and assignments.
         scores, expert_weights, top_experts = self.router(x)
