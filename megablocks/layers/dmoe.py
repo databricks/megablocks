@@ -121,7 +121,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         # Calculate the bin bounds for the sorted tokens.
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         bins = promote_scalar(bins)
-        return indices, bin_ids, bins, padded_bins, tokens_per_expert
+        return indices, bin_ids, bins, padded_bins, tokens_per_expert, padded_tokens_per_expert
 
     def sparse_forward_once(self, x, expert_weights, top_experts):
         # x: [sl, bs, hs]
@@ -130,7 +130,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, padded_bins, tokens_per_expert = (
+            indices, bin_ids, bins, padded_bins, tokens_per_expert, _  = (
                 self.indices_and_padded_bins(top_experts))
         sl, bs, hs = x.size()
 
@@ -217,9 +217,13 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, tokens_per_expert = (
-                self.indices_and_bins(top_experts))
-
+            if self.args.fp8:
+                indices, bin_ids, bins, padded_bins, tokens_per_expert, padded_tokens_per_expert = (
+                    self.indices_and_padded_bins(top_experts))
+            else: 
+                indices, bin_ids, bins, tokens_per_expert = (
+                    self.indices_and_bins(top_experts))
+                padded_bins, padded_tokens_per_expert = None, None
         out = self.grouped_permute_and_compute(
             x,
             tokens_per_expert,
@@ -227,6 +231,8 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bin_ids,
             expert_weights,
             bins,
+            padded_bins,
+            padded_tokens_per_expert,
             -1,  # unused
             self.args.moe_top_k)
         return out, tokens_per_expert
@@ -239,30 +245,55 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bin_ids,
             expert_weights,
             bins,
+            padded_bins, # only used if fp8 is enabled
+            padded_tokens_per_expert, # only used if fp8 is enabled
             expert_capactiy,  # unused
             top_k):
 
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
-        x = ops.gather(
-            x,
-            indices,
-            bin_ids,
-            bins,
-            top_k)
+        if self.args.fp8:
+            x = ops.padded_gather(
+                x,
+                indices,
+                bin_ids,
+                bins,
+                padded_bins,
+                top_k)
+        else:
+            x = ops.gather(
+                x,
+                indices,
+                bin_ids,
+                bins,
+                top_k)
 
         # Perform the expert computation.
-        x = self.mlp(x, tokens_per_expert)
+        if self.args.fp8:
+            x = self.mlp(x, padded_tokens_per_expert)
+        else:
+            x = self.mlp(x, tokens_per_expert)
 
         # Un-route the data for the MoE output.
-        return ops.scatter(
-            x,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            top_k,
-            self.args.quantize_scatter_num_bits)
+        if self.args.fp8:
+            return ops.padded_scatter(
+                    x,
+                    indices,
+                    bin_ids,
+                    expert_weights,
+                    bins,
+                    padded_bins,
+                    self.top_k,
+                    self.args.quantize_scatter_num_bits)
+        else:
+            return ops.scatter(
+                x,
+                indices,
+                bin_ids,
+                expert_weights,
+                bins,
+                top_k,
+                self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
         if self.args.grouped_mlp:

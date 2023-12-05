@@ -8,7 +8,9 @@ from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
-
+import transformer_engine.pytorch as te
+from transformer_engine.common.recipe import DelayedScaling, Format
+import contextlib
 
 class ScaleGradient(torch.autograd.Function):
 
@@ -528,6 +530,52 @@ class GroupedMLP(SparseMLP):
         x = F.gelu(x, approximate="tanh")
         return gg.ops.gmm(x, w2, batch_sizes)
 
+class TransformerEngineFp8MLP(torch.nn.Module):
+    def __init__(self, args : Arguments):
+        super().__init__()
+        self.args = args
+        assert self.args.fp8
+        if self.args.moe_weight_parallelism:
+            raise ValueError(
+                "Weight parallelism not yet supported with TorchMLP.")
+
+        if self.args.memory_optimized_mlp:
+            raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
+        self.num_experts_per_rank = mpu.experts_per_rank(self.args)
+        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size) for _ in range(self.num_experts_per_rank) ]
+        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size) for _ in range(self.num_experts_per_rank) ]
+    
+    def forward(self, x, tokens_per_expert):
+        batch_sizes = tokens_per_expert.cpu().to(torch.long)
+        # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2)) TODO(chuck): scale gradients
+        
+        # Compute the MLP.
+        x = self.gmm(x, self.w1, batch_sizes)
+        x = F.gelu(x, approximate="tanh")
+        return self.gmm(x, self.w2, batch_sizes)
+
+    def gmm(self, a, b, batch_sizes, precision_config=None):
+        """ https://github.com/tgale96/grouped_gemm/blob/26b67147c96de3ab757055810f0ca8c6e6945326/grouped_gemm/ops_test.py#L43-L52 """
+        batch_sizes = batch_sizes.numpy()
+        out = []
+        start = 0
+        if precision_config is None:
+            precision_config = {
+                'fp8_format': Format.HYBRID,
+                'amax_history_len': 16,
+                'amax_compute_algo': 'max',
+            }
+        # TODO(chuck): figure out if DelayedScaling should be inside or ouside for loop
+        fp8_recipe = DelayedScaling(**precision_config)
+        fp16_context = torch.autocast(device_type='cuda', dtype=torch.float16) if self.args.fp16 or self.args.bf16 else contextlib.nullcontext()
+        for i, size in enumerate(batch_sizes):
+            weights = b[i]
+            with fp16_context:
+                with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                    out.append(weights(a[start:start + size, :]))
+            start += size
+        return torch.cat(out)
+        
 class TorchMLP(SparseMLP):
 
     def forward(self, x, tokens_per_expert):

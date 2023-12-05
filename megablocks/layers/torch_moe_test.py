@@ -35,30 +35,31 @@ def test_modules(
         bf16=True)
     torch_moe_args = copy.deepcopy(dmoe_args)
     torch_moe_args.grouped_mlp = True 
-    torch_moe_args.torch_mlp = True 
-    torch_moe_args.bf16 = not fp8 
+    torch_moe_args.torch_mlp = not fp8 
+    torch_moe_args.bf16 = True
     torch_moe_args.fp8 = fp8
 
     dmoe_mlp = dmoe.dMoE(dmoe_args)
     torch_moe_mlp = dmoe.dMoE(torch_moe_args)
 
-    # mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
     if fp8:
-        torch_moe_mlp.cuda(torch.cuda.current_device()).to(torch.float8_e5m2)
-        dmoe_mlp.cuda(torch.cuda.current_device()).to(torch.float8_e5m2)
+        # TODO(chuck): check if this is accurate.
+        torch_moe_mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
+        dmoe_mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
     else:
         torch_moe_mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
         dmoe_mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
 
     # Set the baseline parameters to match exactly.
-    with torch.no_grad():
-        torch_moe_mlp.experts.mlp.w1.copy_(dmoe_mlp.experts.mlp.w1)
-        torch_moe_mlp.experts.mlp.w2.copy_(dmoe_mlp.experts.mlp.w2)
-        torch_moe_mlp.router.layer.weight.copy_(dmoe_mlp.router.layer.weight)
+    if not fp8:
+        with torch.no_grad():
+            torch_moe_mlp.experts.mlp.w1.copy_(dmoe_mlp.experts.mlp.w1)
+            torch_moe_mlp.experts.mlp.w2.copy_(dmoe_mlp.experts.mlp.w2)
+            torch_moe_mlp.router.layer.weight.copy_(dmoe_mlp.router.layer.weight)
     return dmoe_args, torch_moe_args, dmoe_mlp, torch_moe_mlp
 
-# bz, sl, hs, ne, top_k, fp8
-# min size: (1, 2, 128, 2, 1, True)
+# bz, sl, hs, ne, top_k
+# min size: (1, 2, 128, 2, 1)
 _FORWARD_TESTS = (
     (16, 1024, 512, 1, 1),
     (16, 1024, 512, 2, 1),
@@ -137,8 +138,22 @@ class torchMoETest(parameterized.TestCase):
 
         # test backward pass gradients
         self.assertTrue(testing.allclose(x.grad, y.grad))
+    
+    @parameterized.parameters(*_FORWARD_TESTS)
+    def testTransformerEngineFp8MLP_Forward(self, bs, sl, hs, num_experts, top_k):
+        x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
-
-
+        _, _, _, layer = test_modules(
+            hidden_size=hs,
+            ffn_hidden_size=hs*2,
+            moe_num_experts=num_experts,
+            moe_capacity_factor=1,
+            moe_top_k=top_k,
+            fp8=True,
+        )
+        out, _ = layer(x)
+        self.assertSequenceEqual(out.shape, x.shape)
+        out.float().sum().backward()
+    
 if __name__ == '__main__':
     unittest.main()
