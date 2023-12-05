@@ -316,7 +316,6 @@ class dMoE(torch.nn.Module):
         # NOTE: If we're going to cast the activations to lower precision
         # do it before we permute the tokens to save bandwidth.
         x = common.cast_if_autocast_enabled(x)
-        sl, bs, hs = x.size()
 
         # Compute the expert scores and assignments.
         scores, expert_weights, top_experts = self.router(x)
