@@ -534,7 +534,10 @@ class TransformerEngineFp8MLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         self.args = args
-        assert self.args.fp8
+        if not self.args.fp8:
+            raise ValueError("Please set args.fp8=True.")
+        if not self.args.grouped_mlp:
+            raise ValueError("TransformerEngineFp8MLP only supports grouped_mlp=True.")
         if self.args.moe_weight_parallelism:
             raise ValueError(
                 "Weight parallelism not yet supported with TorchMLP.")
@@ -586,7 +589,9 @@ class TorchMLP(SparseMLP):
         ne = mpu.experts_per_rank(self.args)
         w1 = w1.view(ne, -1, self.args.hidden_size)
         w2 = w2.view(ne, -1, self.args.hidden_size)
-
+        if not self.args.grouped_mlp:
+            raise ValueError("TransformerEngineFp8MLP only supports grouped_mlp=True.")
+        
         if self.args.moe_weight_parallelism:
             raise ValueError(
                 "Weight parallelism not yet supported with TorchMLP.")

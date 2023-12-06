@@ -121,7 +121,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         # Calculate the bin bounds for the sorted tokens.
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         bins = promote_scalar(bins)
-        return indices, bin_ids, bins, padded_bins, tokens_per_expert, padded_tokens_per_expert
+        return indices, bin_ids, bins, padded_bins, tokens_per_expert
 
     def sparse_forward_once(self, x, expert_weights, top_experts):
         # x: [sl, bs, hs]
@@ -218,12 +218,11 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         top_experts = top_experts.flatten()
         with torch.no_grad():
             if self.args.fp8:
-                indices, bin_ids, bins, padded_bins, tokens_per_expert, padded_tokens_per_expert = (
+                indices, bin_ids, bins, padded_bins, tokens_per_expert = (
                     self.indices_and_padded_bins(top_experts))
             else: 
                 indices, bin_ids, bins, tokens_per_expert = (
                     self.indices_and_bins(top_experts))
-                padded_bins, padded_tokens_per_expert = None, None
         out = self.grouped_permute_and_compute(
             x,
             tokens_per_expert,
@@ -231,8 +230,6 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bin_ids,
             expert_weights,
             bins,
-            padded_bins,
-            padded_tokens_per_expert,
             -1,  # unused
             self.args.moe_top_k)
         return out, tokens_per_expert
@@ -245,14 +242,15 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bin_ids,
             expert_weights,
             bins,
-            padded_bins, # only used if fp8 is enabled
-            padded_tokens_per_expert, # only used if fp8 is enabled
             expert_capactiy,  # unused
             top_k):
 
-        # Route the tokens for MoE computation.
+        # Route the tokens for MoE MLP computation.
         x = x.view(-1, x.shape[-1])
         if self.args.fp8:
+            padded_tokens_per_expert = ops.round_up(tokens_per_expert, self.blocking)
+            padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
+            padded_bins = promote_scalar(padded_bins)
             x = ops.padded_gather(
                 x,
                 indices,
@@ -260,6 +258,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 bins,
                 padded_bins,
                 top_k)
+            x = self.mlp(x, padded_tokens_per_expert)
         else:
             x = ops.gather(
                 x,
@@ -267,11 +266,6 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 bin_ids,
                 bins,
                 top_k)
-
-        # Perform the expert computation.
-        if self.args.fp8:
-            x = self.mlp(x, padded_tokens_per_expert)
-        else:
             x = self.mlp(x, tokens_per_expert)
 
         # Un-route the data for the MoE output.
