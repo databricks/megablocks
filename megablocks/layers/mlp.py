@@ -570,11 +570,14 @@ class TransformerEngineFp8MLP(torch.nn.Module):
             }
         # TODO(chuck): figure out if DelayedScaling should be inside or ouside for loop
         fp8_recipe = DelayedScaling(**precision_config)
-        fp16_context = torch.autocast(device_type='cuda', dtype=torch.float16)
+        fp16_context = torch.autocast(device_type='cuda', dtype=torch.float16) if self.args.use_fp16_context else contextlib.nullcontext() 
         for i, size in enumerate(batch_sizes):
             weights = b[i]
             with fp16_context:
-                with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                if self.args.use_fp8_context:
+                    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                        out.append(weights(a[start:start + size, :]))
+                else:
                     out.append(weights(a[start:start + size, :]))
             start += size
         return torch.cat(out)
