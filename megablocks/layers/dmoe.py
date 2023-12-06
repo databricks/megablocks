@@ -130,7 +130,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, padded_bins, tokens_per_expert, _  = (
+            indices, bin_ids, bins, padded_bins, tokens_per_expert  = (
                 self.indices_and_padded_bins(top_experts))
         sl, bs, hs = x.size()
 

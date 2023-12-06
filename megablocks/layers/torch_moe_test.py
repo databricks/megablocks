@@ -194,7 +194,7 @@ class torchMoETest(parameterized.TestCase):
         fp8_moe_loss.backward()
 
         # perform dmoe forward backward
-        dmoe_out, _ = dmoe_mlp(gity)
+        dmoe_out, _ = dmoe_mlp(y)
         dmoe_loss = dmoe_out.sum()
         dmoe_loss.backward()
 
