@@ -114,6 +114,10 @@ class ParallelMLP(torch.nn.Module):
         # so that we can pass it to radix sort.
         self.sort_end_bit = max(int(np.ceil(np.log2(self.num_experts))), 1)
 
+        # Expert Dropout.
+        self.expert_dropout_rate = args.moe_expert_dropout_rate if (
+            args.moe_expert_dropout_rate is not None) else 0.0
+
         # Expert MLP.
         self.mlp = mlp.MLP(args)
 
@@ -200,6 +204,11 @@ class ParallelMLP(torch.nn.Module):
             x, indices, expert_weights, bins, top_k)
 
     def forward_once(self, x, expert_weights, top_experts):
+        # Expert dropout: Randomly drop experts based on the dropout rate
+        if self.training and self.args.expert_dropout_rate > 0:
+            dropout_mask = torch.rand_like(expert_weights) < self.args.moe_expert_dropout_rate
+            top_experts = top_experts.masked_fill(dropout_mask, -1)
+
         # x: [sl, bs, hs]
         # expert_weights: [sl * bs, top-k]
         # top_experts: [sl * bs, top-k]
@@ -248,6 +257,11 @@ class ParallelMLP(torch.nn.Module):
         # and then repeat these three steps in reverse to produce the final
         # output.
         #
+        # Expert dropout: Randomly drop experts based on the dropout rate.
+        if self.training and self.args.expert_dropout_rate > 0:
+            dropout_mask = torch.rand_like(expert_weights) < self.args.moe_expert_dropout_rate
+            top_experts = top_experts.masked_fill(dropout_mask, -1)
+
         # Compute the mapping of local tokens to experts.
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()

@@ -27,6 +27,7 @@ class Arguments:
     moe_loss_weight : float = 0.1
     moe_jitter_eps : Optional[float] = None
     moe_lbl_in_fp32 : bool = False
+    moe_expert_dropout_rate : float = 0.0
 
     # Parallelism arguments.
     moe_expert_model_parallelism : bool = False
