@@ -13,12 +13,12 @@
 namespace megablocks {
 namespace construct_indices {
 
-// We expect the number of outputs per block to be
-// small. With ffn_hidden_size=4096, we only need
-// to write 32 elements per block per iteration.
-// This is the largest we're every likely to use
-// so we keep the blocks small.
-const int kThreadsPerBlock = 32;
+// This accounts for a maximum of
+// ffn_hidden_size = kThreadsPerBlock * 128.
+// Modify accordingly if ffn_hidden_size changes.
+// Increasing it would reduce a bit compute efficiency 
+// (to be benchmarked). 
+const int kThreadsPerBlock = 112;
 
 __global__ void __launch_bounds__(kThreadsPerBlock)
   ConstructIndicesKernel(short * __restrict__ indices,
