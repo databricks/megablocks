@@ -36,7 +36,7 @@ extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
     name="megablocks",
-    version="0.4.0",
+    version="0.5.0",
     author="Trevor Gale",
     author_email="tgale@stanford.edu",
     description="MegaBlocks",
