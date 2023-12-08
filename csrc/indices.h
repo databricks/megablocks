@@ -13,11 +13,9 @@
 namespace megablocks {
 namespace construct_indices {
 
-// We expect the number of outputs per block to be
-// small. With ffn_hidden_size=4096, we only need
-// to write 32 elements per block per iteration.
-// This is the largest we're every likely to use
-// so we keep the blocks small.
+// We expect the number of outputs per block to be small. For
+// example, with ffn_hidden_size=4096, we only need to write
+// 32 elements per block per iteration.
 const int kThreadsPerBlock = 32;
 
 __global__ void __launch_bounds__(kThreadsPerBlock)
@@ -39,13 +37,11 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
   // Write the indices to the output.
   int bin_offset = blockIdx.y;
-  int tid = threadIdx.x;
   int num_rows = end - start;
   for (; bin_offset < num_rows; num_rows -= gridDim.y) {
-    int elements = num_columns;
     short *out = indices;
-    for (; tid < elements; elements -= kThreadsPerBlock) {
-      *out = threadIdx.x + (blockIdx.x * num_columns);
+    for (int bid = threadIdx.x; bid < num_columns; bid += kThreadsPerBlock) {
+      *out = bid + (blockIdx.x * num_columns);
       out += kThreadsPerBlock;
     }
     indices += gridDim.y * num_columns;
