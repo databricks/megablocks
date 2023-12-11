@@ -21,15 +21,22 @@ ext_modules = [
 ]
 
 install_requires=[
-    'stanford-stk @ git+https://github.com/stanford-futuredata/stk.git@main',
-    'grouped_gemm @ git+https://github.com/tgale96/grouped_gemm@main',
-    'mosaicml-turbo==0.0.4',
+    "triton==2.1.0",
+    "stanford-stk>=0.0.6",
 ]
 
 extra_deps = {}
 
-extra_deps['dev'] = [
-    'absl-py',
+extra_deps["gg"] = [
+    "grouped_gemm",
+]
+
+extra_deps["quant"] = [
+    "mosaicml-turbo==0.0.4",
+]
+
+extra_deps["dev"] = [
+    "absl-py",
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
