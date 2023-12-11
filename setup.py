@@ -28,7 +28,7 @@ install_requires=[
 extra_deps = {}
 
 extra_deps["gg"] = [
-    "grouped_gemm @ git+https://github.com/tgale96/grouped_gemm@main",
+    "grouped_gemm",
 ]
 
 extra_deps["quant"] = [
