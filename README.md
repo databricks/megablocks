@@ -18,7 +18,7 @@ NOTE: This assumes you have `numpy` and `torch` installed.
 
 **Using MegaBlocks in other packages:** To install the MegaBlocks package for use in other frameworks, run `pip install megablocks`. For example, [Mixtral-8x7B](https://mistral.ai/news/mixtral-of-experts/) can be run with [vLLM](https://github.com/vllm-project/vllm) + MegaBlocks with this installation method.
 
-**Extras:*** MegaBlocks has optional dependencies that enable additional features.
+**Extras:** MegaBlocks has optional dependencies that enable additional features.
 
 Installing `megablocks[quant]` enables configurable quantization of saved activations in the dMoE layer to save memory during training. The degree of quantization is controlled via the `quantize_inputs_num_bits`, `quantize_rematerialize_num_bits` and `quantize_scatter_num_bits` [arguments](https://github.com/stanford-futuredata/megablocks/blob/main/megablocks/layers/arguments.py).
 
