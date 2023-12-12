@@ -545,8 +545,8 @@ class TransformerEngineFp8MLP(torch.nn.Module):
         if self.args.memory_optimized_mlp:
             raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
         self.num_experts_per_rank = mpu.experts_per_rank(self.args)
-        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size) for _ in range(self.num_experts_per_rank) ]
-        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size) for _ in range(self.num_experts_per_rank) ]
+        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=torch.bfloat16) for _ in range(self.num_experts_per_rank) ]
+        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=torch.bfloat16) for _ in range(self.num_experts_per_rank) ]
     
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
