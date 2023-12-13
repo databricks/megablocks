@@ -3,7 +3,7 @@ from functools import partial
 import megablocks.turbo_util as turbo
 import megablocks.grouped_gemm_util as grouped_gemm
 import torch
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 # Type annotation for in-place Tensor initialization function.
 InitFn = Callable[[torch.Tensor], None]
@@ -24,7 +24,7 @@ class Arguments:
     moe_num_experts : int = 1
     moe_top_k : int = 1
     moe_capacity_factor : int = 1
-    moe_normalize_expert_weights: bool = False
+    moe_normalize_expert_weights: Union[int, float, bool] = False
     moe_loss_weight : float = 0.1
     moe_jitter_eps : Optional[float] = None
     moe_lbl_in_fp32 : bool = False
