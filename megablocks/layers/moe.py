@@ -391,7 +391,6 @@ class ParallelMLP(torch.nn.Module):
             parallel_bins,
             expert_capacity,
             top_k=1)
-
         # Un-permute the tokens across the devices.
         x, _ = all_to_all(
             parallel_x, send_counts, recv_counts,
