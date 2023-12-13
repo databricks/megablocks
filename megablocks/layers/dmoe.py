@@ -269,25 +269,14 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             x = self.mlp(x, tokens_per_expert)
 
         # Un-route the data for the MoE output.
-        if self.args.fp8:
-            return ops.padded_scatter(
-                    x,
-                    indices,
-                    bin_ids,
-                    expert_weights,
-                    bins,
-                    padded_bins,
-                    self.top_k,
-                    self.args.quantize_scatter_num_bits)
-        else:
-            return ops.scatter(
-                x,
-                indices,
-                bin_ids,
-                expert_weights,
-                bins,
-                top_k,
-                self.args.quantize_scatter_num_bits)
+        return ops.scatter(
+            x,
+            indices,
+            bin_ids,
+            expert_weights,
+            bins,
+            top_k,
+            self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
         if self.args.grouped_mlp:
