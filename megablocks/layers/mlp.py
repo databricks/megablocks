@@ -545,14 +545,13 @@ class TransformerEngineFp8MLP(torch.nn.Module):
         if self.args.memory_optimized_mlp:
             raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
         self.num_experts_per_rank = mpu.experts_per_rank(self.args)
-        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=torch.bfloat16) for _ in range(self.num_experts_per_rank) ]
-        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=torch.bfloat16) for _ in range(self.num_experts_per_rank) ]
-    
-    def forward(self, x, tokens_per_expert):
+        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=torch.bfloat16, bias=False) for _ in range(self.num_experts_per_rank) ]
+        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=torch.bfloat16, bias=False) for _ in range(self.num_experts_per_rank) ]
+
+    def forward(self, x, tokens_per_expert, trans_b=False):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2)) TODO(chuck): scale gradients
         
-        # Compute the MLP.
         x = self.gmm(x, self.w1, batch_sizes)
         x = F.gelu(x, approximate="tanh")
         return self.gmm(x, self.w2, batch_sizes)
@@ -569,16 +568,10 @@ class TransformerEngineFp8MLP(torch.nn.Module):
                 'amax_compute_algo': 'max',
             }
         # TODO(chuck): figure out if DelayedScaling should be inside or ouside for loop
-        fp8_recipe = DelayedScaling(**precision_config)
-        fp16_context = torch.autocast(device_type='cuda', dtype=torch.float16) if self.args.use_fp16_context else contextlib.nullcontext() 
         for i, size in enumerate(batch_sizes):
             weights = b[i]
-            with fp16_context:
-                if self.args.use_fp8_context:
-                    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                        out.append(weights(a[start:start + size, :]))
-                else:
-                    out.append(weights(a[start:start + size, :]))
+            x = a[start:start + size, :]
+            out.append(weights(x))
             start += size
         return torch.cat(out)
         

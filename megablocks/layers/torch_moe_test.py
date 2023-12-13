@@ -9,6 +9,9 @@ from megablocks.layers import moe
 from megablocks.layers import testing
 import torch
 import copy
+import transformer_engine.pytorch as te
+from transformer_engine.common.recipe import Format, DelayedScaling
+
 # from transformer_engine.quickstart_utils import cast_to_representable
 
 
@@ -163,7 +166,12 @@ class torchMoETest(parameterized.TestCase):
             fp8=True,
             grouped_mlp=False,
         )
-        out, _ = layer(x)
+        fp8_format = Format.HYBRID  # E4M3 during forward pass, E5M2 during backward pass
+        fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max")
+
+
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
         out.float().sum().backward()
         self.assertTrue(x.grad is not None)
