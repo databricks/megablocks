@@ -49,8 +49,6 @@ class Arguments:
     fp16 : bool = True
     bf16: bool = False
     fp8: bool = False
-    use_fp16_context: bool = True
-    use_fp8_context: bool = True
     device : torch.device = torch.cuda.current_device()
     init_method : InitFn =  partial(torch.nn.init.normal_, mean=0.0, std=0.02)
     output_layer_init_method : InitFn = init_method
