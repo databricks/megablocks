@@ -132,10 +132,9 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         with torch.no_grad():
             indices, bin_ids, bins, padded_bins, tokens_per_expert  = (
                 self.indices_and_padded_bins(top_experts))
-        sl, bs, hs = x.size()
 
         # Route the tokens for MoE computation.
-        x = x.view(sl * bs, hs)
+        x = x.view(-1, x.shape[-1])
         x = ops.padded_gather(
             x,
             indices,
@@ -337,7 +336,6 @@ class dMoE(torch.nn.Module):
         # NOTE: If we're going to cast the activations to lower precision
         # do it before we permute the tokens to save bandwidth.
         x = common.cast_if_autocast_enabled(x)
-        sl, bs, hs = x.size()
 
         # Compute the expert scores and assignments.
         scores, expert_weights, top_experts = self.router(x)

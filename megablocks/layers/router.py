@@ -53,9 +53,11 @@ class LearnedRouter(torch.nn.Module):
         if self.training and self.args.moe_jitter_eps is not None:
             x = x * self.jitter(x)
 
-        sl, bs, hs = x.size()
-        scores = self.layer(x.view(-1, hs)).softmax(dim=-1)
+        scores = self.layer(x.view(-1, x.shape[-1])).softmax(dim=-1)
         expert_weights, expert_indices = self._top_k(scores)
+        if self.args.moe_normalize_expert_weights:
+            expert_weights /= torch.norm(
+                expert_weights, p=self.args.moe_normalize_expert_weights,dim=-1, keepdim=True)
 
         expert_indices = (
             _uniform_expert_assignment(expert_indices, self.args.moe_num_experts)

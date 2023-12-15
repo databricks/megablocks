@@ -2,6 +2,7 @@ import unittest
 from functools import partial
 
 from absl.testing import parameterized
+from megablocks import grouped_gemm_util as gg
 from megablocks import turbo_util as turbo
 from megablocks.layers.arguments import Arguments
 from megablocks.layers import dmoe
@@ -74,7 +75,7 @@ _FORWARD_TESTS_NO_QUANTIZE = (
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
     p + (-1, -1, True) for p in _FORWARD_TESTS_NO_QUANTIZE
-])
+]) if gg.grouped_gemm_is_available() else ()
 
 # quantization tests; assorted small sizes, systematic bitwidths
 _FORWARD_TESTS_QUANTIZE_HIDDEN = (
