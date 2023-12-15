@@ -545,28 +545,22 @@ class TransformerEngineFp8MLP(torch.nn.Module):
         if self.args.memory_optimized_mlp:
             raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
         self.num_experts_per_rank = mpu.experts_per_rank(self.args)
-        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=torch.bfloat16, bias=False) for _ in range(self.num_experts_per_rank) ]
-        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=torch.bfloat16, bias=False) for _ in range(self.num_experts_per_rank) ]
+        self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(self.num_experts_per_rank) ]
+        self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(self.num_experts_per_rank) ]
 
     def forward(self, x, tokens_per_expert, trans_b=False):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2)) TODO(chuck): scale gradients
         
-        x = self.gmm(x, self.w1, batch_sizes)
+        x = self.gmm(x, self.w1, batch_sizes, self.args.ffn_hidden_size)
         x = F.gelu(x, approximate="tanh")
-        return self.gmm(x, self.w2, batch_sizes)
+        return self.gmm(x, self.w2, batch_sizes, self.args.hidden_size)
 
-    def gmm(self, a, b, batch_sizes, precision_config=None):
+    def gmm(self, a, b, batch_sizes, output_dim):
         """ https://github.com/tgale96/grouped_gemm/blob/26b67147c96de3ab757055810f0ca8c6e6945326/grouped_gemm/ops_test.py#L43-L52 """
         batch_sizes = batch_sizes.numpy()
         out = []
         start = 0
-        if precision_config is None:
-            precision_config = {
-                'fp8_format': Format.HYBRID,
-                'amax_history_len': 16,
-                'amax_compute_algo': 'max',
-            }
         # TODO(chuck): figure out if DelayedScaling should be inside or ouside for loop
         for i, size in enumerate(batch_sizes):
             weights = b[i]

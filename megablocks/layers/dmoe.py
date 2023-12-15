@@ -243,7 +243,8 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         # Route the tokens for MoE MLP computation.
         x = x.view(-1, x.shape[-1])
         if self.args.fp8:
-            padded_tokens_per_expert = ops.round_up(tokens_per_expert, self.blocking)
+            FP8_PADDING_VALUE = 16
+            padded_tokens_per_expert = ops.round_up(tokens_per_expert, FP8_PADDING_VALUE)
             padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
             padded_bins = promote_scalar(padded_bins)
             x = ops.padded_gather(
@@ -254,16 +255,16 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 padded_bins,
                 top_k)
             x = self.mlp(x, padded_tokens_per_expert)
-            # return ops.padded_scatter(
-            #     x,
-            #     indices,
-            #     bin_ids,
-            #     expert_weights,
-            #     bins,
-            #     padded_bins,
-            #     self.top_k,
-            #     # TODO(chuck): add quantization bits back
-            # )
+            return ops.padded_scatter(
+                x,
+                indices,
+                bin_ids,
+                expert_weights,
+                bins,
+                padded_bins,
+                self.top_k,
+                # TODO(chuck): add quantization bits back
+            )
         else:
             x = ops.gather(
                 x,
