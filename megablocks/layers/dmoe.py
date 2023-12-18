@@ -262,7 +262,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 expert_weights,
                 bins,
                 padded_bins,
-                self.top_k,
+                top_k,
                 # TODO(chuck): add quantization bits back
             )
         else:
