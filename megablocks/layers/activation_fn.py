@@ -6,7 +6,7 @@ import stk
 
 def act_fn(x: stk.Matrix, function: Callable, return_grad_fn: bool = False, **kwargs):
     assert isinstance(x, stk.Matrix)
-    with torch.set_grad_enabled(return_grad_fn):
+    with torch.set_grad_enabled(torch.is_grad_enabled() or return_grad_fn):
         if return_grad_fn:
             x.data.requires_grad = True
         out = function(x.data, **kwargs)
