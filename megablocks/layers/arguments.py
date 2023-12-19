@@ -19,12 +19,13 @@ class Arguments:
     num_layers : int = 1
     bias : bool = True
     return_bias : bool = True
+    activation_fn : Optional[Callable] = None
 
     # MoE arguments.
     moe_num_experts : int = 1
     moe_top_k : int = 1
     moe_capacity_factor : int = 1
-    moe_normalize_expert_weights: Optional[Union[int, float]] = None
+    moe_normalize_expert_weights : Optional[Union[int, float]] = None
     moe_loss_weight : float = 0.1
     moe_jitter_eps : Optional[float] = None
     moe_lbl_in_fp32 : bool = False
