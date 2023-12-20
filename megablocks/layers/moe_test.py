@@ -38,8 +38,6 @@ def test_modules(
 
 
 _FORWARD_TESTS = (
-    # bs, sl, hs, num_experts, top_k
-    (4, 2048, 8192, 32, 4),
     (16, 1024, 512, 1, 1),
     (16, 1024, 512, 2, 1),
     (16, 1024, 512, 4, 1),

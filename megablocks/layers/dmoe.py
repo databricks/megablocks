@@ -130,7 +130,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, padded_bins, tokens_per_expert  = (
+            indices, bin_ids, bins, padded_bins, tokens_per_expert = (
                 self.indices_and_padded_bins(top_experts))
 
         # Route the tokens for MoE computation.
@@ -243,8 +243,9 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         # Route the tokens for MoE MLP computation.
         x = x.view(-1, x.shape[-1])
         if self.args.fp8:
-            FP8_PADDING_VALUE = 16
-            padded_tokens_per_expert = ops.round_up(tokens_per_expert, FP8_PADDING_VALUE)
+            # Transformer engine requires all inputs to be padded to a multiple of 16
+            TRANSFORMER_ENGINE_PADDING_VALUE = 16
+            padded_tokens_per_expert = ops.round_up(tokens_per_expert, TRANSFORMER_ENGINE_PADDING_VALUE)
             padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
             padded_bins = promote_scalar(padded_bins)
             x = ops.padded_gather(
