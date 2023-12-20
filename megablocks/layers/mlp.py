@@ -548,23 +548,19 @@ class TransformerEngineFp8MLP(torch.nn.Module):
         self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(ne) ]
         self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(ne) ]
 
-    def forward(self, x, tokens_per_expert, trans_b=False):
-        # TODO(chuck): Initialization and scaling.
+    def forward(self, x, tokens_per_expert):
+        # TODO(chuck): Initialization and weight scaling.
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
-        out = torch.empty(
-            x.shape[0], self.args.hidden_size,
-            device=self.args.device,
-            dtype=common.dtype(self.args)
-        )
         start = 0
+        out = []
         for i, size in enumerate(batch_sizes):
-            y = x[start:start+size]
+            y = x[start:start+size, :]
             y = self.w1[i](y)
             y = F.gelu(y, approximate="tanh")
             y = self.w2[i](y)
-            out[start:start+size] = y
-            start = start+size
-        return out
+            out.append(y)
+            start = start + size
+        return torch.cat(out)
         
         
 class TorchMLP(SparseMLP):
@@ -580,24 +576,20 @@ class TorchMLP(SparseMLP):
             raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
 
         experts_per_rank = mpu.experts_per_rank(args)
-        # switch from parameter to just tensor. 
+        # TODO(chuck): Check intiialization and weight scaling
         self.w1.data = self.w1.data.reshape(experts_per_rank, -1, self.args.hidden_size).transpose(1, 2)
         self.w2.data = self.w2.data.reshape(experts_per_rank, -1, self.args.hidden_size)
 
     def forward(self, x, tokens_per_expert):
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
-        out = torch.empty(
-            x.shape[0], self.args.hidden_size,
-            device=self.args.device,
-            dtype=common.dtype(self.args)
-        )
+        out = []
         start = 0
         for i, size in enumerate(batch_sizes):
-            y = x[start:start+size]
+            y = x[start:start+size, :]
             y = y @ w1[i, :, :]
             y = F.gelu(y, approximate="tanh")
             y = y @ w2[i, :, :]
-            out[start:start+size] = y 
+            out.append(y)
             start = start + size
-        return out
+        return torch.cat(out)

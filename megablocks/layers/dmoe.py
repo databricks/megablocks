@@ -263,7 +263,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 bins,
                 padded_bins,
                 top_k,
-                # TODO(chuck): add quantization bits back
+                self.args.quantize_scatter_num_bits
             )
         else:
             x = ops.gather(
