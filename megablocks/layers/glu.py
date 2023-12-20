@@ -67,9 +67,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
 
         # GeLU.
         if num_remat_bits == -1:
-            def act_glu(x1, x2, activation_fn):
-                return activation_fn(x1) * x2
-            activation_fn_out = act_glu(sdd_out, v1_out, activation_fn)
+            activation_fn_out = activation_fn(sdd_out) * v1_out
             input_save_args += (sdd_out, v1_out,)
         else:
             raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
@@ -125,9 +123,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             with torch.set_grad_enabled(True):
                 sdd_out.requires_grad = True
                 v1_out.requires_grad = True
-                def act_glu(x1, x2, activation_fn):
-                    return activation_fn(x1) * x2
-                activation_fn_out = act_glu(sdd_out, v1_out, activation_fn)
+                activation_fn_out = activation_fn(sdd_out) * v1_out
                 activation_grad_fn = activation_fn_out.backward
         else:
             raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
