@@ -97,7 +97,6 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Unpack saved tensors; ugly because quantizing changes tensor count
-        #
         dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, v1, w2 = saved_tensors[:3]
