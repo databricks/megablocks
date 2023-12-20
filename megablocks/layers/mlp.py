@@ -549,25 +549,60 @@ class TransformerEngineFp8MLP(torch.nn.Module):
         self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(self.num_experts_per_rank) ]
 
     def forward(self, x, tokens_per_expert, trans_b=False):
+        # TODO(chuck): Initialization and scaling.
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
-        # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2)) TODO(chuck): scale gradients
-        
-        x = self.gmm(x, self.w1, batch_sizes, self.args.ffn_hidden_size)
-        x = F.gelu(x, approximate="tanh")
-        return self.gmm(x, self.w2, batch_sizes, self.args.hidden_size)
-
-    def gmm(self, a, b, batch_sizes, output_dim):
-        """ https://github.com/tgale96/grouped_gemm/blob/26b67147c96de3ab757055810f0ca8c6e6945326/grouped_gemm/ops_test.py#L43-L52 """
-        batch_sizes = batch_sizes.numpy()
-        out = []
+        out = torch.empty(
+            x.shape[0], self.args.hidden_size,
+            device=self.args.device,
+            dtype=common.dtype(self.args)
+        )
         start = 0
-        # TODO(chuck): figure out if DelayedScaling should be inside or ouside for loop
         for i, size in enumerate(batch_sizes):
-            weights = b[i]
-            x = a[start:start + size, :]
-            out.append(weights(x))
-            start += size
-        return torch.cat(out)
+            out[start:start+size] = self.w2[i](F.gelu(self.w1[i](x[start:start+size]), approximate="tanh"))
+            # y = x[start:start+size]
+            # y = self.w1[i](y)
+            # y = F.gelu(y, approximate="tanh")
+            # y = self.w2[i](y)
+            # out[start:start+size] = y
+            # start = start+size 
+        return out
+
+# class TransformerEngineFp8MLP(torch.nn.Module):
+#     def __init__(self, args : Arguments):
+#         super().__init__()
+#         self.args = args
+#         if not self.args.fp8:
+#             raise ValueError("Please set args.fp8=True.")
+#         if not self.args.grouped_mlp:
+#             raise ValueError("TransformerEngineFp8MLP only supports grouped_mlp=True.")
+#         if self.args.moe_weight_parallelism:
+#             raise ValueError(
+#                 "Weight parallelism not yet supported with TorchMLP.")
+
+#         if self.args.memory_optimized_mlp:
+#             raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
+#         self.num_experts_per_rank = mpu.experts_per_rank(self.args)
+#         self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(self.num_experts_per_rank) ]
+#         self.w2 = [ te.Linear(args.ffn_hidden_size, args.hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(self.num_experts_per_rank) ]
+
+#     def forward(self, x, tokens_per_expert, trans_b=False):
+#         # TODO(chuck): Initialization and scaling.
+#         batch_sizes = tokens_per_expert.cpu().to(torch.long)
+#         out = torch.empty(
+#             x.shape[0], self.args.hidden_size,
+#             device=self.args.device,
+#             dtype=common.dtype(self.args)
+#         )
+#         start = 0
+#         for i, size in enumerate(batch_sizes):
+#             y = x[start:start+size]
+#             y = self.w1[i](y)
+#             y = F.gelu(y, approximate="tanh")
+#             y = self.w2[i](y)
+#             out[start:start+size] = y
+#             start = start+size 
+#         return out
+        
         
 class TorchMLP(SparseMLP):
 
