@@ -8,8 +8,6 @@ from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
-import transformer_engine.pytorch as te
-from transformer_engine.common.recipe import DelayedScaling, Format
 import contextlib
 
 class ScaleGradient(torch.autograd.Function):
@@ -530,14 +528,15 @@ class GroupedMLP(SparseMLP):
         x = F.gelu(x, approximate="tanh")
         return gg.ops.gmm(x, w2, batch_sizes)
 
-class TransformerEngineFp8MLP(torch.nn.Module):
+class TransformerEngineMLP(torch.nn.Module):
+    """ TransformerEngineMLP that performs forward passes in fp8. """
+
     def __init__(self, args : Arguments):
+        import transformer_engine.pytorch as te
         super().__init__()
         self.args = args
-        if not self.args.fp8:
-            raise ValueError("Please set args.fp8=True.")
-        if not self.args.grouped_mlp:
-            raise ValueError("TransformerEngineFp8MLP only supports grouped_mlp=True.")
+        if self.args.mlp_impl != 'te':
+            raise ValueError("Please set args.mlp_impl=te.")
         if self.args.moe_weight_parallelism:
             raise ValueError(
                 "Weight parallelism not yet supported with TorchMLP.")
@@ -567,8 +566,8 @@ class TorchMLP(SparseMLP):
 
     def __init__(self, args : Arguments):
         super().__init__(args)
-        if not self.args.grouped_mlp:
-            raise ValueError("TransformerEngineFp8MLP only supports grouped_mlp=True.")
+        if self.args.mlp_impl != 'torch':
+            raise ValueError("Please set args.mlp_impl=torch.")
         if self.args.moe_weight_parallelism:
             raise ValueError(
                 "Weight parallelism not yet supported with TorchMLP.")

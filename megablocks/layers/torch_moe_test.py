@@ -153,7 +153,7 @@ class torchMoETest(parameterized.TestCase):
         self.assertTrue(testing.allclose(x.grad, y.grad))
     
     @parameterized.parameters(*_FORWARD_TESTS)
-    def testTransformerEngineFp8MLP_ForwardBackward(self, bs, sl, hs, num_experts, top_k):
+    def testTransformerEngineMLP_ForwardBackward(self, bs, sl, hs, num_experts, top_k):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
         x.requires_grad_(True)
 
@@ -177,7 +177,7 @@ class torchMoETest(parameterized.TestCase):
         self.assertTrue(x.grad is not None)
     
     @parameterized.parameters(*_FORWARD_TESTS)
-    def testTransformerEngineFp8MLP_VersusSparseMLPForwardBackward(self, bs, sl, hs, num_experts, top_k):
+    def testTransformerEngineMLP_VersusSparseMLPForwardBackward(self, bs, sl, hs, num_experts, top_k):
         torch.manual_seed(42)
         # create input for torch_moe
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()

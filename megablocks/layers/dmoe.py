@@ -218,6 +218,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         with torch.no_grad():
             indices, bin_ids, bins, tokens_per_expert = (
                 self.indices_and_bins(top_experts))
+
         out = self.grouped_permute_and_compute(
             x,
             tokens_per_expert,
@@ -242,7 +243,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
 
         # Route the tokens for MoE MLP computation.
         x = x.view(-1, x.shape[-1])
-        if self.args.fp8:
+        if self.args.mlp_impl == 'te':
             # Transformer engine requires all inputs to be padded to a multiple of 16
             TRANSFORMER_ENGINE_PADDING_VALUE = 16
             padded_tokens_per_expert = ops.round_up(tokens_per_expert, TRANSFORMER_ENGINE_PADDING_VALUE)
@@ -256,6 +257,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 padded_bins,
                 top_k)
             x = self.mlp(x, padded_tokens_per_expert)
+            # Un-route the data for the MoE output.
             return ops.padded_scatter(
                 x,
                 indices,
@@ -274,23 +276,23 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 bins,
                 top_k)
             x = self.mlp(x, tokens_per_expert)
-
-        # Un-route the data for the MoE output.
-        return ops.scatter(
-            x,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            top_k,
-            self.args.quantize_scatter_num_bits)
+            # Un-route the data for the MoE output.
+            return ops.scatter(
+                x,
+                indices,
+                bin_ids,
+                expert_weights,
+                bins,
+                top_k,
+                self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
-        if self.args.grouped_mlp:
+        if self.args.mlp_impl == 'sparse':
+            return self.sparse_forward_once(
+                x, expert_weights, top_experts)
+        else:
             return self.grouped_forward_once(
                 x, expert_weights, top_experts)
-        return self.sparse_forward_once(
-            x, expert_weights, top_experts)
 
     def permute_and_compute(
             self,
@@ -302,7 +304,18 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bins,
             expert_capactiy,
             top_k):
-        if self.args.grouped_mlp:
+        if self.args.mlp_impl == 'sparse':
+            return self.sparse_permute_and_compute(
+                x,
+                tokens_per_expert,
+                indices,
+                bin_ids,
+                expert_weights,
+                bins,
+                expert_capactiy,
+                top_k
+            )
+        else:
             return self.grouped_permute_and_compute(
                 x,
                 tokens_per_expert,
@@ -311,16 +324,8 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 expert_weights,
                 bins,
                 expert_capactiy,
-                top_k)
-        return self.sparse_permute_and_compute(
-            x,
-            tokens_per_expert,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            expert_capactiy,
-            top_k)
+                top_k
+            )
 
 
 class dMoE(torch.nn.Module):

@@ -40,8 +40,7 @@ class Arguments:
     # Compute arguments.
     memory_optimized_mlp : bool = False
     mlp_type : str = 'mlp'
-    grouped_mlp : bool = False
-    torch_mlp: bool = False
+    mlp_impl: str = 'grouped'
     quantize_inputs_num_bits: int = -1  # -1 = no quantization
     quantize_rematerialize_num_bits: int = -1
     quantize_scatter_num_bits: int = -1
@@ -49,7 +48,6 @@ class Arguments:
     # Initialization arguments.
     fp16 : bool = True
     bf16: bool = False
-    fp8: bool = False
     fp8_orig_dtype: str = torch.bfloat16  # original dtype that fp8 is casted from
     device : torch.device = torch.cuda.current_device()
     init_method : InitFn =  partial(torch.nn.init.normal_, mean=0.0, std=0.02)
@@ -70,8 +68,10 @@ class Arguments:
             if nbits != -1:
                 turbo.assert_turbo_is_available()
 
-        if self.__getattribute__('grouped_mlp'):
+        if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()
+        elif self.__getattribute__('mlp_impl') == 'te':
+            import transformer_engine.pytorch as te
 
 
 def from_megatron(megatron_args):

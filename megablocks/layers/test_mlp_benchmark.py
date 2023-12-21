@@ -5,7 +5,7 @@ from megablocks import benchmark_util
 from megablocks.layers.arguments import Arguments
 from megablocks import ops
 from megablocks.layers import mpu
-from megablocks.layers.mlp import MLP, SparseMLP, GroupedMLP, TransformerEngineFp8MLP, TorchMLP
+from megablocks.layers.mlp import MLP, SparseMLP, GroupedMLP, TransformerEngineMLP, TorchMLP
 import stk
 
 import torch
@@ -86,8 +86,7 @@ class MLPBenchmark(parameterized.TestCase):
             ffn_hidden_size=fhs,
             moe_num_experts=ne,
             moe_top_k=top_k,
-            grouped_mlp=True,
-            fp8=True,
+            mlp_impl='te',
             moe_expert_model_parallelism=True,
         )
         arguments = {
@@ -98,7 +97,7 @@ class MLPBenchmark(parameterized.TestCase):
             "num_experts": ne,
             "world_size": ws,
             "top_k": top_k,
-            "fp8": True,
+            "mlp_impl": 'te',
         }
         # mock the expert parallelism functions
         mpu.get_expert_parallel_rank = lambda args: 0
@@ -108,7 +107,7 @@ class MLPBenchmark(parameterized.TestCase):
 
         # Generate input and uniform tokens_per_expert
         num_tokens_per_expert = (bs * sl * top_k * ws) // ne
-        model = TransformerEngineFp8MLP(args)
+        model = TransformerEngineMLP(args)
         x = torch.randn(epr * num_tokens_per_expert, hs, device="cuda", dtype=torch.bfloat16)
         tokens_per_expert = self.get_uniform_tokens_per_expert(num_tokens_per_expert, epr)
 
