@@ -9,7 +9,6 @@ from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
-import contextlib
 
 class ScaleGradient(torch.autograd.Function):
 
@@ -570,9 +569,9 @@ class TransformerEngineMLP(torch.nn.Module):
             raise ValueError("Please set args.mlp_impl=te.")
         if self.args.moe_weight_parallelism:
             raise ValueError(
-                "Weight parallelism not yet supported with TorchMLP.")
+                "Weight parallelism not yet supported with TransformerEngineMLP.")
         if self.args.memory_optimized_mlp:
-            raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
+            raise ValueError("Memory optimized parallelism not yet supported with TransformerEngineMLP.")
         
         ne = mpu.experts_per_rank(self.args)
         self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(ne) ]
@@ -606,11 +605,11 @@ class TorchMLP(SparseMLP):
             raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
 
         experts_per_rank = mpu.experts_per_rank(args)
-        # TODO(chuck): Check intiialization and weight scaling
         self.w1.data = self.w1.data.reshape(experts_per_rank, -1, self.args.hidden_size).transpose(1, 2)
         self.w2.data = self.w2.data.reshape(experts_per_rank, -1, self.args.hidden_size)
 
     def forward(self, x, tokens_per_expert):
+        # TODO(chuck): Check intiialization and weight scaling
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         out = []
