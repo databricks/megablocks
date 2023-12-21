@@ -27,6 +27,13 @@ class ScaleGradient(torch.autograd.Function):
 scale_gradient = ScaleGradient.apply
 
 
+def resolve_dtensor(weight):
+    if version.parse(torch.__version__) >= version.parse('2.0.0'):
+        from torch.distributed._tensor import DTensor
+        if isinstance(weight, DTensor):
+            return weight.to_local()
+
+
 def create_moe_expert_weights(args : Arguments,
                               num_experts : int,
                               ffn_hidden_size : int,
@@ -123,15 +130,9 @@ class MLP(torch.nn.Module):
         return scale_gradient(w, self.gradient_scale)
 
     def forward(self, x):
-        if version.parse(torch.__version__) >= version.parse('2.0.0'):
-            from torch.distributed._tensor import DTensor
-            if isinstance(w1, DTensor):
-                w1 = w1.to_local()
-            if isinstance(w2, DTensor):
-                w2 = w2.to_local()
-        x = torch.bmm(x, self.scale_grad(self.w1))
+        x = torch.bmm(x, resolve_dtensor(self.scale_grad(self.w1)))
         x = self.args.activation_fn(x)
-        return torch.bmm(x, self.scale_grad(self.w2))
+        return torch.bmm(x, resolve_dtensor(self.scale_grad(self.w2)))
 
 
 def create_dmoe_expert_weights(args : Arguments,
@@ -387,13 +388,8 @@ class SparseMLP(torch.nn.Module):
         return wp.dsd_nn(activation_fn_out, w2, group)
 
     def forward(self, x, topo):
-        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
-        if version.parse(torch.__version__) >= version.parse('2.0.0'):
-            from torch.distributed._tensor import DTensor
-            if isinstance(w1, DTensor):
-                w1 = w1.to_local()
-            if isinstance(w2, DTensor):
-                w2 = w2.to_local()
+        w1, w2 = self.scale_grad(self.w1), self.scale_grad(self.w2)
+        w1, w2 = resolve_dtensor(w1), resolve_dtensor(w2)
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
         elif self.args.memory_optimized_mlp:
@@ -555,14 +551,8 @@ class GroupedMLP(SparseMLP):
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
-        if version.parse(torch.__version__) >= version.parse('2.0.0'):
-            from torch.distributed._tensor import DTensor
-            if isinstance(w1, DTensor):
-                w1 = w1.to_local()
-            if isinstance(w2, DTensor):
-                w2 = w2.to_local()
-        w1 = w1.view(ne, -1, self.args.hidden_size)
-        w2 = w2.view(ne, -1, self.args.hidden_size)
+        w1 = resolve_dtensor(w1).view(ne, -1, self.args.hidden_size)
+        w2 = resolve_dtensor(w2).view(ne, -1, self.args.hidden_size)
 
         if self.args.moe_weight_parallelism:
             raise NotImplementedError(

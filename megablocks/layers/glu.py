@@ -1,6 +1,6 @@
 from megablocks.layers import common
 from megablocks.layers.activation_fn import act_fn
-from megablocks.layers.mlp import SparseMLP, create_dmoe_expert_weights
+from megablocks.layers.mlp import SparseMLP, create_dmoe_expert_weights, resolve_dtensor
 from megablocks.layers import mpu
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks import turbo_util as turbo
@@ -34,15 +34,8 @@ class SparseGLU(SparseMLP):
         if self.args.memory_optimized_mlp:
             raise NotImplementedError("Memory optimized implementation not yet supported with GLU with sparse kernels.")
 
-        w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))
-        if version.parse(torch.__version__) >= version.parse('2.0.0'):
-            from torch.distributed._tensor import DTensor
-            if isinstance(w1, DTensor):
-                w1 = w1.to_local()
-            if isinstance(v1, DTensor):
-                v1 = v1.to_local()
-            if isinstance(w2, DTensor):
-                w2 = w2.to_local()
+        w1, v1, w2 = self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2)
+        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1), resolve_dtensor(w2)
                 
         # Compute the GLU.
         x1 = stk.ops.sdd(x, w1.t(), topo)
@@ -185,17 +178,10 @@ class GroupedGLU(SparseGLU):
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
         w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))
+        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1), resolve_dtensor(w2)
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
-        if version.parse(torch.__version__) >= version.parse('2.0.0'):
-            from torch.distributed._tensor import DTensor
-            if isinstance(w1, DTensor):
-                w1 = w1.to_local()
-            if isinstance(v1, DTensor):
-                v1 = v1.to_local()
-            if isinstance(w2, DTensor):
-                w2 = w2.to_local()
         w1 = w1.view(ne, -1, self.args.hidden_size)
         v1 = v1.view(ne, -1, self.args.hidden_size)
         w2 = w2.view(ne, -1, self.args.hidden_size)
