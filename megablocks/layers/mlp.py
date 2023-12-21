@@ -268,11 +268,12 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         #
         # NOTE: This reuses the dactivation_fn_out allocation.
         if ctx.num_remat_bits == -1:
-            if activation_grad_fn is not None:
+            if activation_fn is DEFAULT_ACTIVATION_FN:
+                dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
+            else:
+                assert activation_grad_fn is not None
                 activation_grad_fn(dactivation_fn_out.data)
                 dsdd_out = stk.Matrix(ctx.shape, sdd_out.data.grad, *topo_tensors)
-            else:
-                dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
         else:
             # confusingly, x_out is interpreted as the gradient to overwrite
             # in-place when the elemwise op is a backwards op
@@ -501,11 +502,12 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         #
         # NOTE: This reuses the dactivation_fn_out allocation.
         if ctx.num_remat_bits == -1:
-            if activation_grad_fn is not None:
+            if activation_fn is DEFAULT_ACTIVATION_FN:
+                dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
+            else:
+                assert activation_grad_fn is not None
                 activation_grad_fn(dactivation_fn_out)
                 dsdd_out = sdd_out.grad
-            else:
-                dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
         else:
             # confusingly, x_out is interpreted as the gradient to overwrite
             # in-place when the elemwise op is a backwards op

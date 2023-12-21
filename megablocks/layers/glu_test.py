@@ -13,7 +13,8 @@ import numpy as np
 def test_modules(
         hidden_size,
         ffn_hidden_size,
-        grouped_mlp=False):
+        grouped_mlp=False,
+        memory_optimized_mlp=False):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,
@@ -21,7 +22,7 @@ def test_modules(
         moe_num_experts=1,
         moe_top_k=1,
         init_method=init_method,
-        memory_optimized_mlp=False,
+        memory_optimized_mlp=memory_optimized_mlp,
         mlp_type='glu',
         grouped_mlp=grouped_mlp,
         fp16=False,
@@ -55,6 +56,25 @@ class GLUTest(parameterized.TestCase):
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
             grouped_mlp=True)
+
+        expected_out = glu(x)
+        tokens_per_expert = torch.tensor([bs * sl]).cuda()
+        out = dmoe_glu(x.view(bs * sl, hs), tokens_per_expert)
+        out = out.view(sl, bs, hs)
+
+        self.assertSequenceEqual(out.shape, x.shape)
+        self.assertSequenceEqual(expected_out.shape, x.shape)
+        self.assertTrue(testing.allclose(out, expected_out))
+
+    @parameterized.parameters(*_DENSE_TESTS)
+    def testGLU_ForwardGroupedMLP_MemOpt(self, bs, sl, hs):
+        x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
+
+        _, glu, dmoe_glu = test_modules(
+            hidden_size=hs,
+            ffn_hidden_size=hs * 2,
+            grouped_mlp=True,
+            memory_optimized_mlp=True)
 
         expected_out = glu(x)
         tokens_per_expert = torch.tensor([bs * sl]).cuda()
