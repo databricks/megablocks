@@ -80,7 +80,6 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             hidden_q_v1, hidden_scales_v1 = turbo.quantize_signed(
                 v1_out, num_bits=num_remat_bits)
             input_save_args += (hidden_q_sdd, hidden_scales_sdd, hidden_q_v1, hidden_scales_v1)
-            raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
 
         # Layer 1: x @ w2.
         dsd_out = gg.backend.gmm(activation_fn_out, w2, batch_sizes)
