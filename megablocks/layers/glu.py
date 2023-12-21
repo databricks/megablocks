@@ -135,7 +135,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
                 activation_grad_fn = activation_fn_out.backward
         else:
             if activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({num_remat_bits=}).')
+                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({ctx.num_remat_bits=}).')
             sdd_out = turbo.dequantize_signed(
                 hidden_q_sdd, hidden_scales_sdd, num_bits=ctx.num_remat_bits,
                 op=turbo.ElemwiseOps.GELU_FORWARD,
