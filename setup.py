@@ -39,6 +39,10 @@ extra_deps["gg"] = [
     "grouped_gemm",
 ]
 
+extra_deps["te"] = [
+    "transformer_engine@git+https://github.com/NVIDIA/TransformerEngine.git@stable",
+]
+
 extra_deps["quant"] = [
     "mosaicml-turbo==0.0.4",
 ]
