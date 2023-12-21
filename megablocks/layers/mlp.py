@@ -123,6 +123,12 @@ class MLP(torch.nn.Module):
         return scale_gradient(w, self.gradient_scale)
 
     def forward(self, x):
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            from torch.distributed._tensor import DTensor
+            if isinstance(w1, DTensor):
+                w1 = w1.to_local()
+            if isinstance(w2, DTensor):
+                w2 = w2.to_local()
         x = torch.bmm(x, self.scale_grad(self.w1))
         x = self.args.activation_fn(x)
         return torch.bmm(x, self.scale_grad(self.w2))
