@@ -1,12 +1,11 @@
 from megablocks.layers import common
-from megablocks.layers import gelu
+from megablocks.layers.activation_fn import act_fn
 from megablocks.layers.mlp import SparseMLP, create_dmoe_expert_weights
 from megablocks.layers import mpu
 from megablocks.layers.arguments import Arguments, InitFn
 from megablocks import grouped_gemm_util as gg
 import stk
 import torch
-import torch.nn.functional as F
 
 
 class SparseGLU(SparseMLP):
@@ -38,7 +37,8 @@ class SparseGLU(SparseMLP):
         x1 = stk.ops.sdd(x, w1.t(), topo)
         x2 = stk.ops.sdd(x, v1.t(), topo)
 
-        x1 = stk.ops.mul(gelu.gelu(x1), x2)
+        activation_fn_out = act_fn(x1, self.args.activation_fn)
+        x1 = stk.ops.mul(activation_fn_out, x2)
 
         return stk.ops.dsd(x1, w2)
 
@@ -56,5 +56,5 @@ class GroupedGLU(SparseGLU):
         # Compute the MLP.
         x1 = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x2 = gg.ops.gmm(x, v1, batch_sizes, trans_b=True)
-        x1 = F.gelu(x1, approximate="tanh") * x2
+        x1 = self.args.activation_fn(x1) * x2
         return gg.ops.gmm(x1, w2, batch_sizes)

@@ -3,12 +3,15 @@ from functools import partial
 import megablocks.turbo_util as turbo
 import megablocks.grouped_gemm_util as grouped_gemm
 import torch
+import torch.nn.functional as F
 from typing import Callable, Optional, Union
 
 # Type annotation for in-place Tensor initialization function.
 InitFn = Callable[[torch.Tensor], None]
 
 _ALLOWED_BITWIDTHS = (-1, 4, 8)
+
+DEFAULT_ACTIVATION_FN = partial(F.gelu, approximate="tanh")
 
 
 @dataclasses.dataclass
@@ -19,12 +22,13 @@ class Arguments:
     num_layers : int = 1
     bias : bool = True
     return_bias : bool = True
+    activation_fn : Optional[Callable] = DEFAULT_ACTIVATION_FN
 
     # MoE arguments.
     moe_num_experts : int = 1
     moe_top_k : int = 1
     moe_capacity_factor : int = 1
-    moe_normalize_expert_weights: Optional[Union[int, float]] = None
+    moe_normalize_expert_weights : Optional[Union[int, float]] = None
     moe_loss_weight : float = 0.1
     moe_jitter_eps : Optional[float] = None
     moe_lbl_in_fp32 : bool = False
