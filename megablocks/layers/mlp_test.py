@@ -52,7 +52,7 @@ def test_modules(
             test_dmoe.experts.mlp.w1.copy_(w1)
             test_dmoe.experts.mlp.w2.copy_(w2)
         else:
-            # transformer engine transposes the weights so we need a tranpose (1, 0) here
+            # transformer engine transposes the weights hence the additional transpose(1, 0)
             for i in range(moe_num_experts):
                 test_dmoe.experts.mlp.w1[i].weight.data.copy_(w1[i, :, :].transpose(1, 0))
                 test_dmoe.experts.mlp.w2[i].weight.data.copy_(w2[i, :, :].transpose(1, 0))
@@ -67,7 +67,7 @@ _TORCH_TESTS = (
 
 # bz, sl, hs, ne, top_k, autocast, threshold
 # Threshold is large when transformer engine casts weights to fp8 resulting in numerical differences.
-# Thresholds is small when autocast is not enabled and both moe's have weights in fp16. 
+# Threshold is small when autocast is disabled and both moe's have weights in fp16. 
 _TRANSFORMER_ENGINE_TESTS = (
     (1, 16, 128, 2, 1, True, 75),
     (1, 16, 128, 2, 1, False, 0.5),
@@ -79,7 +79,7 @@ class dMoeMLPTest(parameterized.TestCase):
     """ Test that grouped dmoe is approximately the same as te/torch dmoe """
 
     @parameterized.parameters(*_TORCH_TESTS)
-    def testTorchMoE_ForwardBackward_VersusDMoE(self, bs, sl, hs, num_experts, top_k):
+    def testTorchMoE_ForwardBackward_VersusGroupedMoE(self, bs, sl, hs, num_experts, top_k):
         torch.manual_seed(42)
         # create input for torch_moe
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
@@ -100,7 +100,7 @@ class dMoeMLPTest(parameterized.TestCase):
         torch_moe_out, _ = torch_moe(x)
         torch_moe_loss = torch_moe_out.sum()
         torch_moe_loss.backward()
-        # perform dmoe forward backward
+        # perform grouped moe forward backward
         grouped_moe_out, _ = grouped_moe(y)
         grouped_moe_loss = grouped_moe_out.sum()
         grouped_moe_loss.backward()
@@ -111,7 +111,7 @@ class dMoeMLPTest(parameterized.TestCase):
         self.assertTrue(testing.allclose(x.grad, y.grad))
     
     @parameterized.parameters(*_TRANSFORMER_ENGINE_TESTS)
-    def testTransformerEngine_ForwardBackward_VersusDMoE(self, bs, sl, hs, num_experts, top_k, autocast, threshold):
+    def testTransformerEngine_ForwardBackward_VersusGroupedMoE(self, bs, sl, hs, num_experts, top_k, autocast, threshold):
         torch.manual_seed(42)
         # create input for te_moe
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
@@ -141,7 +141,7 @@ class dMoeMLPTest(parameterized.TestCase):
             te_moe_out, _ = te_moe(x)
         te_moe_loss = te_moe_out.sum()
         te_moe_loss.backward()
-        # perform dmoe forward backward
+        # perform grouped moe forward backward
         grouped_moe_out, _ = grouped_moe(y)
         grouped_moe_loss = grouped_moe_out.sum()
         grouped_moe_loss.backward()

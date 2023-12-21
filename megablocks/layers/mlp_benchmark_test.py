@@ -36,7 +36,7 @@ class MLPBenchmark(parameterized.TestCase):
     
     @parameterized.parameters(*_MLP_TESTS)
     def testMLPRuntimeBenchmarks(self, mlp_impl, bs, sl, hs, fhs, ne, ws, top_k):
-        """ Benchmark the runtimes of the MLP forward and backward pass with expert parallelism. """
+        """ Benchmark the runtimes of MLP forward and backward passes with expert parallelism. """
 
         args = Arguments(
             hidden_size=hs,
@@ -64,10 +64,10 @@ class MLPBenchmark(parameterized.TestCase):
 
         # Generate input data and tokens_per_expert
         num_tokens_per_expert = (bs * sl * top_k * ws) // ne
-        total_tokens = experts_per_rank * num_tokens_per_expert
-        x = torch.randn(total_tokens, hs, device="cuda", dtype=torch.bfloat16)
+        num_tokens_per_rank = num_tokens_per_expert * experts_per_rank
+        x = torch.randn(num_tokens_per_rank, hs, device="cuda", dtype=torch.bfloat16)
         tokens_per_expert = self.get_uniform_tokens_per_expert(num_tokens_per_expert, experts_per_rank)
-        assert total_tokens == bs * sl * top_k
+        assert num_tokens_per_rank == bs * sl * top_k
         
         # Get model and forward/backward function
         model = dmlp_registry.get(args)

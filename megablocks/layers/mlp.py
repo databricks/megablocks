@@ -572,7 +572,7 @@ class TransformerEngineMLP(torch.nn.Module):
             raise ValueError(
                 "Weight parallelism not yet supported with TransformerEngineMLP.")
         if self.args.memory_optimized_mlp:
-            raise ValueError("Memory optimized parallelism not yet supported with TransformerEngineMLP.")
+            raise ValueError("Memory optimized mlp not yet supported with TransformerEngineMLP.")
         
         ne = mpu.experts_per_rank(self.args)
         self.w1 = [ te.Linear(args.hidden_size, args.ffn_hidden_size, params_dtype=self.args.fp8_orig_dtype, bias=False) for _ in range(ne) ]
@@ -603,7 +603,7 @@ class TorchMLP(SparseMLP):
             raise ValueError(
                 "Weight parallelism not yet supported with TorchMLP.")
         if self.args.memory_optimized_mlp:
-            raise ValueError("Memory optimized parallelism not yet supported with TorchMLP.")
+            raise ValueError("Memory optimized mlp not yet supported with TorchMLP.")
 
         experts_per_rank = mpu.experts_per_rank(args)
         self.w1.data = self.w1.data.reshape(experts_per_rank, -1, self.args.hidden_size).transpose(1, 2)
