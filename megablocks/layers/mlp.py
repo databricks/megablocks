@@ -32,6 +32,7 @@ def resolve_dtensor(weight):
         from torch.distributed._tensor import DTensor
         if isinstance(weight, DTensor):
             return weight.to_local()
+    return weight
 
 
 def create_moe_expert_weights(args : Arguments,
