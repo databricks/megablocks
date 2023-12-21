@@ -511,7 +511,7 @@ class GroupedMLP(SparseMLP):
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
-        if version.parse(torch.__version__) >= version.parse('2.1.0'):
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
             from torch.distributed._tensor import DTensor
             if isinstance(w1, DTensor):
                 w1 = w1.to_local()
