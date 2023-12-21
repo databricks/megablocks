@@ -168,10 +168,10 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             # in-place when the elemwise op is a backwards op
             dsdd_out = turbo.dequantize_signed(
                 hidden_q_sdd, hidden_scales_sdd, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dactivation_fn_out.dat * v1_out)
+                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dactivation_fn_out.data * v1_out)
             dv1_out = turbo.dequantize_signed(
                 hidden_q_v1, hidden_scales_v1, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.IDENTITY, x_out=dactivation_fn_out.dat * sdd_out)
+                op=turbo.ElemwiseOps.IDENTITY, x_out=dactivation_fn_out.data * sdd_out)
 
         # rematerialize MLP input now that we need it
         if ctx.num_input_bits != -1:
