@@ -7,6 +7,7 @@ from megablocks import turbo_util as turbo
 from megablocks import grouped_gemm_util as gg
 import stk
 import torch
+from packaging import version
 
 
 class SparseGLU(SparseMLP):
@@ -34,7 +35,15 @@ class SparseGLU(SparseMLP):
             raise NotImplementedError("Memory optimized implementation not yet supported with GLU with sparse kernels.")
 
         w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))
-
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            from torch.distributed._tensor import DTensor
+            if isinstance(w1, DTensor):
+                w1 = w1.to_local()
+            if isinstance(v1, DTensor):
+                v1 = v1.to_local()
+            if isinstance(w2, DTensor):
+                w2 = w2.to_local()
+                
         # Compute the GLU.
         x1 = stk.ops.sdd(x, w1.t(), topo)
         x2 = stk.ops.sdd(x, v1.t(), topo)
@@ -179,6 +188,14 @@ class GroupedGLU(SparseGLU):
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            from torch.distributed._tensor import DTensor
+            if isinstance(w1, DTensor):
+                w1 = w1.to_local()
+            if isinstance(v1, DTensor):
+                v1 = v1.to_local()
+            if isinstance(w2, DTensor):
+                w2 = w2.to_local()
         w1 = w1.view(ne, -1, self.args.hidden_size)
         v1 = v1.view(ne, -1, self.args.hidden_size)
         w2 = w2.view(ne, -1, self.args.hidden_size)

@@ -382,6 +382,12 @@ class SparseMLP(torch.nn.Module):
 
     def forward(self, x, topo):
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            from torch.distributed._tensor import DTensor
+            if isinstance(w1, DTensor):
+                w1 = w1.to_local()
+            if isinstance(w2, DTensor):
+                w2 = w2.to_local()
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
         elif self.args.memory_optimized_mlp:
