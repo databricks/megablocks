@@ -586,7 +586,7 @@ class TransformerEngineMLP(torch.nn.Module):
         for i, size in enumerate(batch_sizes):
             y = x[start:start+size, :]
             y = self.w1[i](y)
-            y = F.gelu(y, approximate="tanh")
+            y = self.args.activation_fn(y)
             y = self.w2[i](y)
             out.append(y)
             start = start + size
@@ -618,7 +618,7 @@ class TorchMLP(SparseMLP):
         for i, size in enumerate(batch_sizes):
             y = x[start:start+size, :]
             y = y @ w1[i, :, :]
-            y = F.gelu(y, approximate="tanh")
+            y = self.args.activation_fn(y)
             y = y @ w2[i, :, :]
             out.append(y)
             start = start + size
