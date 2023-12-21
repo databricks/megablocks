@@ -27,9 +27,7 @@ def get(args: Arguments) -> MlpType:
     if args.mlp_type not in _REGISTRY: 
         raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
 
-    mlp_impl = 'grouped' if args.grouped_mlp else 'sparse'
+    if args.mlp_impl not in _REGISTRY[args.mlp_type]:
+        raise ValueError(f'{args.mlp_type} does not support {args.mlp_impl} backend.')
 
-    if mlp_impl not in _REGISTRY[args.mlp_type]:
-        raise ValueError(f'{args.mlp_type} does not support {mlp_impl} backend.')
-
-    return _REGISTRY[args.mlp_type][mlp_impl](args)
+    return _REGISTRY[args.mlp_type][args.mlp_impl](args)
