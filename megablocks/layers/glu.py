@@ -2,7 +2,7 @@ from megablocks.layers import common
 from megablocks.layers.activation_fn import act_fn
 from megablocks.layers.mlp import SparseMLP, create_dmoe_expert_weights
 from megablocks.layers import mpu
-from megablocks.layers.arguments import Arguments, InitFn
+from megablocks.layers.arguments import Arguments, DEFAULT_ACTIVATION_FN
 from megablocks import turbo_util as turbo
 from megablocks import grouped_gemm_util as gg
 import stk
@@ -70,6 +70,16 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             activation_fn_out = activation_fn(sdd_out) * v1_out
             input_save_args += (sdd_out, v1_out,)
         else:
+            if activation_fn is not DEFAULT_ACTIVATION_FN:
+                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({num_remat_bits=}).')
+            # Fused GELU into sdd_out buffer while quantizing input
+            hidden_q_sdd, hidden_scales_sdd, _ = turbo.quantize_signed(
+                sdd_out, num_bits=num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out)
+            activation_fn_out = sdd_out * v1_out
+            hidden_q_v1, hidden_scales_v1, _ = turbo.quantize_signed(
+                v1_out, num_bits=num_remat_bits)
+            input_save_args += (hidden_q_sdd, hidden_scales_sdd, hidden_q_v1, hidden_scales_v1)
             raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
 
         # Layer 1: x @ w2.
@@ -108,12 +118,11 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
         else:
             x_q, x_scales = saved_tensors[4:6]
 
-        # Either 1 or 2 tensors at the end for saved GELU input / sdd output
+        # Either 1 or 4 tensors at the end for saved GELU input / sdd output
         if ctx.num_remat_bits == -1:
             sdd_out, v1_out = saved_tensors[-2:]
         else:
-            raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
-            # sdd_out_q, sdd_out_scales, v1_out_q, v1_out_scales = saved_tensors[-4:]
+            hidden_q_sdd, hidden_scales_sdd, hidden_q_v1, hidden_scales_v1 = saved_tensors[-4:]
 
         # Rematerialize activation_fn output.
         activation_fn = ctx.activation_fn
@@ -125,7 +134,16 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
                 activation_fn_out = activation_fn(sdd_out) * v1_out
                 activation_grad_fn = activation_fn_out.backward
         else:
-            raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
+            if activation_fn is not DEFAULT_ACTIVATION_FN:
+                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({num_remat_bits=}).')
+            sdd_out = turbo.dequantize_signed(
+                hidden_q_sdd, hidden_scales_sdd, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_FORWARD,
+                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
+            v1_out = turbo.dequantize_signed(
+                hidden_q_v1, hidden_scales_v1, num_bits=ctx.num_remat_bits,
+                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
+            activation_fn_out = sdd_out * v1_out
 
         # Compute dw2 with recomputed activation_fn output.
         dw2 = gg.backend.gmm(
@@ -147,7 +165,14 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             dsdd_out = sdd_out.grad
             dv1_out = v1_out.grad
         else:
-            raise NotImplementedError(f'Activation compression of hidden state not implemented. Set `num_remat_bits = -1`.')
+            # confusingly, x_out is interpreted as the gradient to overwrite
+            # in-place when the elemwise op is a backwards op
+            dsdd_out = turbo.dequantize_signed(
+                hidden_q_sdd, hidden_scales_sdd, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dactivation_fn_out.dat * v1_out)
+            dv1_out = turbo.dequantize_signed(
+                hidden_q_v1, hidden_scales_v1, num_bits=ctx.num_remat_bits,
+                op=turbo.ElemwiseOps.IDENTITY, x_out=dactivation_fn_out.dat * sdd_out)
 
         # rematerialize MLP input now that we need it
         if ctx.num_input_bits != -1:
