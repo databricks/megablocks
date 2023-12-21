@@ -9,6 +9,7 @@ from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
+from packaging import version
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -542,6 +543,12 @@ class GroupedMLP(SparseMLP):
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            from torch.distributed._tensor import DTensor
+            if isinstance(w1, DTensor):
+                w1 = w1.to_local()
+            if isinstance(w2, DTensor):
+                w2 = w2.to_local()
         w1 = w1.view(ne, -1, self.args.hidden_size)
         w2 = w2.view(ne, -1, self.args.hidden_size)
 
