@@ -131,9 +131,11 @@ class MLP(torch.nn.Module):
         return scale_gradient(w, self.gradient_scale)
 
     def forward(self, x):
-        x = torch.bmm(x, resolve_dtensor(self.scale_grad(self.w1)))
+        w1, w2 = self.scale_grad(self.w1), self.scale_grad(self.w2)
+        w1, w2 = resolve_dtensor(w1), resolve_dtensor(w2)
+        x = torch.bmm(x, w1)
         x = self.args.activation_fn(x)
-        return torch.bmm(x, resolve_dtensor(self.scale_grad(self.w2)))
+        return torch.bmm(x, w2)
 
 
 def create_dmoe_expert_weights(args : Arguments,
