@@ -4,6 +4,7 @@ from functools import partial
 from absl.testing import parameterized
 from megablocks.layers.arguments import Arguments
 from megablocks.layers.glu import SparseGLU, GroupedGLU
+from megablocks.layers import dmlp_registry
 from megablocks.layers import testing
 
 import torch
@@ -13,7 +14,7 @@ import numpy as np
 def test_modules(
         hidden_size,
         ffn_hidden_size,
-        grouped_mlp=False,
+        mlp_impl='sparse',
         memory_optimized_mlp=False):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
@@ -24,12 +25,12 @@ def test_modules(
         init_method=init_method,
         memory_optimized_mlp=memory_optimized_mlp,
         mlp_type='glu',
-        grouped_mlp=grouped_mlp,
+        mlp_impl=mlp_impl,
         fp16=False,
         bf16=True)
 
     glu = testing.GLU(args)
-    dmoe_glu = GroupedGLU(args) if grouped_mlp else SparseGLU(args)
+    dmoe_glu = dmlp_registry.get(args)
 
     dmoe_glu.cuda(torch.cuda.current_device()).to(torch.bfloat16)
     glu.cuda(torch.cuda.current_device()).to(torch.bfloat16)
@@ -55,7 +56,7 @@ class GLUTest(parameterized.TestCase):
         _, glu, dmoe_glu = test_modules(
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
-            grouped_mlp=True)
+            mlp_impl='grouped')
 
         expected_out = glu(x)
         tokens_per_expert = torch.tensor([bs * sl]).cuda()
@@ -73,7 +74,7 @@ class GLUTest(parameterized.TestCase):
         _, glu, dmoe_glu = test_modules(
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
-            grouped_mlp=True,
+            mlp_impl='grouped',
             memory_optimized_mlp=True)
 
         expected_out = glu(x)
@@ -92,7 +93,7 @@ class GLUTest(parameterized.TestCase):
         _, glu, dmoe_glu = test_modules(
             hidden_size=hs,
             ffn_hidden_size=hs * 2,
-            grouped_mlp=False)
+            mlp_impl='sparse')
 
         expected_out = glu(x)
         with torch.no_grad():

@@ -22,7 +22,7 @@ NOTE: This assumes you have `numpy` and `torch` installed.
 
 Installing `megablocks[quant]` enables configurable quantization of saved activations in the dMoE layer to save memory during training. The degree of quantization is controlled via the `quantize_inputs_num_bits`, `quantize_rematerialize_num_bits` and `quantize_scatter_num_bits` [arguments](https://github.com/stanford-futuredata/megablocks/blob/main/megablocks/layers/arguments.py).
 
-Installing `megablocks[gg]` enables dMoE computation with grouped GEMM. This feature is enabled by setting the `grouped_mlp` argument to the dMoE layer. This is currently our recommended path for Hopper-generation GPUs.
+Installing `megablocks[gg]` enables dMoE computation with grouped GEMM. This feature is enabled by setting the `mlp_impl` argument to `grouped`. This is currently our recommended path for Hopper-generation GPUs.
 
 MegaBlocks can be installed with all dependencies via the `megablocks[all]` package.
 

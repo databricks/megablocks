@@ -264,11 +264,13 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             self.args.quantize_scatter_num_bits)
 
     def forward_once(self, x, expert_weights, top_experts):
-        if self.args.grouped_mlp:
+        if self.args.mlp_impl == 'sparse':
+            return self.sparse_forward_once(
+                x, expert_weights, top_experts)
+        else:
             return self.grouped_forward_once(
                 x, expert_weights, top_experts)
-        return self.sparse_forward_once(
-            x, expert_weights, top_experts)
+
 
     def permute_and_compute(
             self,
@@ -280,7 +282,17 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bins,
             expert_capactiy,
             top_k):
-        if self.args.grouped_mlp:
+        if self.args.mlp_impl == 'sparse':
+            return self.sparse_permute_and_compute(
+                x,
+                tokens_per_expert,
+                indices,
+                bin_ids,
+                expert_weights,
+                bins,
+                expert_capactiy,
+                top_k)
+        else:
             return self.grouped_permute_and_compute(
                 x,
                 tokens_per_expert,
@@ -290,15 +302,6 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 bins,
                 expert_capactiy,
                 top_k)
-        return self.sparse_permute_and_compute(
-            x,
-            tokens_per_expert,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            expert_capactiy,
-            top_k)
 
 
 class dMoE(torch.nn.Module):
