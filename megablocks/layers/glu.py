@@ -169,9 +169,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             dsdd_out = turbo.dequantize_signed(
                 hidden_q_sdd, hidden_scales_sdd, num_bits=ctx.num_remat_bits,
                 op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=(dactivation_fn_out * v1_out).data)
-            dv1_out = turbo.dequantize_signed(
-                hidden_q_v1, hidden_scales_v1, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.IDENTITY, x_out=(dactivation_fn_out * sdd_out).data)
+            dv1_out = (dactivation_fn_out * sdd_out).data
 
         # rematerialize MLP input now that we need it
         if ctx.num_input_bits != -1:
