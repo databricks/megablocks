@@ -43,12 +43,17 @@ class LearnedRouter(torch.nn.Module):
         noise = torch.rand(x.size(), dtype=x.dtype, device=x.device)
         return low + noise * (high - low)
 
+    def _top_k(self, scores):
+        if self.args.moe_top_k == 1:
+            return scores.max(dim=-1,keepdim=True)
+        return torch.topk(scores, self.args.moe_top_k, dim=-1)
+
     def forward(self, x):
         if self.training and self.args.moe_jitter_eps is not None:
             x = x * self.jitter(x)
 
         scores = self.layer(x.view(-1, x.shape[-1])).softmax(dim=-1)
-        expert_weights, expert_indices = torch.topk(scores, self.args.moe_top_k, dim=-1)
+        expert_weights, expert_indices = self._top_k(scores)
         if self.args.moe_normalize_expert_weights:
             expert_weights = expert_weights / torch.norm(
                 expert_weights, p=self.args.moe_normalize_expert_weights,dim=-1, keepdim=True)
