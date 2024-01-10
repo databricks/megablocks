@@ -29,7 +29,7 @@ ext_modules = [
 ]
 
 install_requires=[
-    "triton==2.1.0",
+    "triton>=2.1.0",
     "stanford-stk>=0.0.6",
 ]
 
