@@ -45,9 +45,8 @@ class LearnedRouter(torch.nn.Module):
 
     def _top_k(self, scores):
         if self.args.moe_top_k == 1:
-            return scores.max(dim=-1)
+            return scores.max(dim=-1,keepdim=True)
         return torch.topk(scores, self.args.moe_top_k, dim=-1)
-
 
     def forward(self, x):
         if self.training and self.args.moe_jitter_eps is not None:
