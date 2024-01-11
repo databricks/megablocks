@@ -29,7 +29,7 @@ ext_modules = [
 ]
 
 install_requires=[
-    "triton==2.1.0",
+    "triton>=2.1.0",
     "stanford-stk>=0.0.6",
 ]
 
@@ -51,7 +51,7 @@ extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(
     name="megablocks",
-    version="0.5.0",
+    version="0.5.1",
     author="Trevor Gale",
     author_email="tgale@stanford.edu",
     description="MegaBlocks",
