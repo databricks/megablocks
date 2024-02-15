@@ -1,6 +1,5 @@
 import torch
 from megablocks.backend import kernels
-from megablocks import turbo_util as turbo
 from stk.backend.autocast import custom_fwd, custom_bwd
 
 
@@ -9,22 +8,12 @@ class PaddedScatterOp(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k,
-                num_bits):
-        saved_x = x if ctx.needs_input_grad[3] else None
-        if saved_x is None:
-            save_inputs = []
-        elif num_bits == -1:
-            save_inputs = (saved_x,)
-        else:
-            x_q, x_scales = turbo.quantize_signed(saved_x, num_bits=num_bits)
-            save_inputs = (x_q, x_scales)
-
+    def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k):
+        maybe_x = [x] if ctx.needs_input_grad[3] else []
         ctx.save_for_backward(
-            indices, bin_ids, weights, bins, padded_bins, *save_inputs)
+            indices, bin_ids, weights, bins, padded_bins, *maybe_x)
         ctx.top_k = top_k
         ctx.x_shape = x.shape
-        ctx.num_bits = num_bits
         return kernels.padded_scatter(
             x, indices, bin_ids, weights, bins, padded_bins, top_k)
 
@@ -48,13 +37,7 @@ class PaddedScatterOp(torch.autograd.Function):
 
         wgrad = None
         if ctx.needs_input_grad[3]:  # need wgrad
-            if ctx.num_bits == -1:  # input saved without quantization
-                x = saved_tensors[-1]
-            else:  # dequantize input
-                x_q, x_scales = saved_tensors[-2:]
-                x = turbo.dequantize_signed(
-                    x_q, x_scales, num_bits=ctx.num_bits, out_shape=ctx.x_shape)
-
+            x = saved_tensors[-1]
             wgrad = kernels.padded_scatter_wgrad(
                 x,
                 grad,
@@ -66,14 +49,12 @@ class PaddedScatterOp(torch.autograd.Function):
         return dgrad, None, None, wgrad, None, None, None, None
 
 
-# wrap apply so that num_bits is optional and defaults to no quantization
 def padded_scatter(x: torch.Tensor,
                    indices: torch.Tensor,
                    bin_ids: torch.Tensor,
                    weights: torch.Tensor,
                    bins: torch.Tensor,
                    padded_bins: torch.Tensor,
-                   top_k: int,
-                   num_bits: int = -1):
+                   top_k: int):
     return PaddedScatterOp.apply(x, indices, bin_ids, weights, bins,
-                                 padded_bins, top_k, num_bits)
+                                 padded_bins, top_k)

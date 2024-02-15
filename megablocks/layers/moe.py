@@ -414,8 +414,7 @@ class ParallelMLP(torch.nn.Module):
             bin_ids,
             expert_weights,
             bins,
-            self.top_k,
-            self.args.quantize_scatter_num_bits)
+            self.top_k)
         return x, tokens_per_expert.flatten()
 
     def forward(self, x, scores, expert_weights, top_experts):

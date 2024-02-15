@@ -167,8 +167,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             expert_weights,
             bins,
             padded_bins,
-            self.top_k,
-            self.args.quantize_scatter_num_bits)
+            self.top_k)
         return x, tokens_per_expert
 
     # For use in the base-class parallel_forward_once.
@@ -269,8 +268,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bin_ids,
             expert_weights,
             bins,
-            top_k,
-            self.args.quantize_scatter_num_bits)
+            top_k)
 
     def forward_once(self, x, expert_weights, top_experts):
         if self.args.grouped_mlp:
