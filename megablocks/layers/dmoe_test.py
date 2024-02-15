@@ -2,6 +2,7 @@ import unittest
 from functools import partial
 
 from absl.testing import parameterized
+from megablocks import grouped_gemm_util as gg
 from megablocks.layers.arguments import Arguments
 from megablocks.layers import dmoe
 from megablocks.layers import moe
@@ -15,7 +16,7 @@ def test_modules(
         moe_num_experts=1,
         moe_capacity_factor=1,
         moe_top_k=1,
-        grouped_mlp=False):
+        mlp_impl='sparse'):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,
@@ -25,7 +26,8 @@ def test_modules(
         moe_top_k=moe_top_k,
         init_method=init_method,
         memory_optimized_mlp=True,
-        grouped_mlp=grouped_mlp,
+        mlp_type='mlp',
+        mlp_impl=mlp_impl,
         fp16=False,
         bf16=True)
 
@@ -67,8 +69,8 @@ _FORWARD_TESTS_DEFAULT = (
 )
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
-    p + (True,) for p in _FORWARD_TESTS_DEFAULT
-])
+    p + ('grouped') for p in _FORWARD_TESTS_DEFAULT
+]) if gg.grouped_gemm_is_available() else ()
 
 _FORWARD_TESTS = (_FORWARD_TESTS_DEFAULT + _FORWARD_TESTS_GROUPED_MLP)
 
@@ -87,7 +89,7 @@ class dMoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_Forward(self, bs, sl, hs, num_experts, top_k,
-                         grouped_mlp=False):
+                         mlp_impl='sparse'):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
         _, _, _, layer = test_modules(
@@ -95,7 +97,7 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
             moe_top_k=top_k,
-            grouped_mlp=grouped_mlp)
+            mlp_impl=mlp_impl)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -103,7 +105,7 @@ class dMoETest(parameterized.TestCase):
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardBackward(
             self, bs, sl, hs, num_experts, top_k,
-            grouped_mlp=False):
+            mlp_impl='sparse'):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
         x.requires_grad_(True)
 
@@ -112,7 +114,7 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
             moe_top_k=top_k,
-            grouped_mlp=grouped_mlp)
+            mlp_impl=mlp_impl)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -140,7 +142,7 @@ class dMoETest(parameterized.TestCase):
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardVersusMoE(
             self, bs, sl, hs, num_experts, top_k,
-            grouped_mlp=False):
+            mlp_impl='sparse'):
         torch.manual_seed(42)
 
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
@@ -150,7 +152,7 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs,
             moe_num_experts=num_experts,
             moe_capacity_factor=0,
-            grouped_mlp=grouped_mlp)
+            mlp_impl=mlp_impl)
 
         expected_out, _= moe_mlp(x)
         out, _ = dmoe_mlp(x)

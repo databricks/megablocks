@@ -2,12 +2,15 @@ import dataclasses
 from functools import partial
 import megablocks.grouped_gemm_util as grouped_gemm
 import torch
-from typing import Callable, Optional
+import torch.nn.functional as F
+from typing import Callable, Optional, Union
 
 # Type annotation for in-place Tensor initialization function.
 InitFn = Callable[[torch.Tensor], None]
 
 _ALLOWED_BITWIDTHS = (-1, 4, 8)
+
+DEFAULT_ACTIVATION_FN = partial(F.gelu, approximate="tanh")
 
 
 @dataclasses.dataclass
@@ -18,11 +21,13 @@ class Arguments:
     num_layers : int = 1
     bias : bool = True
     return_bias : bool = True
+    activation_fn : Optional[Callable] = DEFAULT_ACTIVATION_FN
 
     # MoE arguments.
     moe_num_experts : int = 1
     moe_top_k : int = 1
     moe_capacity_factor : int = 1
+    moe_normalize_expert_weights : Optional[Union[int, float]] = None
     moe_loss_weight : float = 0.1
     moe_jitter_eps : Optional[float] = None
     moe_lbl_in_fp32 : bool = False
@@ -37,7 +42,8 @@ class Arguments:
 
     # Compute arguments.
     memory_optimized_mlp : bool = False
-    grouped_mlp : bool = False
+    mlp_type : str = 'mlp'
+    mlp_impl : str = 'sparse'
 
     # Initialization arguments.
     fp16 : bool = True
@@ -50,7 +56,7 @@ class Arguments:
     uniform_expert_assignment : bool = False
 
     def __post_init__(self):
-        if self.__getattribute__('grouped_mlp'):
+        if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()
 
 

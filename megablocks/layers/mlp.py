@@ -1,12 +1,14 @@
 from megablocks.layers import common
 from megablocks.layers import gelu
+from megablocks.layers.activation_fn import act_fn
 from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
-from megablocks.layers.arguments import Arguments, InitFn
+from megablocks.layers.arguments import Arguments, InitFn, DEFAULT_ACTIVATION_FN
 from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
+from packaging import version
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -22,6 +24,14 @@ class ScaleGradient(torch.autograd.Function):
     def backward(ctx, grad):
         return grad * ctx.scale, None
 scale_gradient = ScaleGradient.apply
+
+
+def resolve_dtensor(weight):
+    if version.parse(torch.__version__) >= version.parse('2.0.0'):
+        from torch.distributed._tensor import DTensor
+        if isinstance(weight, DTensor):
+            return weight.to_local()
+    return weight
 
 
 def create_moe_expert_weights(args : Arguments,
@@ -120,9 +130,11 @@ class MLP(torch.nn.Module):
         return scale_gradient(w, self.gradient_scale)
 
     def forward(self, x):
-        return torch.bmm(
-            F.gelu(torch.bmm(x, self.scale_grad(self.w1)), approximate="tanh"),
-            self.scale_grad(self.w2))
+        w1, w2 = self.scale_grad(self.w1), self.scale_grad(self.w2)
+        w1, w2 = resolve_dtensor(w1), resolve_dtensor(w2)
+        x = torch.bmm(x, w1)
+        x = self.args.activation_fn(x)
+        return torch.bmm(x, w2)
 
 
 def create_dmoe_expert_weights(args : Arguments,
@@ -154,7 +166,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, w1, w2, topo):
+    def forward(ctx, x, w1, w2, topo, activation_fn):
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
@@ -171,19 +183,20 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         sdd_out = stk.ops.sdd(x, w1.t(), topo)
 
         # GeLU.
-        gelu_out = gelu.gelu(sdd_out)
+        activation_fn_out = act_fn(sdd_out, activation_fn)
 
         # Layer 1: x @ w2.
-        dsd_out = stk.ops.dsd(gelu_out, w2)
+        dsd_out = stk.ops.dsd(activation_fn_out, w2)
 
-        # NOTE: Save the input to the layer and the gelu input for
-        # gradient computation. We'll re-compute the gelu forward
+        # NOTE: Save the input to the layer and the activation_fn input for
+        # gradient computation. We'll re-compute the activation_fn forward
         # pass in the backward pass to avoid materializing another
         # intermediate.
         ctx.shape = topo.shape
         ctx.x_shape = x.shape
         ctx.sdd_out_shape = sdd_out.data.shape
         ctx.dtype = x.dtype
+        ctx.activation_fn = activation_fn
         ctx.save_for_backward(w1, w2, *topo_tensors, x, sdd_out.data)
         return dsd_out
 
@@ -204,29 +217,35 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         x = saved_tensors[8]
         sdd_out_data = saved_tensors[-1]
 
-        # rematerialize gelu output
+        # rematerialize activation function output
+        activation_fn = ctx.activation_fn
         sdd_out = stk.Matrix(ctx.shape, sdd_out_data, *topo_tensors)
-        gelu_out = gelu.gelu(sdd_out)
+        activation_fn_out, activation_grad_fn = act_fn(sdd_out, activation_fn, return_grad_fn=True)
 
-        # Compute dw2 with recomputed gelu output.
-        dw2 = stk.ops.dsd(gelu_out.t(), ddsd_out)
+        # Compute dw2 with recomputed activation_fn output.
+        dw2 = stk.ops.dsd(activation_fn_out.t(), ddsd_out)
 
-        # Compute dgelu_out.
+        # Compute dactivation_fn_out.
         #
-        # NOTE: We reuse the gelu_out allocation.
+        # NOTE: We reuse the activation_fn_out allocation.
+        dactivation_fn_out = activation_fn_out
         stk.backend.triton_kernels.sdd(
             ddsd_out, w2.t(),
-            gelu_out.shape,
-            gelu_out.data,
-            gelu_out.offsets,
-            gelu_out.row_indices,
-            gelu_out.column_indices)
-        dgelu_out = gelu_out
+            dactivation_fn_out.shape,
+            dactivation_fn_out.data,
+            dactivation_fn_out.offsets,
+            dactivation_fn_out.row_indices,
+            dactivation_fn_out.column_indices)
 
         # Compute dsdd_out.
         #
-        # NOTE: This reuses the dgelu_out allocation.
-        dsdd_out = gelu.gelu_backward_(dgelu_out, sdd_out)
+        # NOTE: This reuses the dactivation_fn_out allocation.
+        if activation_fn is DEFAULT_ACTIVATION_FN:
+            dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
+        else:
+            assert activation_grad_fn is not None
+            activation_grad_fn(dactivation_fn_out.data)
+            dsdd_out = stk.Matrix(ctx.shape, sdd_out.data.grad, *topo_tensors)
 
         # Compute dw1.
         dw1 = stk.ops.dsd(dsdd_out.t(), x)
@@ -247,7 +266,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1,
             ddsd_out)
         dx = ddsd_out
-        return dx, dw1, dw2, None
+        return dx, dw1, dw2, None, None
 
 memory_optimized_mlp = MemoryOptimizedMLP.apply
 
@@ -257,18 +276,18 @@ class SparseMLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         self.args = args
-        num_rows_per_rank = (
+        self._num_rows_per_rank = (
             (mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
             mpu.get_weight_parallel_world_size(args)
         )
 
         self.w1 = torch.nn.Parameter(torch.empty(
-            num_rows_per_rank,
+            self._num_rows_per_rank,
             args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
         self.w2 = torch.nn.Parameter(torch.empty(
-            num_rows_per_rank,
+            self._num_rows_per_rank,
             args.hidden_size,
             device=args.device,
             dtype=common.dtype(args)))
@@ -289,12 +308,12 @@ class SparseMLP(torch.nn.Module):
                 args, args.moe_num_experts, args.ffn_hidden_size,
                 args.hidden_size, args.output_layer_init_method))
 
-        should_set_attribute = (
+        self._should_set_parallelism_attribute = (
             args.moe_expert_model_parallelism or args.moe_weight_parallelism)
         mpu.set_expert_model_parallel_attributes(
-            self.w1, should_set_attribute)
+            self.w1, self._should_set_parallelism_attribute)
         mpu.set_expert_model_parallel_attributes(
-            self.w2, should_set_attribute)
+            self.w2, self._should_set_parallelism_attribute)
 
         self.gradient_scale = None
         if self.args.moe_expert_model_parallelism:
@@ -309,23 +328,29 @@ class SparseMLP(torch.nn.Module):
         group = self.args.weight_parallel_group
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.memory_optimized_mlp:
+            if self.args.activation_fn is not DEFAULT_ACTIVATION_FN:
+                raise NotImplementedError(f'memory_optimized_weight_parallel_mlp not implemented for custom {activation_fn=}.')
             return wp.memory_optimized_weight_parallel_mlp(
                 x, w1, w2, topo, group)
 
         # Compute the MLP.
         x = wp.sdd_nt(x, w1, topo, group)
-        return wp.dsd_nn(gelu.gelu(x), w2, group)
+        activation_fn_out = act_fn(x, self.args.activation_fn)
+        return wp.dsd_nn(activation_fn_out, w2, group)
 
     def forward(self, x, topo):
-        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
+        w1, w2 = self.scale_grad(self.w1), self.scale_grad(self.w2)
+        w1, w2 = resolve_dtensor(w1), resolve_dtensor(w2)
         if self.args.moe_weight_parallelism:
             return self.parallel_forward(x, topo)
         elif self.args.memory_optimized_mlp:
-            return memory_optimized_mlp(x, w1, w2, topo)
+            return memory_optimized_mlp(
+                x, w1, w2, topo, self.args.activation_fn)
 
         # Compute the MLP.
         x = stk.ops.sdd(x, w1.t(), topo)
-        return stk.ops.dsd(gelu.gelu(x), w2)
+        activation_fn_out = act_fn(x, self.args.activation_fn)
+        return stk.ops.dsd(activation_fn_out, w2)
 
 
 class MemoryOptimizedGroupedMLP(torch.autograd.Function):
@@ -333,7 +358,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, w1, w2, batch_sizes):
+    def forward(ctx, x, w1, w2, batch_sizes, activation_fn):
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
@@ -343,18 +368,19 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
 
         # GeLU.
-        gelu_out = F.gelu(sdd_out, approximate="tanh")
+        gelu_out = activation_fn(sdd_out)
 
         # Layer 1: x @ w2.
-        dsd_out = gg.backend.gmm(gelu_out, w2, batch_sizes)
+        dsd_out = gg.backend.gmm(activation_fn_out, w2, batch_sizes)
 
-        # NOTE: Save the input to the layer and the gelu input for
-        # gradient computation. We'll re-compute the gelu forward
+        # NOTE: Save the input to the layer and the activation_fn input for
+        # gradient computation. We'll re-compute the activation_fn forward
         # pass in the backward pass to avoid materializing another
         # intermediate.
         ctx.x_shape = x.shape
         ctx.sdd_out_shape = sdd_out.shape
         ctx.dtype = x.dtype
+        ctx.activation_fn = activation_fn
         ctx.save_for_backward(w1, w2, batch_sizes, x, sdd_out)
         return dsd_out
 
@@ -375,24 +401,33 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         x = saved_tensors[3]
         sdd_out = saved_tensors[4]
 
-        # Rematerialize gelu output.
-        gelu_out = F.gelu(sdd_out, approximate="tanh")
+        # Rematerialize activation_fn output.
+        activation_fn = ctx.activation_fn
+        with torch.set_grad_enabled(True):
+            sdd_out.requires_grad = True
+            activation_fn_out = activation_fn(sdd_out)
+            activation_grad_fn = activation_fn_out.backward
 
-        # Compute dw2 with recomputed gelu output.
+        # Compute dw2 with recomputed activation_fn output.
         dw2 = gg.backend.gmm(
-            gelu_out, ddsd_out, batch_sizes, trans_a=True)
+            activation_fn_out, ddsd_out, batch_sizes, trans_a=True)
 
-        # Compute dgelu_out.
+        # Compute dactivation_fn_out.
         #
-        # NOTE: We reuse the gelu_out allocation.
+        # NOTE: We reuse the activation_fn_out allocation.
+        dactivation_fn_out = activation_fn_out
         gg.backend.gmm(
-            ddsd_out, w2, batch_sizes, trans_b=True, c=gelu_out)
-        dgelu_out = gelu_out
+            ddsd_out, w2, batch_sizes, trans_b=True, c=dactivation_fn_out)
 
         # Compute dsdd_out.
         #
-        # NOTE: This reuses the dgelu_out allocation.
-        dsdd_out = gelu.gelu_backward_(dgelu_out, sdd_out)
+        # NOTE: This reuses the dactivation_fn_out allocation.
+        if activation_fn is DEFAULT_ACTIVATION_FN:
+            dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
+        else:
+            assert activation_grad_fn is not None
+            activation_grad_fn(dactivation_fn_out)
+            dsdd_out = sdd_out.grad
 
         # Compute dw1.
         dw1 = gg.backend.gmm(dsdd_out, x, batch_sizes, trans_a=True)
@@ -402,7 +437,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # NOTE: This reuses the ddsd_out allocation.
         gg.backend.gmm(dsdd_out, w1, batch_sizes, c=ddsd_out)
         dx = ddsd_out
-        return dx, dw1, dw2, None
+        return dx, dw1, dw2, None, None
 
 memory_optimized_grouped_mlp = MemoryOptimizedGroupedMLP.apply
 
@@ -415,17 +450,19 @@ class GroupedMLP(SparseMLP):
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
-        w1 = w1.view(ne, -1, self.args.hidden_size)
-        w2 = w2.view(ne, -1, self.args.hidden_size)
+        w1 = resolve_dtensor(w1).view(ne, -1, self.args.hidden_size)
+        w2 = resolve_dtensor(w2).view(ne, -1, self.args.hidden_size)
 
         if self.args.moe_weight_parallelism:
-            raise ValueError(
+            raise NotImplementedError(
                 "Weight parallelism not yet supported with GroupedMLP.")
 
         if self.args.memory_optimized_mlp:
-            return memory_optimized_grouped_mlp(x, w1, w2, batch_sizes)
+            return memory_optimized_grouped_mlp(
+                x, w1, w2, batch_sizes,
+                self.args.activation_fn)
 
         # Compute the MLP.
         x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
-        x = F.gelu(x, approximate="tanh")
+        x = self.args.activation_fn(x)
         return gg.ops.gmm(x, w2, batch_sizes)

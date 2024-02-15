@@ -126,7 +126,7 @@ EVALUATION_ARGUMENTS="\
 --log-interval 100 \
 --eval-interval 1000"
 
-python -m torch.distributed.launch ${DISTRIBUTED_ARGUMENTS} \
+torchrun ${DISTRIBUTED_ARGUMENTS} \
        third_party/Megatron-LM/pretrain_gpt.py \
        ${MODEL_ARGUMENTS} \
        ${TRAINING_ARGUMENTS} \

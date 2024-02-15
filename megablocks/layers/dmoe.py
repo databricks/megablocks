@@ -1,6 +1,6 @@
 from megablocks.layers import common
-from megablocks.layers import mlp
 from megablocks.layers import moe
+from megablocks.layers import dmlp_registry
 from megablocks.layers import mpu
 from megablocks.layers import router
 from megablocks.layers.arguments import Arguments
@@ -9,10 +9,8 @@ import numpy as np
 import stk
 import torch
 
-
 def promote_scalar(x):
     return x.view(1) if not len(x.size()) else x
-
 
 class ParallelDroplessMLP(moe.ParallelMLP):
 
@@ -21,13 +19,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         self.hidden_size = args.hidden_size
         self.ffn_hidden_size = mpu.features_per_rank(args)
         self.blocking = 128
-
-        # Grouped or sparse MLP.
-        self.mlp = (
-            mlp.GroupedMLP(args)
-            if args.grouped_mlp
-            else mlp.SparseMLP(args)
-        )
+        self.mlp = dmlp_registry.get(args)
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
@@ -140,10 +132,9 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         with torch.no_grad():
             indices, bin_ids, bins, padded_bins, tokens_per_expert = (
                 self.indices_and_padded_bins(top_experts))
-        sl, bs, hs = x.size()
 
         # Route the tokens for MoE computation.
-        x = x.view(sl * bs, hs)
+        x = x.view(-1, x.shape[-1])
         x = ops.padded_gather(
             x,
             indices,
@@ -271,11 +262,13 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             top_k)
 
     def forward_once(self, x, expert_weights, top_experts):
-        if self.args.grouped_mlp:
+        if self.args.mlp_impl == 'sparse':
+            return self.sparse_forward_once(
+                x, expert_weights, top_experts)
+        else:
             return self.grouped_forward_once(
                 x, expert_weights, top_experts)
-        return self.sparse_forward_once(
-            x, expert_weights, top_experts)
+
 
     def permute_and_compute(
             self,
@@ -287,7 +280,17 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             bins,
             expert_capactiy,
             top_k):
-        if self.args.grouped_mlp:
+        if self.args.mlp_impl == 'sparse':
+            return self.sparse_permute_and_compute(
+                x,
+                tokens_per_expert,
+                indices,
+                bin_ids,
+                expert_weights,
+                bins,
+                expert_capactiy,
+                top_k)
+        else:
             return self.grouped_permute_and_compute(
                 x,
                 tokens_per_expert,
@@ -297,15 +300,6 @@ class ParallelDroplessMLP(moe.ParallelMLP):
                 bins,
                 expert_capactiy,
                 top_k)
-        return self.sparse_permute_and_compute(
-            x,
-            tokens_per_expert,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            expert_capactiy,
-            top_k)
 
 
 class dMoE(torch.nn.Module):
@@ -323,7 +317,6 @@ class dMoE(torch.nn.Module):
         # NOTE: If we're going to cast the activations to lower precision
         # do it before we permute the tokens to save bandwidth.
         x = common.cast_if_autocast_enabled(x)
-        sl, bs, hs = x.size()
 
         # Compute the expert scores and assignments.
         scores, expert_weights, top_experts = self.router(x)
