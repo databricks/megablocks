@@ -69,7 +69,7 @@ _FORWARD_TESTS_DEFAULT = (
 )
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
-    p + ('grouped') for p in _FORWARD_TESTS_DEFAULT
+    p + ('grouped',) for p in _FORWARD_TESTS_DEFAULT
 ]) if gg.grouped_gemm_is_available() else ()
 
 _FORWARD_TESTS = (_FORWARD_TESTS_DEFAULT + _FORWARD_TESTS_GROUPED_MLP)

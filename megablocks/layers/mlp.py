@@ -208,14 +208,13 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
-        # unpack saved tensors; ugly because quantizing changes tensor count
-        #
+        # unpack saved tensors
         dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         topo_tensors = saved_tensors[2:8]
         x = saved_tensors[8]
-        sdd_out_data = saved_tensors[-1]
+        sdd_out_data = saved_tensors[9]
 
         # rematerialize activation function output
         activation_fn = ctx.activation_fn
@@ -367,8 +366,8 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # Layer 0: x @ w1.t().
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
 
-        # GeLU.
-        gelu_out = activation_fn(sdd_out)
+        # activation_fn
+        activation_fn_out = activation_fn(sdd_out)
 
         # Layer 1: x @ w2.
         dsd_out = gg.backend.gmm(activation_fn_out, w2, batch_sizes)
@@ -392,8 +391,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
-        # Unpack saved tensors; ugly because quantizing changes tensor count
-        #
+        # Unpack saved tensors
         dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
