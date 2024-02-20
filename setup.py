@@ -39,10 +39,6 @@ extra_deps["gg"] = [
     "grouped_gemm",
 ]
 
-extra_deps["quant"] = [
-    "mosaicml-turbo==0.0.4",
-]
-
 extra_deps["dev"] = [
     "absl-py",
 ]

@@ -4,7 +4,6 @@ from megablocks.layers.activation_fn import act_fn
 from megablocks.layers import mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.arguments import Arguments, InitFn, DEFAULT_ACTIVATION_FN
-from megablocks import turbo_util as turbo
 from megablocks import grouped_gemm_util as gg
 import stk
 import torch
@@ -167,7 +166,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, w1, w2, topo, num_input_bits, num_remat_bits, activation_fn):
+    def forward(ctx, x, w1, w2, topo, activation_fn):
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
@@ -183,25 +182,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # Layer 0: x @ w1.t().
         sdd_out = stk.ops.sdd(x, w1.t(), topo)
 
-        # save input tensor, quantizing if needed
-        input_save_args = (x,)
-        if num_input_bits != -1:
-            x_q, x_scales = turbo.quantize_signed(x, num_bits=num_input_bits)
-            input_save_args = (x_q, x_scales)
-
-        # Activation function.
-        if num_remat_bits == -1:
-            activation_fn_out = act_fn(sdd_out, activation_fn)
-            input_save_args += (sdd_out.data,)
-        else:
-            if activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({num_remat_bits=}).')
-            # fused GELU into sdd_out buffer while quantizing input
-            hidden_q, hidden_scales, activation_fn_out_data = turbo.quantize_signed(
-                sdd_out.data, num_bits=num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out.data)
-            activation_fn_out = sdd_out
-            input_save_args += (hidden_q, hidden_scales)
+        # GeLU.
+        activation_fn_out = act_fn(sdd_out, activation_fn)
 
         # Layer 1: x @ w2.
         dsd_out = stk.ops.dsd(activation_fn_out, w2)
@@ -211,13 +193,11 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # pass in the backward pass to avoid materializing another
         # intermediate.
         ctx.shape = topo.shape
-        ctx.num_input_bits = num_input_bits
-        ctx.num_remat_bits = num_remat_bits
         ctx.x_shape = x.shape
         ctx.sdd_out_shape = sdd_out.data.shape
         ctx.dtype = x.dtype
         ctx.activation_fn = activation_fn
-        ctx.save_for_backward(w1, w2, *topo_tensors, *input_save_args)
+        ctx.save_for_backward(w1, w2, *topo_tensors, x, sdd_out.data)
         return dsd_out
 
     @staticmethod
@@ -228,37 +208,18 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
-        # unpack saved tensors; ugly because quantizing changes tensor count
-        #
+        # unpack saved tensors
         dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         topo_tensors = saved_tensors[2:8]
-        # either 1 or 2 tensors for MLP input after the always-present tensors
-        if ctx.num_input_bits == -1:
-            x = saved_tensors[8]
-        else:
-            x_q, x_scales = saved_tensors[8:10]
-        # either 1 or 2 tensors at the end for saved GELU input / sdd output
-        if ctx.num_remat_bits == -1:
-            sdd_out_data = saved_tensors[-1]
-        else:
-            hidden_q, hidden_scales = saved_tensors[-2:]
+        x = saved_tensors[8]
+        sdd_out_data = saved_tensors[9]
 
         # rematerialize activation function output
         activation_fn = ctx.activation_fn
-        activation_grad_fn = None
-        if ctx.num_remat_bits == -1:
-            sdd_out = stk.Matrix(ctx.shape, sdd_out_data, *topo_tensors)
-            activation_fn_out, activation_grad_fn = act_fn(sdd_out, activation_fn, return_grad_fn=True)
-        else:
-            if activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({ctx.num_remat_bits=}).')
-            activation_fn_out_tensor = turbo.dequantize_signed(
-                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_FORWARD,
-                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
-            activation_fn_out = stk.Matrix(ctx.shape, activation_fn_out_tensor, *topo_tensors)
+        sdd_out = stk.Matrix(ctx.shape, sdd_out_data, *topo_tensors)
+        activation_fn_out, activation_grad_fn = act_fn(sdd_out, activation_fn, return_grad_fn=True)
 
         # Compute dw2 with recomputed activation_fn output.
         dw2 = stk.ops.dsd(activation_fn_out.t(), ddsd_out)
@@ -278,26 +239,12 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # Compute dsdd_out.
         #
         # NOTE: This reuses the dactivation_fn_out allocation.
-        if ctx.num_remat_bits == -1:
-            if activation_fn is DEFAULT_ACTIVATION_FN:
-                dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
-            else:
-                assert activation_grad_fn is not None
-                activation_grad_fn(dactivation_fn_out.data)
-                dsdd_out = stk.Matrix(ctx.shape, sdd_out.data.grad, *topo_tensors)
+        if activation_fn is DEFAULT_ACTIVATION_FN:
+            dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
         else:
-            # confusingly, x_out is interpreted as the gradient to overwrite
-            # in-place when the elemwise op is a backwards op
-            ddsd_out_tensor = turbo.dequantize_signed(
-                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dactivation_fn_out.data)
-            dsdd_out = stk.Matrix(ctx.shape, ddsd_out_tensor, *topo_tensors)
-
-        # rematerialize MLP input now that we need it
-        if ctx.num_input_bits != -1:
-            x = turbo.dequantize_signed(
-                x_q, x_scales, num_bits=ctx.num_input_bits,
-                out_dtype=dtype, out_shape=ctx.x_shape)
+            assert activation_grad_fn is not None
+            activation_grad_fn(dactivation_fn_out.data)
+            dsdd_out = stk.Matrix(ctx.shape, sdd_out.data.grad, *topo_tensors)
 
         # Compute dw1.
         dw1 = stk.ops.dsd(dsdd_out.t(), x)
@@ -318,7 +265,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1,
             ddsd_out)
         dx = ddsd_out
-        return dx, dw1, dw2, None, None, None, None
+        return dx, dw1, dw2, None, None
 
 memory_optimized_mlp = MemoryOptimizedMLP.apply
 
@@ -397,8 +344,7 @@ class SparseMLP(torch.nn.Module):
             return self.parallel_forward(x, topo)
         elif self.args.memory_optimized_mlp:
             return memory_optimized_mlp(
-                x, w1, w2, topo, self.args.quantize_inputs_num_bits,
-                self.args.quantize_rematerialize_num_bits, self.args.activation_fn)
+                x, w1, w2, topo, self.args.activation_fn)
 
         # Compute the MLP.
         x = stk.ops.sdd(x, w1.t(), topo)
@@ -411,7 +357,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, w1, w2, batch_sizes, num_input_bits, num_remat_bits, activation_fn):
+    def forward(ctx, x, w1, w2, batch_sizes, activation_fn):
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
@@ -420,25 +366,8 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # Layer 0: x @ w1.t().
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
 
-        # Save input tensor, quantizing if needed
-        input_save_args = (x,)
-        if num_input_bits != -1:
-            x_q, x_scales = turbo.quantize_signed(x, num_bits=num_input_bits)
-            input_save_args = (x_q, x_scales)
-
-        # GeLU.
-        if num_remat_bits == -1:
-            activation_fn_out = activation_fn(sdd_out)
-            input_save_args += (sdd_out,)
-        else:
-            if activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({num_remat_bits=}).')
-            # Fused GELU into sdd_out buffer while quantizing input
-            hidden_q, hidden_scales, activation_fn_out_data = turbo.quantize_signed(
-                sdd_out, num_bits=num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_FORWARD, x_forward=sdd_out)
-            activation_fn_out = sdd_out
-            input_save_args += (hidden_q, hidden_scales)
+        # activation_fn
+        activation_fn_out = activation_fn(sdd_out)
 
         # Layer 1: x @ w2.
         dsd_out = gg.backend.gmm(activation_fn_out, w2, batch_sizes)
@@ -447,13 +376,11 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # gradient computation. We'll re-compute the activation_fn forward
         # pass in the backward pass to avoid materializing another
         # intermediate.
-        ctx.num_input_bits = num_input_bits
-        ctx.num_remat_bits = num_remat_bits
         ctx.x_shape = x.shape
         ctx.sdd_out_shape = sdd_out.shape
         ctx.dtype = x.dtype
         ctx.activation_fn = activation_fn
-        ctx.save_for_backward(w1, w2, batch_sizes, *input_save_args)
+        ctx.save_for_backward(w1, w2, batch_sizes, x, sdd_out)
         return dsd_out
 
     @staticmethod
@@ -464,40 +391,20 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
-        # Unpack saved tensors; ugly because quantizing changes tensor count
-        #
+        # Unpack saved tensors
         dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         batch_sizes = saved_tensors[2]
-
-        # Either 1 or 2 tensors for MLP input after the always-present tensors
-        if ctx.num_input_bits == -1:
-            x = saved_tensors[3]
-        else:
-            x_q, x_scales = saved_tensors[3:5]
-
-        # Either 1 or 2 tensors at the end for saved GELU input / sdd output
-        if ctx.num_remat_bits == -1:
-            sdd_out = saved_tensors[-1]
-        else:
-            hidden_q, hidden_scales = saved_tensors[-2:]
+        x = saved_tensors[3]
+        sdd_out = saved_tensors[4]
 
         # Rematerialize activation_fn output.
         activation_fn = ctx.activation_fn
-        activation_grad_fn = None
-        if ctx.num_remat_bits == -1:
-            with torch.set_grad_enabled(True):
-                sdd_out.requires_grad = True
-                activation_fn_out = activation_fn(sdd_out)
-                activation_grad_fn = activation_fn_out.backward
-        else:
-            if activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'`num_remat_bits` != -1 not implemented for custom {activation_fn=} ({ctx.num_remat_bits=}).')
-            activation_fn_out = turbo.dequantize_signed(
-                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_FORWARD,
-                out_shape=ctx.sdd_out_shape, out_dtype=dtype)
+        with torch.set_grad_enabled(True):
+            sdd_out.requires_grad = True
+            activation_fn_out = activation_fn(sdd_out)
+            activation_grad_fn = activation_fn_out.backward
 
         # Compute dw2 with recomputed activation_fn output.
         dw2 = gg.backend.gmm(
@@ -513,25 +420,12 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # Compute dsdd_out.
         #
         # NOTE: This reuses the dactivation_fn_out allocation.
-        if ctx.num_remat_bits == -1:
-            if activation_fn is DEFAULT_ACTIVATION_FN:
-                dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
-            else:
-                assert activation_grad_fn is not None
-                activation_grad_fn(dactivation_fn_out)
-                dsdd_out = sdd_out.grad
+        if activation_fn is DEFAULT_ACTIVATION_FN:
+            dsdd_out = gelu.gelu_backward_(dactivation_fn_out, sdd_out)
         else:
-            # confusingly, x_out is interpreted as the gradient to overwrite
-            # in-place when the elemwise op is a backwards op
-            dsdd_out = turbo.dequantize_signed(
-                hidden_q, hidden_scales, num_bits=ctx.num_remat_bits,
-                op=turbo.ElemwiseOps.GELU_BACKWARD, x_out=dactivation_fn_out.data)
-
-        # rematerialize MLP input now that we need it
-        if ctx.num_input_bits != -1:
-            x = turbo.dequantize_signed(
-                x_q, x_scales, num_bits=ctx.num_input_bits,
-                out_dtype=dtype, out_shape=ctx.x_shape)
+            assert activation_grad_fn is not None
+            activation_grad_fn(dactivation_fn_out)
+            dsdd_out = sdd_out.grad
 
         # Compute dw1.
         dw1 = gg.backend.gmm(dsdd_out, x, batch_sizes, trans_a=True)
@@ -541,7 +435,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         # NOTE: This reuses the ddsd_out allocation.
         gg.backend.gmm(dsdd_out, w1, batch_sizes, c=ddsd_out)
         dx = ddsd_out
-        return dx, dw1, dw2, None, None, None, None
+        return dx, dw1, dw2, None, None
 
 memory_optimized_grouped_mlp = MemoryOptimizedGroupedMLP.apply
 
@@ -564,8 +458,6 @@ class GroupedMLP(SparseMLP):
         if self.args.memory_optimized_mlp:
             return memory_optimized_grouped_mlp(
                 x, w1, w2, batch_sizes,
-                self.args.quantize_inputs_num_bits,
-                self.args.quantize_rematerialize_num_bits,
                 self.args.activation_fn)
 
         # Compute the MLP.

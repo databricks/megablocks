@@ -9,19 +9,19 @@ import torch
 _PADDED_SCATTER_TESTS = (
     (4, 2, 2, 1),
     (4, 2, 2, 2),
-    (4, 2, 2, 1, 4),  # only include num_bits for some tests to avoid blowup
-    (4, 2, 2, 1, 8),
-    (4, 2, 2, 2, 4),
-    (4, 2, 2, 2, 8),
-    (1024, 1, 4, 1, -1),
-    (1024, 1, 4, 2, -1),
-    (1024, 1, 4, 4, -1),
-    (1024, 1, 4, 1, 4),
-    (1024, 1, 4, 2, 4),
-    (1024, 1, 4, 4, 4),
-    (1024, 1, 4, 1, 8),
-    (1024, 1, 4, 2, 8),
-    (1024, 1, 4, 4, 8),
+    (4, 2, 2, 1),
+    (4, 2, 2, 1),
+    (4, 2, 2, 2),
+    (4, 2, 2, 2),
+    (1024, 1, 4, 1),
+    (1024, 1, 4, 2),
+    (1024, 1, 4, 4),
+    (1024, 1, 4, 1),
+    (1024, 1, 4, 2),
+    (1024, 1, 4, 4),
+    (1024, 1, 4, 1),
+    (1024, 1, 4, 2),
+    (1024, 1, 4, 4),
     (1024, 1, 64, 1),
     (1024, 1, 64, 2),
     (1024, 1, 64, 4),
@@ -31,16 +31,16 @@ _PADDED_SCATTER_TESTS = (
     (1024, 1536, 4, 1),
     (1024, 1536, 4, 2),
     (1024, 1536, 4, 4),
-    (1024, 1536, 4, 4, 4),
-    (1024, 1536, 4, 4, 8),
+    (1024, 1536, 4, 4),
+    (1024, 1536, 4, 4),
     (1024, 1536, 64, 1),
     (1024, 1536, 64, 2),
     (1024, 1536, 64, 4),
     (1024, 1536, 128, 1),
     (1024, 1536, 128, 2),
     (1024, 1536, 128, 4),
-    (1024, 1536, 128, 1, 4),
-    (1024, 1536, 128, 1, 8),
+    (1024, 1536, 128, 1),
+    (1024, 1536, 128, 1),
     (16384, 768, 4, 1),
     (16384, 768, 4, 2),
     (16384, 768, 4, 4),
@@ -59,8 +59,8 @@ _PADDED_SCATTER_TESTS = (
     (16384, 1, 128, 1),
     (16384, 1, 128, 2),
     (16384, 1, 128, 4),
-    (16384, 1, 128, 2, 4),
-    (16384, 1, 128, 2, 8),
+    (16384, 1, 128, 2),
+    (16384, 1, 128, 2),
 )
 
 
@@ -70,7 +70,7 @@ def _to_numpy(x: torch.Tensor) -> np.ndarray:
 class PaddedScatterTest(parameterized.TestCase):
 
     @parameterized.parameters(*_PADDED_SCATTER_TESTS)
-    def testPaddedScatter(self, sl, hs, ne, top_k, num_bits=-1):
+    def testPaddedScatter(self, sl, hs, ne, top_k):
         # Create the data and indices.
         x = torch.randn((sl, hs), requires_grad=True).cuda().half()
 
@@ -112,7 +112,7 @@ class PaddedScatterTest(parameterized.TestCase):
             return torch.from_numpy(out).cuda().half()
 
         out = ops.padded_scatter(
-            x, indices, bin_ids, weights, bins, padded_bins, top_k, num_bits)
+            x, indices, bin_ids, weights, bins, padded_bins, top_k)
         expected_out = padded_scatter(
             x, indices, bin_ids, weights, bins, padded_bins, top_k)
 

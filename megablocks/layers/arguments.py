@@ -1,6 +1,5 @@
 import dataclasses
 from functools import partial
-import megablocks.turbo_util as turbo
 import megablocks.grouped_gemm_util as grouped_gemm
 import torch
 import torch.nn.functional as F
@@ -45,9 +44,6 @@ class Arguments:
     memory_optimized_mlp : bool = False
     mlp_type : str = 'mlp'
     mlp_impl : str = 'sparse'
-    quantize_inputs_num_bits: int = -1  # -1 = no quantization
-    quantize_rematerialize_num_bits: int = -1
-    quantize_scatter_num_bits: int = -1
 
     # Initialization arguments.
     fp16 : bool = True
@@ -60,17 +56,6 @@ class Arguments:
     uniform_expert_assignment : bool = False
 
     def __post_init__(self):
-        for attr in ('quantize_inputs_num_bits',
-                     'quantize_rematerialize_num_bits',
-                     'quantize_scatter_num_bits'):
-            nbits = self.__getattribute__(attr)
-            if nbits not in _ALLOWED_BITWIDTHS:
-                raise ValueError(f'{attr} must be one of ' +
-                                 f'{_ALLOWED_BITWIDTHS}; got {nbits}')
-
-            if nbits != -1:
-                turbo.assert_turbo_is_available()
-
         if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()
 

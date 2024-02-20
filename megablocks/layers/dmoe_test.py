@@ -3,7 +3,6 @@ from functools import partial
 
 from absl.testing import parameterized
 from megablocks import grouped_gemm_util as gg
-from megablocks import turbo_util as turbo
 from megablocks.layers.arguments import Arguments
 from megablocks.layers import dmoe
 from megablocks.layers import moe
@@ -17,8 +16,6 @@ def test_modules(
         moe_num_experts=1,
         moe_capacity_factor=1,
         moe_top_k=1,
-        num_input_bits=-1,
-        num_remat_bits=-1,
         mlp_impl='sparse'):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
@@ -29,8 +26,6 @@ def test_modules(
         moe_top_k=moe_top_k,
         init_method=init_method,
         memory_optimized_mlp=True,
-        quantize_inputs_num_bits=num_input_bits,
-        quantize_rematerialize_num_bits=num_remat_bits,
         mlp_type='mlp',
         mlp_impl=mlp_impl,
         fp16=False,
@@ -57,7 +52,7 @@ def test_modules(
     return args, mlp, moe_mlp, dmoe_mlp
 
 # min size: (1, 2, 128, 2, 1)
-_FORWARD_TESTS_NO_QUANTIZE = (
+_FORWARD_TESTS_DEFAULT = (
     (16, 1024, 512, 1, 1),
     (16, 1024, 512, 2, 1),
     (16, 1024, 512, 4, 1),
@@ -74,38 +69,10 @@ _FORWARD_TESTS_NO_QUANTIZE = (
 )
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
-    p + (-1, -1, 'grouped') for p in _FORWARD_TESTS_NO_QUANTIZE
+    p + ('grouped',) for p in _FORWARD_TESTS_DEFAULT
 ]) if gg.grouped_gemm_is_available() else ()
 
-# quantization tests; assorted small sizes, systematic bitwidths
-_FORWARD_TESTS_QUANTIZE_HIDDEN = (
-    (1, 2, 128, 2, 2, -1, -1),
-    (1, 8, 128, 2, 2, -1, 4),
-    (2, 8, 128, 2, 1, -1, 8),
-) if turbo.turbo_is_available() else ()
-
-_FORWARD_TESTS_QUANTIZE_INPUT = (
-    (1, 2, 128, 2, 1, 4, -1),
-    (2, 8, 128, 4, 1, 8, -1),
-) if turbo.turbo_is_available() else ()
-
-_FORWARD_TESTS_QUANTIZE_BOTH = (
-    (2, 2, 128, 2, 2, 4, 4),
-    (1, 8, 128, 4, 2, 4, 8),
-    (1, 2, 128, 4, 2, 8, 4),
-    (2, 2, 128, 4, 2, 8, 8),
-) if turbo.turbo_is_available() else ()
-
-_FORWARD_TESTS = (_FORWARD_TESTS_NO_QUANTIZE +
-                  _FORWARD_TESTS_QUANTIZE_HIDDEN +
-                  _FORWARD_TESTS_QUANTIZE_INPUT +
-                  _FORWARD_TESTS_QUANTIZE_BOTH +
-                  _FORWARD_TESTS_GROUPED_MLP)
-
-_FORWARD_TESTS_WITH_HIDDEN_QUANTIZE = (
-    _FORWARD_TESTS_NO_QUANTIZE +
-    _FORWARD_TESTS_QUANTIZE_HIDDEN +
-    _FORWARD_TESTS_GROUPED_MLP)
+_FORWARD_TESTS = (_FORWARD_TESTS_DEFAULT + _FORWARD_TESTS_GROUPED_MLP)
 
 
 _DENSE_TESTS = (
@@ -122,7 +89,6 @@ class dMoETest(parameterized.TestCase):
 
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_Forward(self, bs, sl, hs, num_experts, top_k,
-                         num_input_bits=-1, num_remat_bits=-1,
                          mlp_impl='sparse'):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
 
@@ -131,8 +97,6 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
             moe_top_k=top_k,
-            num_input_bits=num_input_bits,
-            num_remat_bits=num_remat_bits,
             mlp_impl=mlp_impl)
 
         out, _ = layer(x)
@@ -141,7 +105,6 @@ class dMoETest(parameterized.TestCase):
     @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardBackward(
             self, bs, sl, hs, num_experts, top_k,
-            num_input_bits=-1, num_remat_bits=-1,
             mlp_impl='sparse'):
         x = torch.randn(sl, bs, hs).to(torch.bfloat16).cuda()
         x.requires_grad_(True)
@@ -151,8 +114,6 @@ class dMoETest(parameterized.TestCase):
             ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
             moe_top_k=top_k,
-            num_input_bits=num_input_bits,
-            num_remat_bits=num_remat_bits,
             mlp_impl=mlp_impl)
 
         out, _ = layer(x)
@@ -178,12 +139,9 @@ class dMoETest(parameterized.TestCase):
         self.assertSequenceEqual(expected_out.shape, x.shape)
         self.assertTrue(testing.allclose(out, expected_out))
 
-    # we don't run the input quantization cases just to avoid redundancy,
-    # since input quantization doesn't affect any of these asserts
-    @parameterized.parameters(*_FORWARD_TESTS_WITH_HIDDEN_QUANTIZE)
+    @parameterized.parameters(*_FORWARD_TESTS)
     def testdMoE_ForwardVersusMoE(
             self, bs, sl, hs, num_experts, top_k,
-            num_input_bits=-1, num_remat_bits=-1,
             mlp_impl='sparse'):
         torch.manual_seed(42)
 
