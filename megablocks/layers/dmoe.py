@@ -53,13 +53,18 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         zero = torch.zeros((1,), dtype=torch.int32, device=row_indices.device)
         nnz_per_column = ops.histogram(column_indices, block_columns)
         nnz_per_column = ops.inclusive_cumsum(nnz_per_column, 0)
+        if nnz_per_column.dim() == 0:
+            # This addresses an edge case when ffn_hidden_size is equal to self.blocking.
+            nnz_per_column = nnz_per_column.unsqueeze(0)
         offsets_t = torch.cat([zero, nnz_per_column])
         return column_indices_t, offsets_t, block_offsets_t
 
     def topology(self, x, padded_bins):
         padded_tokens, _ = x.size()
         assert padded_tokens % self.blocking == 0
-        assert self.ffn_hidden_size % self.blocking == 0
+        if self.ffn_hidden_size % self.blocking != 0:
+            raise ValueError(f'The ffn_hidden_size {self.ffn_hidden_size} must be divisible by ' +
+                             f'the block size {self.blocking}. Please update your configuration.')
 
         # Offsets for the sparse matrix. All rows have the
         # same number of nonzero blocks dictated by the

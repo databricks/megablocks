@@ -66,6 +66,7 @@ _FORWARD_TESTS_DEFAULT = (
     (16, 1024, 512, 8, 2),
     (16, 1024, 512, 8, 4),
     (16, 1024, 512, 8, 8),
+    (16, 1024, 128, 1, 1),
 )
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
