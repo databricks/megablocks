@@ -95,7 +95,7 @@ class dMoETest(parameterized.TestCase):
 
         _, _, _, layer = test_modules(
             hidden_size=hs,
-            ffn_hidden_size=hs,
+            ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
             moe_top_k=top_k,
             mlp_impl=mlp_impl)
@@ -112,7 +112,7 @@ class dMoETest(parameterized.TestCase):
 
         args, _, _, layer = test_modules(
             hidden_size=hs,
-            ffn_hidden_size=hs,
+            ffn_hidden_size=hs * 2,
             moe_num_experts=num_experts,
             moe_top_k=top_k,
             mlp_impl=mlp_impl)
@@ -132,7 +132,7 @@ class dMoETest(parameterized.TestCase):
 
         _, mlp, _, dmoe_mlp = test_modules(
             hidden_size=hs,
-            ffn_hidden_size=hs)
+            ffn_hidden_size=hs * 2)
 
         expected_out = mlp(x)
         out, _ = dmoe_mlp(x)
