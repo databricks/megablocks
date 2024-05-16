@@ -1,13 +1,12 @@
 from megablocks.layers import common
 from megablocks.layers.activation_fn import act_fn
-from megablocks.layers.mlp import SparseMLP, create_dmoe_expert_weights, resolve_dtensor
+from megablocks.layers.mlp import SparseMLP, SharedMLP, create_dmoe_expert_weights, resolve_dtensor
 from megablocks.layers import mpu
 from megablocks.layers.arguments import Arguments, DEFAULT_ACTIVATION_FN
 from megablocks import turbo_util as turbo
 from megablocks import grouped_gemm_util as gg
 import stk
 import torch
-from packaging import version
 
 
 class SparseGLU(SparseMLP):
@@ -220,3 +219,20 @@ class GroupedGLU(SparseGLU):
         x2 = gg.ops.gmm(x, v1, batch_sizes, trans_b=True)
         x1 = self.args.activation_fn(x1) * x2
         return gg.ops.gmm(x1, w2, batch_sizes)
+
+
+class SharedGLU(SharedMLP):
+    """GPU for shared expert
+
+    Note: this is a copy -> pasta -> modify of the LLM-Foundry MPTGLU class
+    """
+    def __init__(self, args : Arguments):
+        super().__init__(args)
+        self.gate_proj = args.fc_cls(
+            args.hidden_size,
+            self.args.shared_expert_hidden_size,
+            **self.fc_kwargs,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.down_proj(self.act(self.gate_proj(x)) * self.up_proj(x))
