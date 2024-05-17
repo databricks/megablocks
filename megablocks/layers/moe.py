@@ -2,6 +2,7 @@ from megablocks.layers import common
 from megablocks.layers import mpu
 from megablocks.layers import router
 from megablocks.layers import mlp
+from megablocks.layers import sharedexpert_registry
 from megablocks.layers.all_to_all import all_to_all
 from megablocks.layers.arguments import Arguments
 import megablocks.ops as ops
@@ -442,7 +443,15 @@ class MoE(torch.nn.Module):
         self.router = router.LearnedRouter(args)
 
         # Expert computation helper.
-        self.experts = ParallelMLP(args)
+        self.experts = self._init_experts_mlp(args)
+
+        self.shared_expert = None
+        if args.shared_expert:
+            # SharedExpert computation helper.
+            self.shared_expert = sharedexpert_registry.get(args)
+
+    def _init_experts_mlp(self, args: Arguments):
+        return ParallelMLP(args)
 
     def forward(self, x):
         # NOTE: If we're going to cast the activations to lower precision
@@ -453,4 +462,8 @@ class MoE(torch.nn.Module):
         scores, expert_weights, top_experts = self.router(x)
 
         # Compute the experts.
-        return self.experts(x, scores, expert_weights, top_experts)
+        out = self.experts(x, scores, expert_weights, top_experts)
+        if self.shared_expert is not None:
+            shared_expert_out = self.shared_expert(x)
+            out = self.shared_expert.add_experts_sharedexpert(shared_expert_out, out)
+        return out

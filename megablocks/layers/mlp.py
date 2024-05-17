@@ -1,3 +1,6 @@
+from packaging import version
+from typing import Any
+
 from megablocks.layers import common
 from megablocks.layers import gelu
 from megablocks.layers.activation_fn import act_fn
@@ -8,7 +11,6 @@ from megablocks import grouped_gemm_util as gg
 import stk
 import torch
 import torch.nn.functional as F
-from packaging import version
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -464,3 +466,46 @@ class GroupedMLP(SparseMLP):
         x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x = self.args.activation_fn(x)
         return gg.ops.gmm(x, w2, batch_sizes)
+
+
+class SharedMLP(torch.nn.Module):
+    """MLP for shared expert
+
+    Note: this is a copy -> pasta -> modify of the LLM-Foundry MPTMLP class
+    """
+    def __init__(self, args : Arguments):
+        super().__init__()
+        self.args = args
+        self.fc_kwargs: dict[str, Any] = {
+            'bias': args.bias,
+            'device': args.device,
+        }
+        self.fc_kwargs.update(args.fc_kwargs)
+
+        self.up_proj = args.fc_cls(
+            args.hidden_size,
+            args.shared_expert_hidden_size,
+            **self.fc_kwargs,
+        )
+        self.act = args.activation_fn
+        self.down_proj = args.fc_cls(
+            args.shared_expert_hidden_size,
+            args.hidden_size,
+            **self.fc_kwargs,
+        )
+        self.down_proj._is_residual = True  # a flag for llm-foundry init
+
+    def add_experts_sharedexpert(self, shared_expert_out: torch.Tensor, expert_out: torch.Tensor) -> torch.Tensor:
+        # Helper function to add expert output to shared expert output
+        # with optional weighted sum.
+        if self.args.shared_expert_weighted_sum:
+            # enable using weighted sum for shared expert output
+            # wieghted by number of experts used
+            t_experts = self.args.moe_top_k + 1
+            sh_mlp_out = shared_expert_out / t_experts
+            return sh_mlp_out.add(expert_out, alpha=(self.args.moe_top_k / t_experts))
+
+        return shared_expert_out + expert_out
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.down_proj(self.act(self.up_proj(x)))

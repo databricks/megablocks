@@ -3,7 +3,7 @@ from functools import partial
 import megablocks.grouped_gemm_util as grouped_gemm
 import torch
 import torch.nn.functional as F
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 # Type annotation for in-place Tensor initialization function.
 InitFn = Callable[[torch.Tensor], None]
@@ -55,9 +55,20 @@ class Arguments:
     # Benchmarking arguments.
     uniform_expert_assignment : bool = False
 
+    # shared expert arguments
+    shared_expert: bool = False  # enable using shared expert
+    fc_cls: torch.nn.Module = torch.nn.Linear  # class of the fully connected layer in shared expert (purpose: to allow using custom FC layer eg te.Linear (for FP8))
+    fc_kwargs: dict[str, Any] = dataclasses.field(default_factory=dict)  # kwargs for custom fc layers
+    remat_act_fn: bool = True  # enable act fn to be rematerialized instead of stored
+    shared_expert_hidden_size: Optional[int] = None  # hidden size of the shared expert IF we want to set it to something different from hidden_size
+    shared_expert_weighted_sum: bool = False  # enable using weighted sum for shared expert output (wieghted by number of experts used)
+
     def __post_init__(self):
         if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()
+
+        if self.shared_expert_hidden_size is None:
+            self.shared_expert_hidden_size = self.ffn_hidden_size
 
 
 def from_megatron(megatron_args):
