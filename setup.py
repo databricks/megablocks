@@ -30,13 +30,13 @@ ext_modules = [
 
 install_requires=[
     "triton>=2.1.0",
-    "stanford-stk>=0.0.6",
+    "stanford-stk==0.7.0",
 ]
 
 extra_deps = {}
 
 extra_deps["gg"] = [
-    "grouped_gemm",
+    "grouped_gemm==0.1.1",
 ]
 
 extra_deps["dev"] = [
