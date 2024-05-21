@@ -65,6 +65,10 @@ class WeightParallelSddNt(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_fwd
     def forward(ctx, x, w, topo, group):
+        # Cast inputs using ctx dtype from AMP
+        if ctx._fwd_used_autocast:
+            x = x.to(ctx._dtype)
+            w = w.to(ctx._dtype)
         # [m, k] x [n, k] = [m, n]
         if not x.is_contiguous() or not w.is_contiguous():
             raise ValueError("Expected contiguous 'x' and 'w'.")
@@ -140,6 +144,10 @@ class WeightParallelDsdNn(torch.autograd.Function):
                 w,
                 group):
         # [m, k] x [k, n] = [m, n]
+        # Cast inputs using ctx dtype from AMP
+        if ctx._fwd_used_autocast:
+            data = data.to(ctx._dtype)
+            w = w.to(ctx._dtype)
         if not data.is_contiguous() or not w.is_contiguous():
             raise ValueError("Expected contiguous 'data' and 'w'.")
 
@@ -216,6 +224,11 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_fwd
     def forward(ctx, x, w1, w2, topo, group):
+        # Cast inputs using ctx dtype from AMP
+        if ctx._fwd_used_autocast:
+            x = x.to(ctx._dtype)
+            w1 = w1.to(ctx._dtype)
+            w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):

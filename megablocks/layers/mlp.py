@@ -169,6 +169,11 @@ class MemoryOptimizedMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_fwd
     def forward(ctx, x, w1, w2, topo, activation_fn):
+        # Cast inputs using ctx dtype from AMP
+        if ctx._fwd_used_autocast:
+            x = x.to(ctx._dtype)
+            w1 = w1.to(ctx._dtype)
+            w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
@@ -360,6 +365,11 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_fwd
     def forward(ctx, x, w1, w2, batch_sizes, activation_fn):
+        # Cast inputs using ctx dtype from AMP
+        if ctx._fwd_used_autocast:
+            x = x.to(ctx._dtype)
+            w1 = w1.to(ctx._dtype)
+            w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
         if (not x.is_contiguous() or not w1.is_contiguous() or
             not w2.is_contiguous()):
