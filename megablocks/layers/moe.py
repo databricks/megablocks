@@ -31,7 +31,8 @@ def clear_load_balancing_loss():
 def batched_load_balancing_loss(args : Arguments):
     # tokens_per_expert[i].shape = (num_experts)
     # expert_scores[i].shape = (tokens, num_experts)
-    tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
+    # tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
+    tokens_per_expert, expert_scores, expert_logits = zip(*get_load_balancing_loss())
     num_layers_per_pipeline_stage = (
         args.num_layers // args.pipeline_model_parallel_size)
     if args.num_layers_per_virtual_pipeline_stage is not None:
@@ -74,6 +75,7 @@ def batched_load_balancing_loss(args : Arguments):
     else:
         expert_scores = torch.cat(expert_scores, dim=1).mean(dim=0)
     tokens_per_expert = torch.cat(tokens_per_expert).to(expert_scores.dtype)
+    expert_logits = torch.cat(expert_logits, dim=0).to(expert_scores.dtype)
 
     expected_values = num_layers_per_pipeline_stage * args.moe_num_experts
     assert tokens_per_expert.numel() == expected_values
@@ -92,7 +94,8 @@ def batched_load_balancing_loss(args : Arguments):
         args.moe_top_k
     )
     scale = scale_numerator / scale_denominator
-    return scale * torch.dot(tokens_per_expert, expert_scores)
+    zloss = (torch.log(torch.exp(expert_logits).sum(dim=-1)) ** 2).sum() / scale_denominator
+    return scale * torch.dot(tokens_per_expert, expert_scores) + args.moe_zloss_weight * zloss    
 
 
 # NOTE: This class defines MoE expert computation, including expert model parallel
@@ -418,14 +421,14 @@ class ParallelMLP(torch.nn.Module):
             self.top_k)
         return x, tokens_per_expert.flatten()
 
-    def forward(self, x, scores, expert_weights, top_experts):
+    def forward(self, x, scores, logits, expert_weights, top_experts):
         in_shape = x.size()
 
         # Compute the experts.
         x, tokens_per_expert = self.forward_fn(
             x, expert_weights, top_experts)
         if self.training:
-            save_load_balancing_loss((tokens_per_expert, scores))
+            save_load_balancing_loss((tokens_per_expert, scores, logits))
         x = x.view(in_shape)
         if self.bias is not None:
             if self.args.return_bias:
@@ -459,10 +462,10 @@ class MoE(torch.nn.Module):
         x = common.cast_if_autocast_enabled(x)
 
         # Compute the expert scores and assignments.
-        scores, expert_weights, top_experts = self.router(x)
+        scores, logits, expert_weights, top_experts = self.router(x)
 
         # Compute the experts.
-        out = self.experts(x, scores, expert_weights, top_experts)
+        out = self.experts(x, scores, logits, expert_weights, top_experts)
         if self.shared_expert is not None:
             shared_expert_out = self.shared_expert(x)
             out = self.shared_expert.add_experts_sharedexpert(shared_expert_out, out)
