@@ -29,6 +29,9 @@ def clear_load_balancing_loss():
 
 
 def batched_load_balancing_loss(args : Arguments):
+    if args.moe_loss_weight == 0:
+        return 0.0
+
     # tokens_per_expert[i].shape = (num_experts)
     # expert_scores[i].shape = (tokens, num_experts)
     tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
@@ -424,7 +427,7 @@ class ParallelMLP(torch.nn.Module):
         # Compute the experts.
         x, tokens_per_expert = self.forward_fn(
             x, expert_weights, top_experts)
-        if self.training:
+        if self.training and self.args.moe_loss_weight > 0:
             save_load_balancing_loss((tokens_per_expert, scores))
         x = x.view(in_shape)
         if self.bias is not None:
