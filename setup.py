@@ -41,6 +41,7 @@ extra_deps["gg"] = [
 
 extra_deps["dev"] = [
     "absl-py",
+    "pre-commit>=3.4.0,<4",
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
