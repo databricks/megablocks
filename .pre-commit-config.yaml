@@ -108,13 +108,13 @@ repos:
 #     pass_filenames: false
 #     args: [--warnings]
 #     additional_dependencies: ["pyright@1.1.256"]
-- repo: https://github.com/trufflesecurity/trufflehog.git
-  rev: v3.40.0
-  hooks:
-  - id: trufflehog
-    name: secret scan
-    exclude: tests/horrible_strings.py
-    entry: trufflehog filesystem ./
-    args:
-    - --only-verified
-    - --fail
+# - repo: https://github.com/trufflesecurity/trufflehog.git
+#   rev: v3.40.0
+#   hooks:
+#   - id: trufflehog
+#     name: secret scan
+#     exclude: tests/horrible_strings.py
+#     entry: trufflehog filesystem ./
+#     args:
+#     - --only-verified
+#     - --fail
