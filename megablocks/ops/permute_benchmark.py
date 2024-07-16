@@ -38,7 +38,7 @@ class PermuteBenchmark(parameterized.TestCase):
         tokens_per_expert = ops.histogram(indices, ne)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
-        benchmark = lambda: ops.binned_gather(x, indices, bins, ec)
+        def benchmark(): ops.binned_gather(x, indices, bins, ec)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -60,7 +60,7 @@ class PermuteBenchmark(parameterized.TestCase):
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         x = ops.binned_gather(x, indices, bins, ec)
 
-        benchmark = lambda: ops.binned_scatter(x, indices, bins)
+        def benchmark(): ops.binned_scatter(x, indices, bins)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -82,7 +82,7 @@ class PermuteBenchmark(parameterized.TestCase):
         padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
-        benchmark = lambda: ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+        def benchmark(): ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -105,7 +105,7 @@ class PermuteBenchmark(parameterized.TestCase):
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
 
-        benchmark = lambda: ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
+        def benchmark(): ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -123,7 +123,7 @@ class PermuteBenchmark(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
         y = x.clone()
 
-        benchmark = lambda: y.copy_(x)
+        def benchmark(): y.copy_(x)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,

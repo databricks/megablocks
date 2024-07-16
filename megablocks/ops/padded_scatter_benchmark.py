@@ -35,10 +35,10 @@ class PaddedScatterTest(parameterized.TestCase):
         # Gather the data to prepare for backwards.
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
 
-        fn = lambda: ops.padded_scatter(
+        def benchmark(): ops.padded_scatter(
             x, indices, bin_ids, weights, bins, padded_bins, top_k)
 
-        time, std = benchmark_util.benchmark_function(fn)
+        time, std = benchmark_util.benchmark_function(benchmark)
         benchmark_util.log_benchmark(
             "Padded Scatter",
             {"sequence_length": sl,

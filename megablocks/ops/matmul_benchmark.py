@@ -96,7 +96,7 @@ class MatmulBenchmark(parameterized.TestCase):
         topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
         w = transpose_view(w)
 
-        benchmark = lambda: stk.ops.sdd(x, w, topo)
+        def benchmark(): stk.ops.sdd(x, w, topo)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -113,7 +113,7 @@ class MatmulBenchmark(parameterized.TestCase):
         w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
         topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
 
-        benchmark = lambda: stk.ops.dsd(topo, w)
+        def benchmark(): stk.ops.dsd(topo, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -130,7 +130,7 @@ class MatmulBenchmark(parameterized.TestCase):
         topo = self.build_sparse_matrix(x, padded_bins, fhs, ne)
         topo = topo.t()
 
-        benchmark = lambda: stk.ops.dsd(topo, x)
+        def benchmark(): stk.ops.dsd(topo, x)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -147,7 +147,7 @@ class MatmulBenchmark(parameterized.TestCase):
         w = self.build_weight_matrix(ne, hs, fhs).t().contiguous()
         x = self.build_sparse_matrix(x, padded_bins, fhs, ne)
 
-        benchmark = lambda: stk.ops.dsd(x, w)
+        def benchmark(): stk.ops.dsd(x, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -166,7 +166,7 @@ class MatmulBenchmark(parameterized.TestCase):
         out = stk.ops.dsd(x, w)
         w = transpose_view(w)
 
-        benchmark = lambda: stk.ops.sdd(out, w, x)
+        def benchmark(): stk.ops.sdd(out, w, x)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -185,7 +185,7 @@ class MatmulBenchmark(parameterized.TestCase):
         out = stk.ops.dsd(x, w)
         x = x.t()
 
-        benchmark = lambda: stk.ops.dsd(x, out)
+        def benchmark(): stk.ops.dsd(x, out)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -205,7 +205,7 @@ class MatmulBenchmark(parameterized.TestCase):
         w = w.transpose(1, 2).contiguous()
         w = w.transpose(1, 2)
 
-        benchmark = lambda: torch.bmm(x, w)
+        def benchmark(): torch.bmm(x, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -224,7 +224,7 @@ class MatmulBenchmark(parameterized.TestCase):
         out = torch.bmm(x, w)
         w = w.transpose(1, 2).contiguous()
 
-        benchmark = lambda: torch.bmm(out, w)
+        def benchmark(): torch.bmm(out, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -243,7 +243,7 @@ class MatmulBenchmark(parameterized.TestCase):
         out = torch.bmm(x, w)
         out = out.transpose(1, 2)
 
-        benchmark = lambda: torch.bmm(out, x)
+        def benchmark(): torch.bmm(out, x)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -260,7 +260,7 @@ class MatmulBenchmark(parameterized.TestCase):
         x = torch.randn((ne, sl // ne, fhs)).cuda().half()
         w = torch.randn((ne, fhs, hs)).cuda().half()
 
-        benchmark = lambda: torch.bmm(x, w)
+        def benchmark(): torch.bmm(x, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -279,7 +279,7 @@ class MatmulBenchmark(parameterized.TestCase):
         out = torch.bmm(x, w)
         w = torch.transpose(w, 1, 2)
 
-        benchmark = lambda: torch.bmm(out, w)
+        def benchmark(): torch.bmm(out, w)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -298,7 +298,7 @@ class MatmulBenchmark(parameterized.TestCase):
         out = torch.bmm(x, w)
         x = torch.transpose(x, 1, 2)
 
-        benchmark = lambda: torch.bmm(x, out)
+        def benchmark(): torch.bmm(x, out)
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
