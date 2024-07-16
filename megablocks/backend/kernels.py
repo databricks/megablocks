@@ -263,7 +263,7 @@ def _padded_copy_wgrad(
     offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
     acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
-    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    # iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
     for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
@@ -379,7 +379,7 @@ def _binned_copy(
     iptr = a if A_TO_B else b
     optr = b if A_TO_B else a
 
-    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    # iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
     for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
         mask = offsets < NUM_COLUMNS
         x = tl.load(iptr + offsets, mask=mask)
@@ -509,7 +509,7 @@ def _binned_copy_wgrad(
     offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
     acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
-    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    # iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
     for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)

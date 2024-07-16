@@ -110,7 +110,7 @@ class ParallelMLP(torch.nn.Module):
 
         # Calculate the number of experts in total and the number of experts
         # owned by this rank.
-        world_size = mpu.get_expert_parallel_world_size(args)
+        # world_size = mpu.get_expert_parallel_world_size(args)
         self.num_experts = args.moe_num_experts
         self.top_k = self.args.moe_top_k
 

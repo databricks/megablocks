@@ -117,7 +117,7 @@ class PermuteBenchmark(parameterized.TestCase):
     @parameterized.parameters(*_PERMUTE_TESTS)
     def testCopy(self, sl, hs, ne):
         # NOTE: Capacity factor == 1.
-        ec = sl // ne
+        # ec = sl // ne
 
         # Create the data and indices.
         x = torch.randn((sl, hs)).cuda().half()

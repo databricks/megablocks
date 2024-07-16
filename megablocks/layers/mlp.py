@@ -84,7 +84,7 @@ class MLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         self.args = args
-        expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
+        # expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
         experts_per_rank = mpu.experts_per_rank(args)
 
         self.w1 = torch.nn.Parameter(torch.empty(
@@ -215,7 +215,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         topo_tensors = saved_tensors[2:8]
@@ -403,7 +403,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         batch_sizes = saved_tensors[2]
