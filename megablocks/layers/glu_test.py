@@ -3,13 +3,11 @@ from functools import partial
 
 from absl.testing import parameterized
 from megablocks.layers.arguments import Arguments
-from megablocks.layers.glu import SparseGLU, GroupedGLU
 from megablocks.layers import dmlp_registry
 from megablocks.layers import testing
 
 import torch
 import stk
-import numpy as np
 
 def test_modules(
         hidden_size,

@@ -2,7 +2,6 @@ import unittest
 
 from absl.testing import parameterized
 from megablocks import ops
-import math
 import numpy as np
 import torch
 

@@ -10,7 +10,6 @@ from megablocks.layers.arguments import Arguments, InitFn, DEFAULT_ACTIVATION_FN
 from megablocks import grouped_gemm_util as gg
 import stk
 import torch
-import torch.nn.functional as F
 
 
 class ScaleGradient(torch.autograd.Function):

@@ -1,9 +1,6 @@
-import functools
 import gc
 
-from megablocks.layers import dmoe, arguments, mpu
-from megablocks import benchmark_util
-import numpy as np
+from megablocks.layers import dmoe, arguments
 import torch
 
 _TESTS = (

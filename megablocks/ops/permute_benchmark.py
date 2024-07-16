@@ -3,8 +3,6 @@ import unittest
 from absl.testing import parameterized
 from megablocks import benchmark_util
 from megablocks import ops
-import numpy as np
-import stk
 import torch
 
 
