@@ -4,7 +4,6 @@ from absl.testing import parameterized
 from megablocks import ops
 import torch
 
-
 _CUMSUM_TESTS = (
     (1, 32),
     (2, 32),

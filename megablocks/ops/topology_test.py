@@ -5,7 +5,6 @@ from megablocks import ops
 import numpy as np
 import torch
 
-
 _TOPOLOGY_TESTS = (
     (1024, 1536, 2),
     (1024, 1536, 4),
@@ -39,7 +38,7 @@ class TopologyTest(parameterized.TestCase):
         assert hs % blocking == 0
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl, )).cuda().int()
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, blocking)
         padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
@@ -61,13 +60,9 @@ class TopologyTest(parameterized.TestCase):
                     start += 1
             return torch.from_numpy(out).cuda().short()
 
-        out = ops.topology(padded_bins,
-                           blocking,
-                           output_block_rows,
+        out = ops.topology(padded_bins, blocking, output_block_rows,
                            output_block_columns)
-        expected_out = topology(padded_bins,
-                                blocking,
-                                output_block_rows,
+        expected_out = topology(padded_bins, blocking, output_block_rows,
                                 output_block_columns)
         self.assertTrue(torch.all(torch.eq(out, expected_out)))
 

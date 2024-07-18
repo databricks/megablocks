@@ -1,7 +1,8 @@
 from megablocks.layers.arguments import Arguments
 import torch
 
-def dtype(args : Arguments):
+
+def dtype(args: Arguments):
     if args.fp16:
         return torch.float16
     elif args.bf16:

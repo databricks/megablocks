@@ -5,23 +5,12 @@ from megablocks import benchmark_util
 from megablocks import ops
 import torch
 
-
-_PERMUTE_TESTS = (
-    (16384, 768, 2),
-    (16384, 768, 4),
-    (16384, 768, 8),
-    (16384, 768, 16),
-    (16384, 768, 32),
-    (16384, 768, 64),
-    (16384, 768, 128),
-    (16384 * 8, 768, 2),
-    (16384 * 8, 768, 4),
-    (16384 * 8, 768, 8),
-    (16384 * 8, 768, 16),
-    (16384 * 8, 768, 32),
-    (16384 * 8, 768, 64),
-    (16384 * 8, 768, 128)
-)
+_PERMUTE_TESTS = ((16384, 768, 2), (16384, 768, 4), (16384, 768, 8),
+                  (16384, 768, 16), (16384, 768, 32), (16384, 768, 64),
+                  (16384, 768, 128), (16384 * 8, 768, 2), (16384 * 8, 768, 4),
+                  (16384 * 8, 768, 8), (16384 * 8, 768, 16),
+                  (16384 * 8, 768, 32), (16384 * 8, 768, 64), (16384 * 8, 768,
+                                                               128))
 
 
 class PermuteBenchmark(parameterized.TestCase):
@@ -33,12 +22,14 @@ class PermuteBenchmark(parameterized.TestCase):
 
         # Create the data and indices.
         x = torch.randn((sl, hs)).cuda().half()
-        top_expert = torch.randint(0, ne, (sl,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl, )).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(indices, ne)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
-        def benchmark(): ops.binned_gather(x, indices, bins, ec)
+        def benchmark():
+            ops.binned_gather(x, indices, bins, ec)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -54,13 +45,15 @@ class PermuteBenchmark(parameterized.TestCase):
 
         # Create the data and indices.
         x = torch.randn((sl, hs)).cuda().half()
-        top_expert = torch.randint(0, ne, (sl,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl, )).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(indices, ne)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         x = ops.binned_gather(x, indices, bins, ec)
 
-        def benchmark(): ops.binned_scatter(x, indices, bins)
+        def benchmark():
+            ops.binned_scatter(x, indices, bins)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -75,14 +68,16 @@ class PermuteBenchmark(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl, )).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)
         padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
-        def benchmark(): ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+        def benchmark():
+            ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -97,7 +92,7 @@ class PermuteBenchmark(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl, )).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)
@@ -105,7 +100,9 @@ class PermuteBenchmark(parameterized.TestCase):
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
 
-        def benchmark(): ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
+        def benchmark():
+            ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -123,7 +120,9 @@ class PermuteBenchmark(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
         y = x.clone()
 
-        def benchmark(): y.copy_(x)
+        def benchmark():
+            y.copy_(x)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,

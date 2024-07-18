@@ -7,6 +7,7 @@ import torch
 # c++ operations.
 import megablocks_ops as ops
 
+
 # Autograd wrappers for cumsum kernels.
 #
 # NOTE: Does not support gradients.
@@ -22,7 +23,10 @@ class ExclusiveCumsumOp(torch.autograd.Function):
         out = torch.empty_like(x)
         ops.exclusive_cumsum(x, dim, out)
         return out
+
+
 exclusive_cumsum = ExclusiveCumsumOp.apply
+
 
 class InclusiveCumsumOp(torch.autograd.Function):
 
@@ -36,4 +40,6 @@ class InclusiveCumsumOp(torch.autograd.Function):
         out = torch.empty_like(x)
         ops.inclusive_cumsum(x, dim, out)
         return out
+
+
 inclusive_cumsum = InclusiveCumsumOp.apply

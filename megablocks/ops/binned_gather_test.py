@@ -5,7 +5,6 @@ from megablocks import ops
 import numpy as np
 import torch
 
-
 _BINNED_GATHER_TESTS = (
     (4, 2, 2, 1),
     (4, 2, 2, 2),
@@ -42,7 +41,7 @@ class BinnedGatherTest(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
         _, indices = ops.sort(top_expert)
         bins = ops.inclusive_cumsum(ops.histogram(top_expert, ne), 0)
 

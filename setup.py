@@ -24,11 +24,14 @@ ext_modules = [
         "megablocks_ops",
         ["csrc/ops.cu"],
         include_dirs=["csrc"],
-        extra_compile_args={"cxx": ["-fopenmp"], "nvcc": nvcc_flags},
+        extra_compile_args={
+            "cxx": ["-fopenmp"],
+            "nvcc": nvcc_flags
+        },
     )
 ]
 
-install_requires=[
+install_requires = [
     "triton>=2.1.0",
     "stanford-stk==0.7.0",
 ]

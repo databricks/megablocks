@@ -10,12 +10,12 @@ class PaddedScatterOp(torch.autograd.Function):
     @custom_fwd
     def forward(ctx, x, indices, bin_ids, weights, bins, padded_bins, top_k):
         maybe_x = [x] if ctx.needs_input_grad[3] else []
-        ctx.save_for_backward(
-            indices, bin_ids, weights, bins, padded_bins, *maybe_x)
+        ctx.save_for_backward(indices, bin_ids, weights, bins, padded_bins,
+                              *maybe_x)
         ctx.top_k = top_k
         ctx.x_shape = x.shape
-        return kernels.padded_scatter(
-            x, indices, bin_ids, weights, bins, padded_bins, top_k)
+        return kernels.padded_scatter(x, indices, bin_ids, weights, bins,
+                                      padded_bins, top_k)
 
     @staticmethod
     @custom_bwd
@@ -26,35 +26,19 @@ class PaddedScatterOp(torch.autograd.Function):
         indices, bin_ids, weights, bins, padded_bins = saved_tensors[:5]
         dgrad = None
         if ctx.needs_input_grad[0]:
-            dgrad = kernels.padded_gather(
-                grad,
-                indices,
-                bin_ids,
-                weights,
-                bins,
-                padded_bins,
-                ctx.top_k)
+            dgrad = kernels.padded_gather(grad, indices, bin_ids, weights,
+                                          bins, padded_bins, ctx.top_k)
 
         wgrad = None
         if ctx.needs_input_grad[3]:  # need wgrad
             x = saved_tensors[-1]
-            wgrad = kernels.padded_scatter_wgrad(
-                x,
-                grad,
-                indices,
-                bin_ids,
-                bins,
-                padded_bins,
-                ctx.top_k)
+            wgrad = kernels.padded_scatter_wgrad(x, grad, indices, bin_ids,
+                                                 bins, padded_bins, ctx.top_k)
         return dgrad, None, None, wgrad, None, None, None, None
 
 
-def padded_scatter(x: torch.Tensor,
-                   indices: torch.Tensor,
-                   bin_ids: torch.Tensor,
-                   weights: torch.Tensor,
-                   bins: torch.Tensor,
-                   padded_bins: torch.Tensor,
-                   top_k: int):
+def padded_scatter(x: torch.Tensor, indices: torch.Tensor,
+                   bin_ids: torch.Tensor, weights: torch.Tensor,
+                   bins: torch.Tensor, padded_bins: torch.Tensor, top_k: int):
     return PaddedScatterOp.apply(x, indices, bin_ids, weights, bins,
                                  padded_bins, top_k)

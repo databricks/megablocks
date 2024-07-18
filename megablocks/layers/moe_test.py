@@ -8,20 +8,18 @@ from megablocks.layers import testing
 import torch
 
 
-def test_modules(
-        hidden_size,
-        ffn_hidden_size,
-        moe_num_experts=1,
-        moe_capacity_factor=1,
-        moe_top_k=1):
+def test_modules(hidden_size,
+                 ffn_hidden_size,
+                 moe_num_experts=1,
+                 moe_capacity_factor=1,
+                 moe_top_k=1):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
-    args = Arguments(
-        hidden_size=hidden_size,
-        ffn_hidden_size=ffn_hidden_size,
-        moe_num_experts=moe_num_experts,
-        moe_capacity_factor=moe_capacity_factor,
-        moe_top_k=moe_top_k,
-        init_method=init_method)
+    args = Arguments(hidden_size=hidden_size,
+                     ffn_hidden_size=ffn_hidden_size,
+                     moe_num_experts=moe_num_experts,
+                     moe_capacity_factor=moe_capacity_factor,
+                     moe_top_k=moe_top_k,
+                     init_method=init_method)
 
     mlp = testing.FFN(args)
     moe_mlp = moe.MoE(args)
@@ -53,7 +51,6 @@ _FORWARD_TESTS = (
     (16, 1024, 512, 8, 8),
 )
 
-
 _DENSE_TESTS = (
     (16, 1024, 512),
     (8, 2048, 512),
@@ -67,30 +64,26 @@ class MoETest(parameterized.TestCase):
         moe.clear_load_balancing_loss()
 
     @parameterized.parameters(*_FORWARD_TESTS)
-    def testMoE_Forward(
-            self, bs, sl, hs, num_experts, top_k):
+    def testMoE_Forward(self, bs, sl, hs, num_experts, top_k):
         x = torch.randn(sl, bs, hs).half().cuda()
 
-        _, _, layer = test_modules(
-            hidden_size=hs,
-            ffn_hidden_size=hs * 2,
-            moe_num_experts=num_experts,
-            moe_top_k=top_k)
+        _, _, layer = test_modules(hidden_size=hs,
+                                   ffn_hidden_size=hs * 2,
+                                   moe_num_experts=num_experts,
+                                   moe_top_k=top_k)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
 
     @parameterized.parameters(*_FORWARD_TESTS)
-    def testMoE_ForwardBackward(
-            self, bs, sl, hs, num_experts, top_k):
+    def testMoE_ForwardBackward(self, bs, sl, hs, num_experts, top_k):
         x = torch.randn(sl, bs, hs).half().cuda()
         x.requires_grad_(True)
 
-        args, _, layer = test_modules(
-            hidden_size=hs,
-            ffn_hidden_size=hs * 2,
-            moe_num_experts=num_experts,
-            moe_top_k=top_k)
+        args, _, layer = test_modules(hidden_size=hs,
+                                      ffn_hidden_size=hs * 2,
+                                      moe_num_experts=num_experts,
+                                      moe_top_k=top_k)
 
         out, _ = layer(x)
         self.assertSequenceEqual(out.shape, x.shape)
@@ -104,9 +97,7 @@ class MoETest(parameterized.TestCase):
     def testMoE_ForwardVersusDense(self, bs, sl, hs):
         x = torch.randn(sl, bs, hs).half().cuda()
 
-        _, mlp, moe_mlp = test_modules(
-            hidden_size=hs,
-            ffn_hidden_size=hs * 2)
+        _, mlp, moe_mlp = test_modules(hidden_size=hs, ffn_hidden_size=hs * 2)
 
         expected_out = mlp(x)
         out, _ = moe_mlp(x)
@@ -119,9 +110,7 @@ class MoETest(parameterized.TestCase):
         x = torch.randn(sl, bs, hs).half().cuda()
         x.requires_grad_(True)
 
-        _, mlp, moe_mlp = test_modules(
-            hidden_size=hs,
-            ffn_hidden_size=hs * 2)
+        _, mlp, moe_mlp = test_modules(hidden_size=hs, ffn_hidden_size=hs * 2)
 
         out, _ = moe_mlp(x)
         loss = out.sum()
