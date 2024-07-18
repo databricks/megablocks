@@ -1,6 +1,6 @@
 from typing import Union
-from megablocks.layers import mlp
-from megablocks.layers import glu
+
+from megablocks.layers import glu, mlp
 from megablocks.layers.arguments import Arguments
 
 _REGISTRY = {

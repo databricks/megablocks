@@ -1,6 +1,7 @@
-from megablocks.layers.all_to_all import all_to_all
-from megablocks import benchmark_util
 import torch
+
+from megablocks import benchmark_util
+from megablocks.layers.all_to_all import all_to_all
 
 _ALL_TO_ALL_BENCHMARK = (
     (8, 1024),

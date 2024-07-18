@@ -1,6 +1,7 @@
-from setuptools import setup, find_packages
 import os
+
 import torch
+from setuptools import find_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 if os.environ.get("TORCH_CUDA_ARCH_LIST"):

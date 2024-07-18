@@ -1,10 +1,10 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import benchmark_util
-from megablocks import ops
 import stk
 import torch
+from absl.testing import parameterized
+
+from megablocks import benchmark_util, ops
 
 
 # Calling tensor.t() calls tensor.transpose(0, 1) which calls

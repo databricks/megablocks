@@ -1,9 +1,9 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
-from megablocks import benchmark_util
 import torch
+from absl.testing import parameterized
+
+from megablocks import benchmark_util, ops
 
 _PADDED_SCATTER_BENCHMARK = (
     # dMoE-Medium, 8-way EMP.

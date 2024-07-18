@@ -1,7 +1,8 @@
 import gc
 
-from megablocks.layers import dmoe, arguments
 import torch
+
+from megablocks.layers import arguments, dmoe
 
 _TESTS = ((8, 2048, 4096, 4096, 32, 4), )
 

@@ -1,13 +1,12 @@
 import unittest
 from functools import partial
 
-from absl.testing import parameterized
-from megablocks.layers.arguments import Arguments
-from megablocks.layers import dmlp_registry
-from megablocks.layers import testing
-
-import torch
 import stk
+import torch
+from absl.testing import parameterized
+
+from megablocks.layers import dmlp_registry, testing
+from megablocks.layers.arguments import Arguments
 
 
 def test_modules(hidden_size,

@@ -1,15 +1,15 @@
-from packaging import version
 from typing import Any
 
-from megablocks.layers import common
-from megablocks.layers import gelu
-from megablocks.layers.activation_fn import act_fn
-from megablocks.layers import mpu
-from megablocks.layers import weight_parallel as wp
-from megablocks.layers.arguments import Arguments, InitFn, DEFAULT_ACTIVATION_FN
-from megablocks import grouped_gemm_util as gg
 import stk
 import torch
+from packaging import version
+
+from megablocks import grouped_gemm_util as gg
+from megablocks.layers import common, gelu, mpu
+from megablocks.layers import weight_parallel as wp
+from megablocks.layers.activation_fn import act_fn
+from megablocks.layers.arguments import (DEFAULT_ACTIVATION_FN, Arguments,
+                                         InitFn)
 
 
 class ScaleGradient(torch.autograd.Function):

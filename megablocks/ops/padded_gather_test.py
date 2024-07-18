@@ -1,9 +1,10 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
+
+from megablocks import ops
 
 _PADDED_GATHER_TESTS = (
     (4, 2, 2, 1),

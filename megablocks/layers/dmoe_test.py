@@ -1,13 +1,12 @@
 import unittest
 from functools import partial
 
-from absl.testing import parameterized
-from megablocks import grouped_gemm_util as gg
-from megablocks.layers.arguments import Arguments
-from megablocks.layers import dmoe
-from megablocks.layers import moe
-from megablocks.layers import testing
 import torch
+from absl.testing import parameterized
+
+from megablocks import grouped_gemm_util as gg
+from megablocks.layers import dmoe, moe, testing
+from megablocks.layers.arguments import Arguments
 
 
 def test_modules(hidden_size,

@@ -1,8 +1,9 @@
 import functools
 
-from megablocks.layers import dmoe, arguments, mpu
 import numpy as np
 import torch
+
+from megablocks.layers import arguments, dmoe, mpu
 
 _TESTS = (
     (64, 1024, 512, 2048, 64, 1, False),

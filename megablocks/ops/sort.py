@@ -1,11 +1,10 @@
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
-import torch
-
 # TODO(tgale): Wrap this in a try-block with better
 # error message and instructions for building the
 # c++ operations.
 import megablocks_ops as ops
+import torch
 
 _BITS_FOR_DTYPE = {
     torch.int16: 16,

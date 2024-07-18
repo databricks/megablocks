@@ -1,6 +1,7 @@
-from megablocks.layers import gelu
 import stk
 import torch
+
+from megablocks.layers import gelu
 
 
 def _gather_weights(w, group, parallel_w=None, async_op=False):

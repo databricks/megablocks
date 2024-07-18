@@ -1,9 +1,9 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import benchmark_util
-from megablocks import ops
 import torch
+from absl.testing import parameterized
+
+from megablocks import benchmark_util, ops
 
 _PERMUTE_TESTS = ((16384, 768, 2), (16384, 768, 4), (16384, 768, 8),
                   (16384, 768, 16), (16384, 768, 32), (16384, 768, 64),

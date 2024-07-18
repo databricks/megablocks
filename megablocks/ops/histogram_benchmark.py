@@ -1,9 +1,10 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
+
+from megablocks import ops
 
 _HISTOGRAM_TESTS = (
     (16384, torch.int32, 2),

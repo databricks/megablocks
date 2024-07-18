@@ -1,11 +1,10 @@
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
-import torch
-
 # TODO(tgale): Wrap this in a try-block with better
 # error message and instructions for building the
 # c++ operations.
 import megablocks_ops as ops
+import torch
 
 
 # Autograd wrapper for replicate kernel.

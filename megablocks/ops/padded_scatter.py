@@ -1,6 +1,7 @@
 import torch
+from stk.backend.autocast import custom_bwd, custom_fwd
+
 from megablocks.backend import kernels
-from stk.backend.autocast import custom_fwd, custom_bwd
 
 
 # Autograd wrapper for padded_scatter kernel.

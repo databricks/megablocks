@@ -1,9 +1,10 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
+
+from megablocks import ops
 
 _TOPOLOGY_TESTS = (
     (1024, 1536, 2),

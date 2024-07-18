@@ -1,6 +1,7 @@
-from megablocks.layers.arguments import Arguments
 import torch
 import torch.nn.functional as F
+
+from megablocks.layers.arguments import Arguments
 
 
 def allclose(x, y, pct=0.5):

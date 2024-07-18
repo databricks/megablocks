@@ -1,11 +1,11 @@
 import unittest
 from functools import partial
 
-from absl.testing import parameterized
-from megablocks.layers.arguments import Arguments
-from megablocks.layers import moe
-from megablocks.layers import testing
 import torch
+from absl.testing import parameterized
+
+from megablocks.layers import moe, testing
+from megablocks.layers.arguments import Arguments
 
 
 def test_modules(hidden_size,
