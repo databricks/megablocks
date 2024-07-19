@@ -3,11 +3,11 @@
 
 import unittest
 
-import megablocks_ops as backend
 import numpy as np
 import torch
 from absl.testing import parameterized
 
+import megablocks_ops as backend
 from megablocks import ops
 
 _REPLICATE_TESTS = (
