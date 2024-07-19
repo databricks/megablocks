@@ -29,6 +29,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+    - name: Install torch
+      run: pip install torch # MegaBlocks's setup.py requires torch
     - name: Get composite run steps repository
       uses: actions/checkout@v3
       with:
@@ -38,4 +40,4 @@ jobs:
     - uses: ./ci-testing/.github/actions/code-quality
       with:
         python_version: ${{ matrix.python_version }}
-        pip_deps: torch ${{ matrix.pip_deps }} # MegaBlocks's setup.py requires torch
+        pip_deps: ${{ matrix.pip_deps }}
