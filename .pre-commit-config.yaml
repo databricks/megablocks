@@ -23,7 +23,7 @@ repos:
   hooks:
   - id: isort
   rev: 5.12.0
-- repo: https://github.com/adrienverge/yamllint.git
+- repo: https://github.com/adrienverge/yamllint
   rev: v1.28.0
   hooks:
   - id: yamllint
@@ -87,7 +87,7 @@ repos:
       metadata.kernelspec metadata.language_info.version
       cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
       metadata.version metadata.vscode
-- repo: https://github.com/trufflesecurity/trufflehog.git
+- repo: https://github.com/trufflesecurity/trufflehog
   rev: v3.40.0
   hooks:
   - id: trufflehog
