@@ -41,6 +41,13 @@ extra_deps["gg"] = [
 
 extra_deps["dev"] = [
     "absl-py",
+    'pytest_codeblocks>=0.16.1,<0.17',
+    'coverage[toml]==7.4.4',
+    'pytest-cov>=4,<5',
+    'pre-commit>=3.4.0,<4',
+    'pytest>=7.2.1,<8',
+    'mosaicml>=0.22.0', # necessary ??
+]
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
