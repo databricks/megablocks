@@ -25,7 +25,7 @@ jobs:
         - "3.10"
         - "3.11"
         pip_deps:
-        - "[dev] torch" # setup.py requires torch
+        - "torch [dev]" # setup.py requires torch
     steps:
     - name: Checkout
       uses: actions/checkout@v3
