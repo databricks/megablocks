@@ -38,4 +38,4 @@ jobs:
     - uses: ./ci-testing/.github/actions/code-quality
       with:
         python_version: ${{ matrix.python_version }}
-        pip_deps: ${{ matrix.pip_deps }} torch # MegaBlocks's setup.py requires torch
+        pip_deps: torch ${{ matrix.pip_deps }} # MegaBlocks's setup.py requires torch
