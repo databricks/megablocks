@@ -39,7 +39,7 @@ if torch_available:
     cmdclass = {"build_ext": BuildExtension}
 
 install_requires=[
-    "torch",
+    # "torch",
     "triton>=2.1.0",
     "stanford-stk==0.7.0",
 ]
@@ -57,7 +57,7 @@ extra_deps["dev"] = [
     'pytest-cov>=4,<5',
     'pre-commit>=3.4.0,<4',
     'pytest>=7.2.1,<8',
-    'torch',
+    # 'torch',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
