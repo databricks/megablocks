@@ -60,6 +60,7 @@ extra_deps["dev"] = [
     'pytest-cov>=4,<5',
     'pre-commit>=3.4.0,<4',
     'pytest>=7.2.1,<8',
+    'torch',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
