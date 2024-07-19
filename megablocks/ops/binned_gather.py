@@ -1,6 +1,11 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
+from stk.backend.autocast import custom_bwd, custom_fwd
+
 from megablocks.backend import kernels
-from stk.backend.autocast import custom_fwd, custom_bwd
+
 
 # Autograd wrapper for binned_gather kernel.
 class BinnedGatherOp(torch.autograd.Function):
@@ -19,4 +24,6 @@ class BinnedGatherOp(torch.autograd.Function):
         indices, bins = ctx.saved_tensors
         out = kernels.binned_scatter(grad, indices, None, bins, ctx.top_k)
         return out, None, None, None, None
+
+
 binned_gather = BinnedGatherOp.apply

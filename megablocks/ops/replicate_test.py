@@ -1,11 +1,14 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import megablocks_ops as backend
 import numpy as np
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _REPLICATE_TESTS = (
     (8, 1, 1),
@@ -60,7 +63,8 @@ class ReplicateTest(parameterized.TestCase):
 
     @parameterized.parameters(*_REPLICATE_TESTS)
     def testReplicate(self, tokens, num_centers, top_k):
-        tokens_to_centers = torch.randint(0, num_centers, (tokens,)).cuda().int()
+        tokens_to_centers = torch.randint(0, num_centers,
+                                          (tokens, )).cuda().int()
         tokens_per_center = ops.histogram(tokens_to_centers, num_centers)
         bins = ops.inclusive_cumsum(tokens_per_center, 0)
         bins = promote_scalar(bins)
@@ -86,7 +90,8 @@ class ReplicateTest(parameterized.TestCase):
 
     @parameterized.parameters(*_REPLICATE_TESTS)
     def testReplicate_Backward(self, tokens, num_centers, top_k):
-        tokens_to_centers = torch.randint(0, num_centers, (tokens,)).cuda().int()
+        tokens_to_centers = torch.randint(0, num_centers,
+                                          (tokens, )).cuda().int()
         tokens_per_center = ops.histogram(tokens_to_centers, num_centers)
         bins = ops.inclusive_cumsum(tokens_per_center, 0)
         bins = promote_scalar(bins)
@@ -96,7 +101,8 @@ class ReplicateTest(parameterized.TestCase):
 
         out = torch.empty_like(center_weights)
         backend.replicate_backward(grad, bins, out)
-        expected_out = center_weights * tokens_per_center.view([1, num_centers])
+        expected_out = center_weights * tokens_per_center.view(
+            [1, num_centers])
 
         # NOTE: This floating-point reduction could be a problem for
         # training stability and accuracy.

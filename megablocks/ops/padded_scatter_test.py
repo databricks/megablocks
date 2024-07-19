@@ -1,10 +1,13 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _PADDED_SCATTER_TESTS = (
     (4, 2, 2, 1),
@@ -67,6 +70,7 @@ _PADDED_SCATTER_TESTS = (
 def _to_numpy(x: torch.Tensor) -> np.ndarray:
     return x.detach().cpu().numpy()
 
+
 class PaddedScatterTest(parameterized.TestCase):
 
     @parameterized.parameters(*_PADDED_SCATTER_TESTS)
@@ -75,7 +79,7 @@ class PaddedScatterTest(parameterized.TestCase):
         x = torch.randn((sl, hs), requires_grad=True).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)
@@ -83,12 +87,13 @@ class PaddedScatterTest(parameterized.TestCase):
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
         # Sample weights for the scatter reduce.
-        weights = torch.rand((sl * top_k,), requires_grad=True).cuda().half()
+        weights = torch.rand((sl * top_k, ), requires_grad=True).cuda().half()
 
         # Gather the data to prepare for backwards.
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
 
-        def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
+        def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins,
+                           top_k):
             x = x.detach().cpu().numpy()
             indices = _to_numpy(indices)
             bin_ids = _to_numpy(bin_ids)
@@ -111,17 +116,18 @@ class PaddedScatterTest(parameterized.TestCase):
                     in_idx += 1
             return torch.from_numpy(out).cuda().half()
 
-        out = ops.padded_scatter(
-            x, indices, bin_ids, weights, bins, padded_bins, top_k)
-        expected_out = padded_scatter(
-            x, indices, bin_ids, weights, bins, padded_bins, top_k)
+        out = ops.padded_scatter(x, indices, bin_ids, weights, bins,
+                                 padded_bins, top_k)
+        expected_out = padded_scatter(x, indices, bin_ids, weights, bins,
+                                      padded_bins, top_k)
 
-        out.backward(torch.randn_like(out)) # sanity check backward pass
+        out.backward(torch.randn_like(out))  # sanity check backward pass
 
         # NOTE: We need to check approximate equality because the
         # scatter reduce uses atomics.
-        np.testing.assert_allclose(
-            _to_numpy(out), _to_numpy(expected_out), rtol=5e-3)
+        np.testing.assert_allclose(_to_numpy(out),
+                                   _to_numpy(expected_out),
+                                   rtol=5e-3)
 
 
 if __name__ == '__main__':

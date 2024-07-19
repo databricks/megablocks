@@ -1,9 +1,12 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _CUMSUM_TESTS = (
     (1, 32),

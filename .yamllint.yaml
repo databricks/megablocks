@@ -1,0 +1,5 @@
+---
+
+rules:
+  line-length:
+    max: 1000 # effectively we do not enforce line length
