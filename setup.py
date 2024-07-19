@@ -48,7 +48,6 @@ extra_deps["dev"] = [
     'pytest>=7.2.1,<8',
     'mosaicml>=0.22.0', # necessary ??
 ]
-]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
