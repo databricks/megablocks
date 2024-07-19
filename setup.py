@@ -8,6 +8,7 @@ try:
 except ImportError:
     torch_available = False
 
+# defaults
 nvcc_flags = [
     "--ptxas-options=-v",
     "--optimize=2",
@@ -15,6 +16,7 @@ nvcc_flags = [
 cmdclass = {}
 ext_modules = []
 
+# update defaults if torch is available
 if torch_available:
     if os.environ.get("TORCH_CUDA_ARCH_LIST"):
         # Let PyTorch builder to choose device to target for.
@@ -57,6 +59,7 @@ extra_deps["dev"] = [
     'pytest-cov>=4,<5',
     'pre-commit>=3.4.0,<4',
     'pytest>=7.2.1,<8',
+    'torch'
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
