@@ -244,8 +244,8 @@ def _padded_copy_wgrad(x, grad, wgrad, indices, bin_ids, bins, padded_bins,
     offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
     acc = tl.zeros((BLOCK_X, ), dtype=tl.float32)
-    # iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    for i in range(iterations):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
         scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
@@ -347,8 +347,8 @@ def _binned_copy(a, b, num_experts, expert_capacity, indices, weights, bins,
     iptr = a if A_TO_B else b
     optr = b if A_TO_B else a
 
-    # iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    for i in range(iterations):
         mask = offsets < NUM_COLUMNS
         x = tl.load(iptr + offsets, mask=mask)
         x = x.to(tl.float32) * scale.to(tl.float32)
@@ -465,8 +465,8 @@ def _binned_copy_wgrad(x, grad, wgrad, num_experts, expert_capacity, indices,
     offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
     acc = tl.zeros((BLOCK_X, ), dtype=tl.float32)
-    # iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    for i in range(iterations):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
         scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
