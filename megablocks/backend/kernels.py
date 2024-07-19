@@ -43,10 +43,20 @@ def assert_equal(a, b):
     key=['NUM_COLUMNS'],
 )
 @triton.jit
-def _padded_copy(a, b, indices, bin_ids, weights, bins, padded_bins,
-                 NUM_COLUMNS: tl.constexpr, TOP_K: tl.constexpr,
-                 BLOCK_X: tl.constexpr, A_TO_B: tl.constexpr,
-                 SCALE: tl.constexpr):
+def _padded_copy(
+    a,
+    b,
+    indices,
+    bin_ids,
+    weights,
+    bins,
+    padded_bins,
+    NUM_COLUMNS: tl.constexpr,
+    TOP_K: tl.constexpr,
+    BLOCK_X: tl.constexpr,
+    A_TO_B: tl.constexpr,
+    SCALE: tl.constexpr,
+):
     # Our index into array 'a'.
     index_a = tl.load(indices + tl.program_id(0))
 
