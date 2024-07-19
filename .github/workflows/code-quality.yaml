@@ -25,7 +25,7 @@ jobs:
         - "3.10"
         - "3.11"
         pip_deps:
-        - "[dev]" # all?
+        - "[all]"
     steps:
     - name: Install torch
       run: pip install torch # MegaBlocks's setup.py requires torch
