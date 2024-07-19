@@ -1,3 +1,6 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 from stk.backend.autocast import custom_bwd, custom_fwd
 

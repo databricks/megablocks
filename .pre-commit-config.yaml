@@ -61,17 +61,17 @@ repos:
   - id: fix-byte-order-marker
   - id: mixed-line-ending
   - id: trailing-whitespace
-# - repo: https://github.com/Lucas-C/pre-commit-hooks
-#   rev: v1.5.4
-#   hooks:
-#   - id: insert-license
-#     args:
-#     - --license-filepath
-#     - .pre-commit/FILE_HEADER
-#     - --comment-style
-#     - "#"
-#     - --allow-past-years
-#     types: [python]
+- repo: https://github.com/Lucas-C/pre-commit-hooks
+  rev: v1.5.4
+  hooks:
+  - id: insert-license
+    args:
+    - --license-filepath
+    - .pre-commit/FILE_HEADER
+    - --comment-style
+    - "#"
+    - --allow-past-years
+    types: [python]
 # - repo: https://github.com/kynan/nbstripout
 #   rev: 0.5.0
 #   hooks:

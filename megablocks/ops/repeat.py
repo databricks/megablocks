@@ -1,3 +1,7 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
+
 def repeat(x, tiling):
     if all([t == 1 for t in tiling]):
         return x
