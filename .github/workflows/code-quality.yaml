@@ -25,7 +25,7 @@ jobs:
         - "3.10"
         - "3.11"
         pip_deps:
-        - "torch [dev]" # setup.py requires torch
+        - "[dev]"
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -38,4 +38,4 @@ jobs:
     - uses: ./ci-testing/.github/actions/code-quality
       with:
         python_version: ${{ matrix.python_version }}
-        pip_deps: ${{ matrix.pip_deps }}
+        pip_deps: ${{ matrix.pip_deps }} torch # MegaBlocks's setup.py requires torch
