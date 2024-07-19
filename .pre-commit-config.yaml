@@ -1,4 +1,3 @@
----
 default_language_version:
   python: python3
 repos:
@@ -14,7 +13,7 @@ repos:
     name: yapf
     description: "A formatter for Python files."
     entry: yapf
-    args: [-i, -vv, -p] # inplace
+    args: [-i, -vv, -p]  # inplace
     language: python
     types: [python]
     additional_dependencies:

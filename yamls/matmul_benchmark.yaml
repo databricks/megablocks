@@ -1,16 +1,14 @@
----
-
 run_name: megablocks-matmul-benchmark
 image: mosaicml/llm-foundry:2.0.1_cu118-latest
 cluster: r9z1
 gpu_num: 8
 gpu_type: h100_80gb
 integrations:
-  - integration_type: git_repo
-    git_repo: stanford-futuredata/megablocks
-    git_branch: main
-    pip_install: absl-py 'git+https://github.com/openai/triton.git@main#egg=triton&subdirectory=python'
-    ssh_clone: false
+- integration_type: git_repo
+  git_repo: stanford-futuredata/megablocks
+  git_branch: main
+  pip_install: absl-py 'git+https://github.com/openai/triton.git@main#egg=triton&subdirectory=python'
+  ssh_clone: false
 command: |-
   cd megablocks
   export ENABLE_TMA=1
