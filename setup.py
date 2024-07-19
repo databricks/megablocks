@@ -3,37 +3,51 @@
 
 import os
 
-import torch
 from setuptools import find_packages, setup
-from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
-if os.environ.get('TORCH_CUDA_ARCH_LIST'):
-    # Let PyTorch builder to choose device to target for.
-    device_capability = ''
-else:
-    device_capability = torch.cuda.get_device_capability()
-    device_capability = f'{device_capability[0]}{device_capability[1]}'
+is_torch_installed = False
+try:
+    import torch
+    from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+    is_torch_installed = True
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError(
+        "No module named 'torch'. Torch is required to install this repo."
+    ) from e
 
-nvcc_flags = [
-    '--ptxas-options=-v',
-    '--optimize=2',
-]
-if device_capability:
-    nvcc_flags.append(
-        f'--generate-code=arch=compute_{device_capability},code=sm_{device_capability}'
-    )
+# default values
+nvcc_flags = ['--ptxas-options=-v', '--optimize=2']
+ext_modules = []
+cmdclass = {}
 
-ext_modules = [
-    CUDAExtension(
-        'megablocks_ops',
-        ['csrc/ops.cu'],
-        include_dirs=['csrc'],
-        extra_compile_args={
-            'cxx': ['-fopenmp'],
-            'nvcc': nvcc_flags
-        },
-    )
-]
+# if torch is installed update default values
+if is_torch_installed:
+
+    if os.environ.get('TORCH_CUDA_ARCH_LIST'):
+        # Let PyTorch builder to choose device to target for.
+        device_capability = ''
+    else:
+        device_capability = torch.cuda.get_device_capability()
+        device_capability = f'{device_capability[0]}{device_capability[1]}'
+
+    if device_capability:
+        nvcc_flags.append(
+            f'--generate-code=arch=compute_{device_capability},code=sm_{device_capability}'
+        )
+
+    ext_modules = [
+        CUDAExtension(
+            'megablocks_ops',
+            ['csrc/ops.cu'],
+            include_dirs=['csrc'],
+            extra_compile_args={
+                'cxx': ['-fopenmp'],
+                'nvcc': nvcc_flags
+            },
+        )
+    ]
+
+    cmdclass = {'build_ext': BuildExtension}
 
 install_requires = [
     'triton>=2.1.0',
@@ -69,7 +83,7 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=ext_modules,
-    cmdclass={'build_ext': BuildExtension},
+    cmdclass=cmdclass,
     install_requires=install_requires,
     extras_require=extra_deps,
 )
