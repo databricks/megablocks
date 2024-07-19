@@ -9,10 +9,7 @@ except ImportError:
     torch_available = False
 
 # defaults
-nvcc_flags = [
-    "--ptxas-options=-v",
-    "--optimize=2",
-]
+nvcc_flags = ["--ptxas-options=-v", "--optimize=2"]
 cmdclass = {}
 ext_modules = []
 
