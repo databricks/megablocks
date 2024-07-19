@@ -12,8 +12,8 @@ nvcc_flags = [
     "--ptxas-options=-v",
     "--optimize=2",
 ]
-cmdclass = None
-ext_modules = None
+cmdclass = {}
+ext_modules = []
 
 if torch_available:
     if os.environ.get("TORCH_CUDA_ARCH_LIST"):
