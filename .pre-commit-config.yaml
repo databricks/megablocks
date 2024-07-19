@@ -72,21 +72,21 @@ repos:
     - "#"
     - --allow-past-years
     types: [python]
-# - repo: https://github.com/kynan/nbstripout
-#   rev: 0.5.0
-#   hooks:
-#   - id: nbstripout
-#     types:
-#     - "jupyter"
-#     args:
-#     # Strip all the metadata that vscode or colab may add to a notebook
-#     - --strip-empty-cells
-#     - --extra-keys
-#     - >
-#       metadata.colab metadata.interpreter metadata.accelerator
-#       metadata.kernelspec metadata.language_info.version
-#       cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
-#       metadata.version metadata.vscode
+- repo: https://github.com/kynan/nbstripout
+  rev: 0.5.0
+  hooks:
+  - id: nbstripout
+    types:
+    - "jupyter"
+    args:
+    # Strip all the metadata that vscode or colab may add to a notebook
+    - --strip-empty-cells
+    - --extra-keys
+    - >
+      metadata.colab metadata.interpreter metadata.accelerator
+      metadata.kernelspec metadata.language_info.version
+      cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
+      metadata.version metadata.vscode
 # - repo: local
 #   hooks:
 #   - id: pyright
