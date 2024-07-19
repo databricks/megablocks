@@ -29,12 +29,12 @@ class SparseGLU(SparseMLP):
 
         if self.args.moe_weight_parallelism:
             raise NotImplementedError(
-                "Weight parallelism not yet supported with GLU.")
+                'Weight parallelism not yet supported with GLU.')
 
     def forward(self, x, topo):
         if self.args.memory_optimized_mlp:
             raise NotImplementedError(
-                "Memory optimized implementation not yet supported with GLU with sparse kernels."
+                'Memory optimized implementation not yet supported with GLU with sparse kernels.'
             )
 
         w1, v1, w2 = self.scale_grad(self.w1), self.scale_grad(
@@ -95,7 +95,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
     def backward(ctx, ddsd_out):
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1]
                 or not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # Unpack saved tensors
         # dtype = ctx.dtype

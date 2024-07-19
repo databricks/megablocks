@@ -8,7 +8,7 @@ def allclose(x, y, pct=0.5):
     mask = torch.isclose(x, y, rtol=5e-2)
     pct_diff = (mask.numel() - mask.sum()) / mask.numel() * 100
     if pct_diff > pct:
-        print("{:.2f}% of values not close.".format(pct_diff))
+        print('{:.2f}% of values not close.'.format(pct_diff))
         return False
     return True
 
@@ -30,7 +30,7 @@ class FFN(torch.nn.Module):
 
     def forward(self, x):
         return torch.matmul(
-            F.gelu(torch.matmul(x, self.w1), approximate="tanh"), self.w2)
+            F.gelu(torch.matmul(x, self.w1), approximate='tanh'), self.w2)
 
 
 class GLU(FFN):
@@ -45,5 +45,5 @@ class GLU(FFN):
 
     def forward(self, x):
         x1 = F.gelu(torch.matmul(x, self.w1),
-                    approximate="tanh") * torch.matmul(x, self.v1)
+                    approximate='tanh') * torch.matmul(x, self.v1)
         return torch.matmul(x1, self.w2)

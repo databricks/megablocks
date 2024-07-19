@@ -123,5 +123,5 @@ if __name__ == '__main__':
 
     for args in _TESTS:
         if local_rank == 0:
-            print(f"TEST: {args}")
+            print(f'TEST: {args}')
         test_expert_parallel_versus_weight_parallel(group, *args)

@@ -239,7 +239,7 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
 
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1]
                 or not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # Start the weight gather asynchronously to overlap with the
         # weight gradient computation and gelu recompute.

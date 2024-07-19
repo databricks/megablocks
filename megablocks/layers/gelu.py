@@ -23,6 +23,6 @@ def gelu_backward_(grad: stk.Matrix, x: stk.Matrix):
 
 def gelu(x: stk.Matrix):
     assert isinstance(x, stk.Matrix)
-    return stk.Matrix(x.size(), F.gelu(x.data, approximate="tanh"),
+    return stk.Matrix(x.size(), F.gelu(x.data, approximate='tanh'),
                       x.row_indices, x.column_indices, x.offsets,
                       x.column_indices_t, x.offsets_t, x.block_offsets_t)

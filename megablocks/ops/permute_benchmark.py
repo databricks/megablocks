@@ -32,11 +32,11 @@ class PermuteBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "num_experts": ne
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'num_experts': ne
         }
-        benchmark_util.log_benchmark("BinnedGather", arguments, mean_t, std_t)
+        benchmark_util.log_benchmark('BinnedGather', arguments, mean_t, std_t)
 
     @parameterized.parameters(*_PERMUTE_TESTS)
     def testBinnedScatter(self, sl, hs, ne):
@@ -56,11 +56,11 @@ class PermuteBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "num_experts": ne
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'num_experts': ne
         }
-        benchmark_util.log_benchmark("BinnedScatter", arguments, mean_t, std_t)
+        benchmark_util.log_benchmark('BinnedScatter', arguments, mean_t, std_t)
 
     @parameterized.parameters(*_PERMUTE_TESTS)
     def testPaddedGather(self, sl, hs, ne):
@@ -80,11 +80,11 @@ class PermuteBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "num_experts": ne
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'num_experts': ne
         }
-        benchmark_util.log_benchmark("PaddedGather", arguments, mean_t, std_t)
+        benchmark_util.log_benchmark('PaddedGather', arguments, mean_t, std_t)
 
     @parameterized.parameters(*_PERMUTE_TESTS)
     def testPaddedScatter(self, sl, hs, ne):
@@ -105,11 +105,11 @@ class PermuteBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "num_experts": ne
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'num_experts': ne
         }
-        benchmark_util.log_benchmark("PaddedScatter", arguments, mean_t, std_t)
+        benchmark_util.log_benchmark('PaddedScatter', arguments, mean_t, std_t)
 
     @parameterized.parameters(*_PERMUTE_TESTS)
     def testCopy(self, sl, hs, ne):
@@ -125,11 +125,11 @@ class PermuteBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "num_experts": ne
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'num_experts': ne
         }
-        benchmark_util.log_benchmark("Copy", arguments, mean_t, std_t)
+        benchmark_util.log_benchmark('Copy', arguments, mean_t, std_t)
 
 
 if __name__ == '__main__':
