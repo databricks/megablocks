@@ -87,6 +87,15 @@ repos:
       metadata.kernelspec metadata.language_info.version
       cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
       metadata.version metadata.vscode
+- repo: https://github.com/trufflesecurity/trufflehog.git
+  rev: v3.40.0
+  hooks:
+  - id: trufflehog
+    name: secret scan
+    entry: trufflehog filesystem ./
+    args:
+    - --only-verified
+    - --fail
 # - repo: local
 #   hooks:
 #   - id: pyright
@@ -97,16 +106,6 @@ repos:
 #     pass_filenames: false
 #     args: [--warnings]
 #     additional_dependencies: ["pyright@1.1.310"]
-# - repo: https://github.com/trufflesecurity/trufflehog.git
-#   rev: v3.40.0
-#   hooks:
-#   - id: trufflehog
-#     name: secret scan
-#     entry: trufflehog filesystem ./
-#     args:
-#     - --only-verified
-#     - --fail
-#     - --exclude-paths=./.github/secrets/exclude.yaml
 # - repo: https://github.com/PyCQA/pydocstyle
 #   hooks:
 #   - id: pydocstyle
