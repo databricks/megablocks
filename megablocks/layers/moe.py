@@ -68,10 +68,13 @@ def batched_load_balancing_loss(args: Arguments):
 
     # Concatenate the contributions of each layer and convert to
     # the correct types and formats for the dot product.
+    expert_scores = torch.cat(expert_scores, dim=1)
     if args.moe_lbl_in_fp32:
-        expert_scores = torch.cat(expert_scores, dim=1).float().mean(dim=0)
+        expert_scores = expert_scores.float()
+    if tokens != 0:
+        expert_scores = expert_scores.mean(dim=0)
     else:
-        expert_scores = torch.cat(expert_scores, dim=1).mean(dim=0)
+        expert_scores = expert_scores.sum(dim=0)
     tokens_per_expert = torch.cat(tokens_per_expert).to(expert_scores.dtype)
 
     expected_values = num_layers_per_pipeline_stage * args.moe_num_experts
