@@ -1,11 +1,15 @@
-# NOTE: Torch needs to be imported before the custom
-# extensions. Otherwise libc10.so cannot be found.
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 
+# NOTE: Torch needs to be imported before the custom
+# extensions. Otherwise libc10.so cannot be found.
 # TODO(tgale): Wrap this in a try-block with better
 # error message and instructions for building the
 # c++ operations.
 import megablocks_ops as ops
+
 
 # Autograd wrapper for topology kernel.
 #
@@ -13,18 +17,14 @@ import megablocks_ops as ops
 class TopologyOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx,
-                padded_bins,
-                block_size,
-                output_block_rows,
+    def forward(ctx, padded_bins, block_size, output_block_rows,
                 output_block_columns):
         out = torch.empty(output_block_rows * output_block_columns,
                           dtype=torch.int16,
                           device=padded_bins.device)
-        ops.indices(padded_bins,
-                    block_size,
-                    output_block_rows,
-                    output_block_columns,
-                    out)
+        ops.indices(padded_bins, block_size, output_block_rows,
+                    output_block_columns, out)
         return out
+
+
 topology = TopologyOp.apply

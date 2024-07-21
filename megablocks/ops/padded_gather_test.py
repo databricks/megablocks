@@ -1,10 +1,13 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _PADDED_GATHER_TESTS = (
     (4, 2, 2, 1),
@@ -56,7 +59,7 @@ class PaddedGatherTest(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)
@@ -83,7 +86,8 @@ class PaddedGatherTest(parameterized.TestCase):
             return torch.from_numpy(out).cuda().half()
 
         out = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
-        expected_out = padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
+        expected_out = padded_gather(x, indices, bin_ids, bins, padded_bins,
+                                     top_k)
         self.assertTrue(torch.all(torch.eq(out, expected_out)))
 
 

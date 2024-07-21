@@ -1,10 +1,13 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _BINNED_SCATTER_TESTS = (
     (4, 2, 2, 1),
@@ -42,12 +45,12 @@ class BinnedScatterTest(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
         _, indices = ops.sort(top_expert)
         bins = ops.inclusive_cumsum(ops.histogram(top_expert, ne), 0)
 
         # Sample weights for the scatter reduce.
-        weights = torch.rand((sl * top_k,)).cuda().half()
+        weights = torch.rand((sl * top_k, )).cuda().half()
 
         x = ops.binned_gather(x, indices, bins, ec, top_k)
 
@@ -68,13 +71,13 @@ class BinnedScatterTest(parameterized.TestCase):
                     out[index, :] += scale * x[i, j, :]
                 start = end
             return torch.from_numpy(out).cuda().half()
+
         out = ops.binned_scatter(x, indices, weights, bins, top_k)
         expected_out = binned_scatter(x, indices, weights, bins, top_k)
 
         # NOTE: We need to check approximate equality because the
         # scatter reduce uses atomics.
-        np.testing.assert_allclose(
-            out.cpu(), expected_out.cpu(), rtol=5e-3)
+        np.testing.assert_allclose(out.cpu(), expected_out.cpu(), rtol=5e-3)
 
 
 if __name__ == '__main__':

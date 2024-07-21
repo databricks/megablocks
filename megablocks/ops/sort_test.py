@@ -1,10 +1,13 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _SORT_TESTS = (
     (32, torch.int16, None),
@@ -44,7 +47,7 @@ class SortTest(parameterized.TestCase):
         if max_val is None:
             max_val = np.iinfo(numpy_dtype(dtype)).max
         end_bit = int(np.ceil(np.log2(max_val)))
-        x = torch.randint(0, max_val, (n,)).cuda().to(dtype)
+        x = torch.randint(0, max_val, (n, )).cuda().to(dtype)
 
         out, indices = ops.sort(x, end_bit)
         expected_out, expected_indices = torch.sort(x)

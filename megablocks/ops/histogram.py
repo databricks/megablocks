@@ -1,11 +1,15 @@
-# NOTE: Torch needs to be imported before the custom
-# extensions. Otherwise libc10.so cannot be found.
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 
+# NOTE: Torch needs to be imported before the custom
+# extensions. Otherwise libc10.so cannot be found.
 # TODO(tgale): Wrap this in a try-block with better
 # error message and instructions for building the
 # c++ operations.
 import megablocks_ops as ops
+
 
 # Autograd wrapper for histogram kernel.
 #
@@ -15,4 +19,6 @@ class HistogramOp(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, max_val):
         return ops.histogram(x, max_val)
+
+
 histogram = HistogramOp.apply
