@@ -5,7 +5,7 @@
 # then build via:
 #   pip install --no-build-isolation -e .
 # since, by default, torch 2.0.1 only uses cuda 11.7
-requires = ["setuptools < 70.0.0", "packaging >= 21.0.0"]
+requires = ["setuptools < 70.0.0", "packaging >= 21.0.0", "torch >= 2.3.0, < 2.4"]
 build-backend = "setuptools.build_meta"
 
 # iSort
