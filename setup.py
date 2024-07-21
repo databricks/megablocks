@@ -5,6 +5,8 @@ import os
 
 from setuptools import find_packages, setup
 
+# We require torch in setup.py to build cpp extensions "ahead of time"
+# More info here: # https://pytorch.org/tutorials/advanced/cpp_extension.html
 is_torch_installed = False
 try:
     import torch
@@ -71,13 +73,30 @@ extra_deps['dev'] = [
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
+# convert README to long description on PyPI, optionally skipping certain
+# marked sections if present (e.g., for coverage / code quality badges)
+with open('README.md', 'r', encoding='utf-8') as fh:
+    long_description = fh.read()
+while True:
+    start_tag = '<!-- LONG_DESCRIPTION_SKIP_START -->'
+    end_tag = '<!-- LONG_DESCRIPTION_SKIP_END -->'
+    start = long_description.find(start_tag)
+    end = long_description.find(end_tag)
+    if start == -1:
+        assert end == -1, 'Skipped section starts and ends imbalanced'
+        break
+    else:
+        assert end != -1, 'Skipped section starts and ends imbalanced'
+        long_description = long_description[:start] + long_description[
+            end + len(end_tag):]
+
 setup(
     name='megablocks',
     version='0.5.1',
     author='Trevor Gale',
     author_email='tgale@stanford.edu',
     description='MegaBlocks',
-    long_description=open('README.md').read(),
+    long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/stanford-futuredata/megablocks',
     classifiers=[
@@ -85,7 +104,7 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: Unix',
     ],
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests*']),
     ext_modules=ext_modules,
     cmdclass=cmdclass,
     install_requires=install_requires,
