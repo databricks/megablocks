@@ -21,7 +21,7 @@ branch = true
 relative_files = true
 concurrency = ["thread"]
 include = [
-    "turbo/*"
+    "megablocks/*"
 ]
 
 # Pyright
