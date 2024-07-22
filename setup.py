@@ -29,7 +29,8 @@ except ModuleNotFoundError as e:
 install_requires = [
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
-    'stanford-stk==0.7.0',
+    # 'stanford-stk==0.7.0',
+    'git+https://github.com/eitanturok/stk.git'
 ]
 
 extra_deps = {}
