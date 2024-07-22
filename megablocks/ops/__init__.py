@@ -12,6 +12,7 @@ from megablocks.ops.repeat import repeat
 from megablocks.ops.replicate import replicate
 from megablocks.ops.round_up import round_up
 from megablocks.ops.scatter import scatter
+from megablocks.ops.sort import sort
 from megablocks.ops.sum import sum
 from megablocks.ops.topology import topology
 
@@ -28,6 +29,7 @@ __all__ = [
     'replicate',
     'round_up',
     'scatter',
+    'sort',
     'sum',
     'topology',
 ]
