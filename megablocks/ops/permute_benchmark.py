@@ -26,7 +26,7 @@ class PermuteBenchmark(parameterized.TestCase):
         # Create the data and indices.
         x = torch.randn((sl, hs)).cuda().half()
         top_expert = torch.randint(0, ne, (sl,)).cuda().int()
-        bin_ids, indices = ops.sort(top_expert)
+        _, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(indices, ne)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
@@ -49,7 +49,7 @@ class PermuteBenchmark(parameterized.TestCase):
         # Create the data and indices.
         x = torch.randn((sl, hs)).cuda().half()
         top_expert = torch.randint(0, ne, (sl,)).cuda().int()
-        bin_ids, indices = ops.sort(top_expert)
+        _, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(indices, ne)
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         x = ops.binned_gather(x, indices, bins, ec)
