@@ -41,11 +41,11 @@ extra_deps['gg'] = [
 
 extra_deps['dev'] = [
     'absl-py',
-    'pytest_codeblocks>=0.16.1,<0.17',
     'coverage[toml]==7.4.4',
+    'pytest_codeblocks>=0.16.1,<0.17',
     'pytest-cov>=4,<5',
-    'pre-commit>=3.4.0,<4',
     'pytest>=7.2.1,<8',
+    'pre-commit>=3.4.0,<4',
 ]
 
 extra_deps['all'] = list(
