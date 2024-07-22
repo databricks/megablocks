@@ -30,7 +30,7 @@ install_requires = [
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
     # 'stanford-stk==0.7.0',
-    'git+https://github.com/eitanturok/stk.git'
+    'git+https://github.com/eitanturok/stk.git@main'
 ]
 
 extra_deps = {}
