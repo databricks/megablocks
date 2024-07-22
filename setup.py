@@ -48,7 +48,8 @@ extra_deps['dev'] = [
     'pytest>=7.2.1,<8',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['all'] = list(
+    set(dep for deps in extra_deps.values() for dep in deps))
 
 ###############################################################################
 # Extension Modules
