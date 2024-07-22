@@ -24,6 +24,7 @@ except ModuleNotFoundError as e:
 ###############################################################################
 
 install_requires = [
+    'numpy>=1.21.5,<2.1.0',
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
     # 'stanford-stk==0.7.0',
