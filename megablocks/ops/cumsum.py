@@ -8,7 +8,10 @@ import torch
 # TODO(tgale): Wrap this in a try-block with better
 # error message and instructions for building the
 # c++ operations.
-import megablocks_ops as ops
+try:
+    import megablocks_ops as ops  # type: ignore
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
 
 
 # Autograd wrappers for cumsum kernels.

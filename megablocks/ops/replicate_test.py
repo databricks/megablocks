@@ -7,7 +7,11 @@ import numpy as np
 import torch
 from absl.testing import parameterized
 
-import megablocks_ops as backend
+try:
+    import megablocks_ops as backend  # type: ignore
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
+
 from megablocks import ops
 
 _REPLICATE_TESTS = (
