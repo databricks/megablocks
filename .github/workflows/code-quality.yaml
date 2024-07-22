@@ -36,7 +36,7 @@ jobs:
         ref: v0.0.7
         path: ./ci-testing
     - name: Install torch
-      uses: pip install torch
+      run: pip install torch
     - uses: ./ci-testing/.github/actions/code-quality
       with:
         python_version: ${{ matrix.python_version }}
