@@ -42,7 +42,7 @@ class TopologyTest(parameterized.TestCase):
         assert hs % blocking == 0
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl, )).cuda().int()
+        top_expert = torch.randint(0, ne, (sl,)).cuda().int()
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, blocking)
         padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)

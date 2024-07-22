@@ -11,8 +11,7 @@ from megablocks import grouped_gemm_util as gg
 from megablocks.layers import common, gelu, mpu
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.activation_fn import act_fn
-from megablocks.layers.arguments import (DEFAULT_ACTIVATION_FN, Arguments,
-                                         InitFn)
+from megablocks.layers.arguments import DEFAULT_ACTIVATION_FN, Arguments, InitFn
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -177,8 +176,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous()
-                or not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or
+                not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         topo_tensors = (topo.row_indices, topo.column_indices, topo.offsets,
@@ -209,8 +208,8 @@ class MemoryOptimizedMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1]
-                or not ctx.needs_input_grad[2]):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
+                not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
 
         # unpack saved tensors
@@ -258,11 +257,13 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # Compute dx.
         #
         # NOTE: This reuses the ddsd_out allocation.
-        stk.backend.triton_kernels.dsd(
-            dsdd_out.shape, dsdd_out.data, dsdd_out.offsets,
-            dsdd_out.row_indices, dsdd_out.column_indices, dsdd_out.offsets_t,
-            dsdd_out.column_indices_t, dsdd_out.block_offsets_t, False, w1,
-            ddsd_out)
+        stk.backend.triton_kernels.dsd(dsdd_out.shape, dsdd_out.data,
+                                       dsdd_out.offsets, dsdd_out.row_indices,
+                                       dsdd_out.column_indices,
+                                       dsdd_out.offsets_t,
+                                       dsdd_out.column_indices_t,
+                                       dsdd_out.block_offsets_t, False, w1,
+                                       ddsd_out)
         dx = ddsd_out
         return dx, dw1, dw2, None, None
 
@@ -369,8 +370,8 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous()
-                or not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or
+                not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
@@ -396,8 +397,8 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1]
-                or not ctx.needs_input_grad[2]):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
+                not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
 
         # Unpack saved tensors

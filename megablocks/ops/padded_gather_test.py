@@ -59,7 +59,7 @@ class PaddedGatherTest(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)

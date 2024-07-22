@@ -45,7 +45,7 @@ class BinnedGatherTest(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
         _, indices = ops.sort(top_expert)
         bins = ops.inclusive_cumsum(ops.histogram(top_expert, ne), 0)
 

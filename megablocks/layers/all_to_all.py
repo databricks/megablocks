@@ -7,9 +7,8 @@ import torch
 class AllToAllOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, x, output_split_sizes, input_split_sizes, group,
-                async_op):
-        out = torch.empty((sum(output_split_sizes), ) + x.shape[1:],
+    def forward(ctx, x, output_split_sizes, input_split_sizes, group, async_op):
+        out = torch.empty((sum(output_split_sizes),) + x.shape[1:],
                           device=x.device,
                           dtype=x.dtype)
 
@@ -42,10 +41,6 @@ class AllToAllOp(torch.autograd.Function):
         return None, None, None, None, None
 
 
-def all_to_all(x,
-               output_split_sizes,
-               input_split_sizes,
-               group,
-               async_op=False):
+def all_to_all(x, output_split_sizes, input_split_sizes, group, async_op=False):
     return AllToAllOp.apply(x, output_split_sizes, input_split_sizes, group,
                             async_op)

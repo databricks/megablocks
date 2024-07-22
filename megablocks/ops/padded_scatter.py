@@ -30,8 +30,8 @@ class PaddedScatterOp(torch.autograd.Function):
         indices, bin_ids, weights, bins, padded_bins = saved_tensors[:5]
         dgrad = None
         if ctx.needs_input_grad[0]:
-            dgrad = kernels.padded_gather(grad, indices, bin_ids, weights,
-                                          bins, padded_bins, ctx.top_k)
+            dgrad = kernels.padded_gather(grad, indices, bin_ids, weights, bins,
+                                          padded_bins, ctx.top_k)
 
         wgrad = None
         if ctx.needs_input_grad[3]:  # need wgrad

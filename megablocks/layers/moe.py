@@ -63,8 +63,8 @@ def batched_load_balancing_loss(args: Arguments):
     ])
 
     tokens = expert_scores[0].shape[0]
-    assert all([(x.ndim == 2 and x.shape[1] == args.moe_num_experts
-                 and x.shape[0] == tokens) for x in expert_scores])
+    assert all([(x.ndim == 2 and x.shape[1] == args.moe_num_experts and
+                 x.shape[0] == tokens) for x in expert_scores])
 
     # Concatenate the contributions of each layer and convert to
     # the correct types and formats for the dot product.
@@ -245,7 +245,7 @@ class ParallelMLP(torch.nn.Module):
             # multiple devices own parts of the same sets of experts.
             # Replicate the token counts so every device gets the counts.
             repeated_tokens_per_expert = ops.repeat(
-                tokens_per_expert, (mpu.hidden_sharding_degree(self.args), ))
+                tokens_per_expert, (mpu.hidden_sharding_degree(self.args),))
 
             # Pass token count information to the device on which the
             # target expert resides.

@@ -121,20 +121,18 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     # NOTE: Because of the padding, the output size is dynamic.
     # We load the final padded bin bound to get the output rows.
     output_rows = padded_bins[-1].cpu().item()
-    out = torch.zeros((output_rows, x.shape[1]),
-                      dtype=x.dtype,
-                      device=x.device)
-    _padded_copy[(indices.shape[0], )](x,
-                                       out,
-                                       indices,
-                                       bin_ids,
-                                       weights,
-                                       bins,
-                                       padded_bins,
-                                       NUM_COLUMNS=x.shape[1],
-                                       A_TO_B=True,
-                                       TOP_K=top_k,
-                                       SCALE=weights is not None)
+    out = torch.zeros((output_rows, x.shape[1]), dtype=x.dtype, device=x.device)
+    _padded_copy[(indices.shape[0],)](x,
+                                      out,
+                                      indices,
+                                      bin_ids,
+                                      weights,
+                                      bins,
+                                      padded_bins,
+                                      NUM_COLUMNS=x.shape[1],
+                                      A_TO_B=True,
+                                      TOP_K=top_k,
+                                      SCALE=weights is not None)
     return out
 
 
@@ -153,20 +151,18 @@ def gather(x, indices, bin_ids, weights, bins, top_k):
     # NOTE: There is no padding so the output rows equals the
     # input rows multiplied by top_k.
     output_rows = x.shape[0] * top_k
-    out = torch.empty((output_rows, x.shape[1]),
-                      dtype=x.dtype,
-                      device=x.device)
-    _padded_copy[(indices.shape[0], )](x,
-                                       out,
-                                       indices,
-                                       bin_ids,
-                                       weights,
-                                       bins,
-                                       bins,
-                                       NUM_COLUMNS=x.shape[1],
-                                       A_TO_B=True,
-                                       TOP_K=top_k,
-                                       SCALE=weights is not None)
+    out = torch.empty((output_rows, x.shape[1]), dtype=x.dtype, device=x.device)
+    _padded_copy[(indices.shape[0],)](x,
+                                      out,
+                                      indices,
+                                      bin_ids,
+                                      weights,
+                                      bins,
+                                      bins,
+                                      NUM_COLUMNS=x.shape[1],
+                                      A_TO_B=True,
+                                      TOP_K=top_k,
+                                      SCALE=weights is not None)
     return out
 
 
@@ -187,17 +183,17 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     out = torch.empty((tokens, top_k, x.shape[1]),
                       dtype=x.dtype,
                       device=x.device)
-    _padded_copy[(indices.shape[0], )](out,
-                                       x,
-                                       indices,
-                                       bin_ids,
-                                       weights,
-                                       bins,
-                                       padded_bins,
-                                       NUM_COLUMNS=x.shape[1],
-                                       A_TO_B=False,
-                                       TOP_K=top_k,
-                                       SCALE=weights is not None)
+    _padded_copy[(indices.shape[0],)](out,
+                                      x,
+                                      indices,
+                                      bin_ids,
+                                      weights,
+                                      bins,
+                                      padded_bins,
+                                      NUM_COLUMNS=x.shape[1],
+                                      A_TO_B=False,
+                                      TOP_K=top_k,
+                                      SCALE=weights is not None)
 
     # Reduce along the top-k dimension, if needed.
     return out.sum(dim=1) if top_k > 1 else out.view(tokens, x.shape[1])
@@ -253,7 +249,7 @@ def _padded_copy_wgrad(x, grad, wgrad, indices, bin_ids, bins, padded_bins,
     x += tl.multiple_of(index_x * NUM_COLUMNS, NUM_COLUMNS)
     offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
-    acc = tl.zeros((BLOCK_X, ), dtype=tl.float32)
+    acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
     for i in range(iterations):
         mask = offsets < NUM_COLUMNS
@@ -280,15 +276,15 @@ def padded_scatter_wgrad(x, grad, indices, bin_ids, bins, padded_bins, top_k):
 
     tokens = indices.shape[0] // top_k
     out = torch.empty((tokens * top_k), dtype=x.dtype, device=x.device)
-    _padded_copy_wgrad[(indices.shape[0], )](x,
-                                             grad,
-                                             out,
-                                             indices,
-                                             bin_ids,
-                                             bins,
-                                             padded_bins,
-                                             NUM_COLUMNS=x.shape[1],
-                                             TOP_K=top_k)
+    _padded_copy_wgrad[(indices.shape[0],)](x,
+                                            grad,
+                                            out,
+                                            indices,
+                                            bin_ids,
+                                            bins,
+                                            padded_bins,
+                                            NUM_COLUMNS=x.shape[1],
+                                            TOP_K=top_k)
     return out
 
 
@@ -474,7 +470,7 @@ def _binned_copy_wgrad(x, grad, wgrad, num_experts, expert_capacity, indices,
     x += tl.multiple_of(index_x * NUM_COLUMNS, NUM_COLUMNS)
     offsets = tl.max_contiguous(tl.arange(0, BLOCK_X), BLOCK_X)
 
-    acc = tl.zeros((BLOCK_X, ), dtype=tl.float32)
+    acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
     for i in range(iterations):
         mask = offsets < NUM_COLUMNS

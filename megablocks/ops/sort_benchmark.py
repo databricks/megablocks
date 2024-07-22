@@ -15,7 +15,7 @@ _SORT_TESTS = (
     (16384, torch.int32, 128),
 )
 
-_BASELINE_SORT_TESTS = ((16384, ), )
+_BASELINE_SORT_TESTS = ((16384,),)
 
 
 def numpy_dtype(dtype):
@@ -60,7 +60,7 @@ class SortBenchmark(parameterized.TestCase):
         if max_val is None:
             max_val = np.iinfo(numpy_dtype(dtype)).max
         end_bit = int(np.ceil(np.log2(max_val)))
-        x = torch.randint(0, max_val, (n, )).cuda().to(dtype)
+        x = torch.randint(0, max_val, (n,)).cuda().to(dtype)
 
         mean_t, std_t, max_t, min_t = benchmark_function(
             lambda: ops.sort(x, end_bit))
@@ -69,7 +69,7 @@ class SortBenchmark(parameterized.TestCase):
 
     @parameterized.parameters(*_BASELINE_SORT_TESTS)
     def testTorchSort(self, n):
-        x = torch.randint(0, 128, (n, )).cuda().to(torch.int32)
+        x = torch.randint(0, 128, (n,)).cuda().to(torch.int32)
 
         mean_t, std_t, max_t, min_t = benchmark_function(lambda: torch.sort(x))
         arguments = {

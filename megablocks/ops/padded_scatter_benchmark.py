@@ -24,7 +24,7 @@ class PaddedScatterTest(parameterized.TestCase):
         x = torch.randn((sl, hs)).cuda().half()
 
         # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k, )).cuda().int()
+        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
         bin_ids, indices = ops.sort(top_expert)
         tokens_per_expert = ops.histogram(top_expert, ne)
         padded_tokens_per_expert = ops.round_up(tokens_per_expert, 128)
@@ -32,7 +32,7 @@ class PaddedScatterTest(parameterized.TestCase):
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
         # Sample weights for the scatter reduce.
-        weights = torch.rand((sl * top_k, )).cuda().half()
+        weights = torch.rand((sl * top_k,)).cuda().half()
 
         # Gather the data to prepare for backwards.
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)

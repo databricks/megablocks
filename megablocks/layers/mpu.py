@@ -27,8 +27,8 @@ def set_expert_model_parallel_attributes(tensor: torch.Tensor,
 
 
 def param_is_expert_model_parallel(param: torch.Tensor) -> bool:
-    return (hasattr(param, 'expert_model_parallel')
-            and param.expert_model_parallel)
+    return (hasattr(param, 'expert_model_parallel') and
+            param.expert_model_parallel)
 
 
 def copy_expert_model_parallel_attributes(destination_tensor: torch.Tensor,

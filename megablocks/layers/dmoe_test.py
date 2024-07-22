@@ -44,8 +44,8 @@ def test_modules(hidden_size,
         ne, hs, fhs = moe_mlp.experts.mlp.w1.size()
         w1 = dmoe_mlp.experts.mlp.w1.view([ne, fhs, hs])
         moe_mlp.experts.mlp.w1.copy_(torch.transpose(w1, 1, 2).contiguous())
-        moe_mlp.experts.mlp.w2.copy_(
-            dmoe_mlp.experts.mlp.w2.view([ne, fhs, hs]))
+        moe_mlp.experts.mlp.w2.copy_(dmoe_mlp.experts.mlp.w2.view([ne, fhs,
+                                                                   hs]))
         moe_mlp.router.layer.weight.copy_(dmoe_mlp.router.layer.weight)
         if moe_num_experts == 1:
             mlp.w1.copy_(moe_mlp.experts.mlp.w1.squeeze())
@@ -72,7 +72,7 @@ _FORWARD_TESTS_DEFAULT = (
 )
 
 _FORWARD_TESTS_GROUPED_MLP = tuple([
-    p + ('grouped', ) for p in _FORWARD_TESTS_DEFAULT
+    p + ('grouped',) for p in _FORWARD_TESTS_DEFAULT
 ]) if gg.grouped_gemm_is_available() else ()
 
 _FORWARD_TESTS = (_FORWARD_TESTS_DEFAULT + _FORWARD_TESTS_GROUPED_MLP)

@@ -124,11 +124,10 @@ class WeightParallelSddNt(torch.autograd.Function):
 
 
 def sdd_nt(a, b, topo, group):
-    return stk.Matrix(topo.size(),
-                      WeightParallelSddNt.apply(a, b, topo,
-                                                group), topo.row_indices,
-                      topo.column_indices, topo.offsets, topo.column_indices_t,
-                      topo.offsets_t, topo.block_offsets_t)
+    return stk.Matrix(topo.size(), WeightParallelSddNt.apply(a, b, topo, group),
+                      topo.row_indices, topo.column_indices, topo.offsets,
+                      topo.column_indices_t, topo.offsets_t,
+                      topo.block_offsets_t)
 
 
 class WeightParallelDsdNn(torch.autograd.Function):
@@ -205,8 +204,8 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous()
-                or not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or
+                not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
@@ -240,8 +239,8 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
         x, w1, w2 = ctx.saved_tensors[:3]
         sdd_out = stk.Matrix(ctx.shape, *ctx.saved_tensors[3:])
 
-        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1]
-                or not ctx.needs_input_grad[2]):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
+                not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
 
         # Start the weight gather asynchronously to overlap with the
@@ -262,9 +261,9 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
         # Compute dgelu_out.
         #
         # NOTE: We reuse the gelu_out allocation.
-        stk.backend.triton_kernels.sdd(ddsd_out, parallel_w2.t(),
-                                       sdd_out.shape, gelu_out.data,
-                                       sdd_out.offsets, sdd_out.row_indices,
+        stk.backend.triton_kernels.sdd(ddsd_out, parallel_w2.t(), sdd_out.shape,
+                                       gelu_out.data, sdd_out.offsets,
+                                       sdd_out.row_indices,
                                        sdd_out.column_indices)
         dgelu_out = gelu_out
 
@@ -314,11 +313,13 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
         # Compute dx.
         #
         # NOTE: This reuses the ddsd_out allocation.
-        stk.backend.triton_kernels.dsd(
-            dsdd_out.shape, dsdd_out.data, dsdd_out.offsets,
-            dsdd_out.row_indices, dsdd_out.column_indices, dsdd_out.offsets_t,
-            dsdd_out.column_indices_t, dsdd_out.block_offsets_t, False,
-            parallel_w1, ddsd_out)
+        stk.backend.triton_kernels.dsd(dsdd_out.shape, dsdd_out.data,
+                                       dsdd_out.offsets, dsdd_out.row_indices,
+                                       dsdd_out.column_indices,
+                                       dsdd_out.offsets_t,
+                                       dsdd_out.column_indices_t,
+                                       dsdd_out.block_offsets_t, False,
+                                       parallel_w1, ddsd_out)
         dx = ddsd_out
 
         # NOTE: Be careful to wait and only cast dw to the output dtype once

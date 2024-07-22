@@ -64,7 +64,7 @@ class ReplicateTest(parameterized.TestCase):
     @parameterized.parameters(*_REPLICATE_TESTS)
     def testReplicate(self, tokens, num_centers, top_k):
         tokens_to_centers = torch.randint(0, num_centers,
-                                          (tokens, )).cuda().int()
+                                          (tokens,)).cuda().int()
         tokens_per_center = ops.histogram(tokens_to_centers, num_centers)
         bins = ops.inclusive_cumsum(tokens_per_center, 0)
         bins = promote_scalar(bins)
@@ -91,7 +91,7 @@ class ReplicateTest(parameterized.TestCase):
     @parameterized.parameters(*_REPLICATE_TESTS)
     def testReplicate_Backward(self, tokens, num_centers, top_k):
         tokens_to_centers = torch.randint(0, num_centers,
-                                          (tokens, )).cuda().int()
+                                          (tokens,)).cuda().int()
         tokens_per_center = ops.histogram(tokens_to_centers, num_centers)
         bins = ops.inclusive_cumsum(tokens_per_center, 0)
         bins = promote_scalar(bins)
@@ -101,8 +101,7 @@ class ReplicateTest(parameterized.TestCase):
 
         out = torch.empty_like(center_weights)
         backend.replicate_backward(grad, bins, out)
-        expected_out = center_weights * tokens_per_center.view(
-            [1, num_centers])
+        expected_out = center_weights * tokens_per_center.view([1, num_centers])
 
         # NOTE: This floating-point reduction could be a problem for
         # training stability and accuracy.

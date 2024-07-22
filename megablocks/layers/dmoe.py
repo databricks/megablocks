@@ -52,7 +52,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         column_indices_t = row_indices.gather(0, gather_indices.long())
         block_offsets_t = gather_indices.int()
 
-        zero = torch.zeros((1, ), dtype=torch.int32, device=row_indices.device)
+        zero = torch.zeros((1,), dtype=torch.int32, device=row_indices.device)
         nnz_per_column = ops.histogram(column_indices, block_columns)
         nnz_per_column = ops.inclusive_cumsum(nnz_per_column, 0)
         if nnz_per_column.dim() == 0:

@@ -68,8 +68,8 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             v1 = v1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], v1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous()
-                or not v1.is_contiguous() or not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or
+                not v1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1', 'v1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
@@ -96,8 +96,8 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1]
-                or not ctx.needs_input_grad[2]):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
+                not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
 
         # Unpack saved tensors

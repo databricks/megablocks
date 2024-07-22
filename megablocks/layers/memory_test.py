@@ -7,7 +7,7 @@ import torch
 
 from megablocks.layers import arguments, dmoe
 
-_TESTS = ((8, 2048, 4096, 4096, 32, 4), )
+_TESTS = ((8, 2048, 4096, 4096, 32, 4),)
 
 
 def get_tensors():
