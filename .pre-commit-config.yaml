@@ -95,16 +95,16 @@ repos:
     args:
     - --only-verified
     - --fail
-# - repo: local
-#   hooks:
-#   - id: pyright
-#     name: pyright
-#     entry: pyright
-#     language: node
-#     types: [python]
-#     pass_filenames: false
-#     args: [--warnings]
-#     additional_dependencies: ["pyright@1.1.310"]
+- repo: local
+  hooks:
+  - id: pyright
+    name: pyright
+    entry: pyright
+    language: node
+    types: [python]
+    pass_filenames: false
+    args: [--warnings]
+    additional_dependencies: ["pyright@1.1.310"]
 # - repo: https://github.com/PyCQA/pydocstyle
 #   hooks:
 #   - id: pydocstyle
