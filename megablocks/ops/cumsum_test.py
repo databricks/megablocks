@@ -31,14 +31,14 @@ _CUMSUM_TESTS = (
 class CumsumTest(parameterized.TestCase):
 
     @parameterized.parameters(*_CUMSUM_TESTS)
-    def testExclusiveCumsum(self, n, m):
+    def testExclusiveCumsum(self, n: int, m: int):
         x = torch.randint(0, 2, (n, m)).long().cuda()
         out = ops.exclusive_cumsum(x, 1) * x
         expected_out = (torch.cumsum(x, dim=1) - 1) * x
         self.assertTrue(torch.all(torch.eq(out, expected_out)))
 
     @parameterized.parameters(*_CUMSUM_TESTS)
-    def testInclusiveCumsum(self, n, m):
+    def testInclusiveCumsum(self, n: int, m: int):
         x = torch.randint(0, 2, (n, m)).long().cuda()
         out = ops.inclusive_cumsum(x, 1)
         expected_out = torch.cumsum(x, dim=1)
