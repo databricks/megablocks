@@ -1,6 +1,8 @@
 # Copyright 2024 MosaicML MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional, Union
+
 import numpy as np
 import pytest
 import torch
@@ -8,7 +10,8 @@ import torch
 from megablocks import ops
 
 
-def torch_to_numpy_dtype(dtype):
+def torch_to_numpy_dtype(
+        dtype: torch.dtype) -> Union[np.int16, np.int32, np.int64]:
     types = {
         torch.int16: np.int16,
         torch.int32: np.int32,
@@ -41,7 +44,7 @@ def torch_to_numpy_dtype(dtype):
         (16384, torch.int64, 128),
     ],
 )
-def test_sort(n, dtype, max_val):
+def test_sort(n: int, dtype: torch.dtype, max_val: Optional[int]):
     if max_val is None:
         max_val = np.iinfo(torch_to_numpy_dtype(dtype)).max
     end_bit = int(np.ceil(np.log2(max_val)))
