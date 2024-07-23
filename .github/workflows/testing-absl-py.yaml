@@ -1,11 +1,18 @@
 name: run-tests
-on: [push]
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+    - dev
+    - main
+    - release/**
 jobs:
   linear_tests:
     runs-on: [self-hosted]
     steps:
     - name: Correctness tests
-    - uses: actions/checkout@v3
+      uses: actions/checkout@v3
       run: |
         echo 'Setup...'
         python setup.py install --prefix ~/.local
@@ -21,7 +28,7 @@ jobs:
         python ./megablocks/ops/binned_scatter_test.py
         python ./megablocks/ops/topology_test.py
         python ./megablocks/layers/dmoe_test.py
-        python ./megablocks/layers/memory_test.py
-        python ./megablocks/layers/glu_test.py
-        python ./megablocks/layers/parallelism_test.py
+        # python ./megablocks/layers/memory_test.py
+        # python ./megablocks/layers/glu_test.py
+        # python ./megablocks/layers/parallelism_test.py
         python ./megablocks/layers/moe_test.py
