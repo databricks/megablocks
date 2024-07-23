@@ -14,7 +14,12 @@ def _to_numpy(x: torch.Tensor) -> np.ndarray:
 
 @pytest.mark.gpu
 @pytest.mark.parametrize(
-    'sl,hs,ne,top_k',
+    (
+        'sl',
+        'hs',
+        'ne',
+        'top_k',
+    ),
     [
         (4, 2, 2, 2),
         (4, 2, 2, 1),

@@ -22,7 +22,11 @@ def torch_to_numpy_dtype(
 
 @pytest.mark.gpu
 @pytest.mark.parametrize(
-    'n,dtype,max_val',
+    (
+        'n',
+        'dtype',
+        'max_val',
+    ),
     [
         (32, torch.int16, None),
         (1024, torch.int16, None),
