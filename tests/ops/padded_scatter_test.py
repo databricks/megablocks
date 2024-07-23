@@ -7,7 +7,7 @@ import torch
 
 from megablocks import ops
 
-PADDED_TESTS = [
+PADDED_SCATTER_TESTS = [
     (4, 2, 2, 2),
     (4, 2, 2, 1),
     (4, 2, 2, 1),
@@ -75,7 +75,7 @@ def _to_numpy(x: torch.Tensor) -> np.ndarray:
     'hs',
     'ne',
     'top_k',
-), PADDED_TESTS)
+), PADDED_SCATTER_TESTS)
 def testPaddedScatter(sl: int, hs: int, ne: int, top_k: int):
     # Create the data and indices.
     x = torch.randn((sl, hs), requires_grad=True).cuda().half()
