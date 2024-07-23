@@ -1,7 +1,7 @@
 # Copyright 2024 MosaicML MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pytest
@@ -12,7 +12,7 @@ from megablocks import ops
 
 def torch_to_numpy_dtype(
         dtype: torch.dtype) -> Union[np.int16, np.int32, np.int64]:
-    types = {
+    types: Dict[torch.dtype:Union[np.int16, np.int32, np.int64]] = {
         torch.int16: np.int16,
         torch.int32: np.int32,
         torch.int64: np.int64
@@ -20,33 +20,32 @@ def torch_to_numpy_dtype(
     return types[dtype]
 
 
+SORT_TESTS = [
+    (32, torch.int16, None),
+    (1024, torch.int16, None),
+    (16384, torch.int16, None),
+    (32, torch.int32, None),
+    (1024, torch.int32, None),
+    (16384, torch.int32, None),
+    (32, torch.int64, None),
+    (1024, torch.int64, None),
+    (16384, torch.int64, None),
+    (32, torch.int16, 128),
+    (1024, torch.int16, 128),
+    (16384, torch.int16, 128),
+    (32, torch.int32, 128),
+    (1024, torch.int32, 128),
+    (16384, torch.int32, 128),
+    (32, torch.int64, 128),
+    (1024, torch.int64, 128),
+    (16384, torch.int64, 128),
+]
+
+
 @pytest.mark.gpu
 @pytest.mark.parametrize(
-    (
-        'n',
-        'dtype',
-        'max_val',
-    ),
-    [
-        (32, torch.int16, None),
-        (1024, torch.int16, None),
-        (16384, torch.int16, None),
-        (32, torch.int32, None),
-        (1024, torch.int32, None),
-        (16384, torch.int32, None),
-        (32, torch.int64, None),
-        (1024, torch.int64, None),
-        (16384, torch.int64, None),
-        (32, torch.int16, 128),
-        (1024, torch.int16, 128),
-        (16384, torch.int16, 128),
-        (32, torch.int32, 128),
-        (1024, torch.int32, 128),
-        (16384, torch.int32, 128),
-        (32, torch.int64, 128),
-        (1024, torch.int64, 128),
-        (16384, torch.int64, 128),
-    ],
+    ('n', 'dtype', 'max_val'),
+    SORT_TESTS,
 )
 def test_sort(n: int, dtype: torch.dtype, max_val: Optional[int]):
     if max_val is None:
