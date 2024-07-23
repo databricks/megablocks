@@ -1,15 +1,13 @@
 # Copyright 2024 MosaicML MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
 
-import unittest
-
 import numpy as np
+import pytest
 import torch
-from absl.testing import parameterized
 
 from megablocks import ops
 
-_BINNED_SCATTER_TESTS = (
+BINNED_SCATTER_TESTS = (
     (4, 2, 2, 1),
     (4, 2, 2, 2),
     (4, 2, 2, 4),
@@ -34,51 +32,48 @@ _BINNED_SCATTER_TESTS = (
 )
 
 
-class BinnedScatterTest(parameterized.TestCase):
+@pytest.mark.gpu
+@pytest.mark.parametrize(('sl', 'hs', 'ne', 'top_k'), BINNED_SCATTER_TESTS)
+def test_binned_scatter(sl: int, hs: int, ne: int, top_k: int):
+    # NOTE: Capacity factor == 1.
+    ec = (sl * top_k) // ne
 
-    @parameterized.parameters(*_BINNED_SCATTER_TESTS)
-    def testBinnedScatter(self, sl, hs, ne, top_k):
-        # NOTE: Capacity factor == 1.
-        ec = (sl * top_k) // ne
+    # Create the data and indices.
+    x = torch.randn((sl, hs)).cuda().half()
 
-        # Create the data and indices.
-        x = torch.randn((sl, hs)).cuda().half()
+    # Randomly assign tokens to experts.
+    top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+    _, indices = ops.sort(top_expert)
+    bins = ops.inclusive_cumsum(ops.histogram(top_expert, ne), 0)
 
-        # Randomly assign tokens to experts.
-        top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
-        _, indices = ops.sort(top_expert)
-        bins = ops.inclusive_cumsum(ops.histogram(top_expert, ne), 0)
+    # Sample weights for the scatter reduce.
+    weights = torch.rand((sl * top_k,)).cuda().half()
 
-        # Sample weights for the scatter reduce.
-        weights = torch.rand((sl * top_k,)).cuda().half()
+    x = ops.binned_gather(x, indices, bins, ec, top_k)
 
-        x = ops.binned_gather(x, indices, bins, ec, top_k)
+    def binned_scatter(x: torch.Tensor, indices: torch.Tensor,
+                       weights: torch.Tensor, bins: torch.Tensor, top_k: int):
+        x = x.cpu().numpy()
+        indices = indices.cpu().numpy()
+        weights = weights.cpu().numpy()
+        bins = bins.cpu().numpy()
+        start = 0
+        out = np.zeros((sl, hs))
+        for i in range(ne):
+            end = bins[i]
+            for j in range(min(ec, end - start)):
+                index = indices[start + j]
+                scale = weights[index]
+                index //= top_k
 
-        def binned_scatter(x, indices, weights, bins, top_k):
-            x = x.cpu().numpy()
-            indices = indices.cpu().numpy()
-            weights = weights.cpu().numpy()
-            bins = bins.cpu().numpy()
-            start = 0
-            out = np.zeros((sl, hs))
-            for i in range(ne):
-                end = bins[i]
-                for j in range(min(ec, end - start)):
-                    index = indices[start + j]
-                    scale = weights[index]
-                    index //= top_k
+                out[index, :] += scale * x[i, j, :]
+            start = end
+        return torch.from_numpy(out).cuda().half()
 
-                    out[index, :] += scale * x[i, j, :]
-                start = end
-            return torch.from_numpy(out).cuda().half()
+    out = ops.binned_scatter(x, indices, weights, bins, top_k)
+    expected_out = binned_scatter(x, indices, weights, bins, top_k)
 
-        out = ops.binned_scatter(x, indices, weights, bins, top_k)
-        expected_out = binned_scatter(x, indices, weights, bins, top_k)
-
-        # NOTE: We need to check approximate equality because the
-        # scatter reduce uses atomics.
-        np.testing.assert_allclose(out.cpu(), expected_out.cpu(), rtol=5e-3)
-
-
-if __name__ == '__main__':
-    unittest.main()
+    # NOTE: We need to check approximate equality because the scatter reduce uses atomics.
+    # np.testing.assert_allclose returns `None` if no error and raises an AssertionError if an error exists
+    assert np.testing.assert_allclose(out.cpu(), expected_out.cpu(),
+                                      rtol=5e-3) is None
