@@ -430,7 +430,7 @@ class ParallelMLP(torch.nn.Module):
         # Compute the experts.
         x, tokens_per_expert = self.forward_fn(
             x, expert_weights, top_experts)
-        if self.training and self.args.moe_loss_weight > 0:
+        if self.args.moe_loss_weight > 0:
             save_load_balancing_loss((tokens_per_expert, scores))
         x = x.view(in_shape)
         if self.bias is not None:
