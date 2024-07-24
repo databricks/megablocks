@@ -8,12 +8,10 @@ from setuptools import find_packages, setup
 
 # We require torch in setup.py to build cpp extensions "ahead of time"
 # More info here: # https://pytorch.org/tutorials/advanced/cpp_extension.html
-is_torch_installed = False
 try:
     import torch
     from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension,
                                            CUDAExtension,)
-    is_torch_installed = True
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
         "No module named 'torch'. Torch is required to install this repo."
