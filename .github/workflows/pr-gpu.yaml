@@ -25,7 +25,7 @@ jobs:
           container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: "gpu"
           pip_deps: "[dev]"  # todo: replace with `"[all]"`
-          pytest_command: "coverage run -m pytest tests"  # todo: remove `tests`
+          pytest_command: "coverage run -m pytest tests"  # todo: eventually remove tests from the cmd
     name: ${{ matrix.name }}
     if: github.repository_owner == 'eitanturok'  # todo: replace with `databricks`
     with:
@@ -52,7 +52,7 @@ jobs:
           container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
           markers: "gpu"
           pip_deps: "[dev]"  # todo: replace with `"[all]"`
-          pytest_command: "coverage run -m pytest tests"  # todo: remove tests
+          pytest_command: "coverage run -m pytest tests"  # todo: eventually remove tests from the cmd
     name: ${{ matrix.name }}
     if: github.repository_owner == 'eitanturok'  # todo: replace with databricks github
     with:
