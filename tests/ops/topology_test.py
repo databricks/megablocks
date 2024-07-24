@@ -32,7 +32,7 @@ TOPOLOGY_TESTS = (
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrized(('sl', 'hs', 'ne'), TOPOLOGY_TESTS)
+@pytest.mark.parametrize(('sl', 'hs', 'ne'), TOPOLOGY_TESTS)
 def test_topology(sl: int, hs: int, ne: int):
     # Create the data and indices.
     blocking = 128
