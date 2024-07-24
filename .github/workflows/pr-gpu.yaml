@@ -3,10 +3,12 @@ on:
   push:
     branches:
     - main
+    - dev
     - release/*
   pull_request:
     branches:
     - main
+    - dev
     - release/**
   workflow_dispatch:
 concurrency:
