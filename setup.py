@@ -35,6 +35,35 @@ with open(os.path.join(_PACKAGE_REAL_PATH, '_version.py'), encoding='utf-8') as 
     exec(content, version_globals, version_locals)
     repo_version = version_locals['__version__']
 
+
+with open('README.md', 'r', encoding='utf-8') as fh:
+    long_description = fh.read()
+
+# Hide the content between <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN --> and
+# <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END --> tags in the README
+while True:
+    start_tag = '<!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->'
+    end_tag = '<!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->'
+    start = long_description.find(start_tag)
+    end = long_description.find(end_tag)
+    if start == -1:
+        assert end == -1, 'there should be a balanced number of start and ends'
+        break
+    else:
+        assert end != -1, 'there should be a balanced number of start and ends'
+        long_description = long_description[:start] + \
+            long_description[end + len(end_tag):]
+
+
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'License :: OSI Approved :: BSD License',
+    'Operating System :: Unix',
+]
+
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
     # 'stanford-stk==0.7.0',
@@ -103,23 +132,6 @@ else:
     warnings.warn('Warning: No CUDA devices; cuda code will not be compiled.')
 
 
-# convert README to long description on PyPI, optionally skipping certain
-# marked sections if present (e.g., for coverage / code quality badges)
-with open('README.md', 'r', encoding='utf-8') as fh:
-    long_description = fh.read()
-while True:
-    start_tag = '<!-- LONG_DESCRIPTION_SKIP_START -->'
-    end_tag = '<!-- LONG_DESCRIPTION_SKIP_END -->'
-    start = long_description.find(start_tag)
-    end = long_description.find(end_tag)
-    if start == -1:
-        assert end == -1, 'Skipped section starts and ends imbalanced'
-        break
-    else:
-        assert end != -1, 'Skipped section starts and ends imbalanced'
-        long_description = long_description[:start] + long_description[
-            end + len(end_tag):]
-
 setup(
     name=_PACKAGE_NAME,
     version=repo_version,
@@ -129,11 +141,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/stanford-futuredata/megablocks',
-    classifiers=[
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: BSD License',
-        'Operating System :: Unix',
-    ],
+    classifiers=classifiers,
     packages=find_packages(exclude=['tests*']),
     ext_modules=ext_modules,
     cmdclass=cmdclass,
