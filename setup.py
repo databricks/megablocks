@@ -140,7 +140,7 @@ setup(
     description='MegaBlocks',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/stanford-futuredata/megablocks',
+    url='https://github.com/databricks/megablocks',
     classifiers=classifiers,
     packages=find_packages(exclude=['tests*']),
     ext_modules=ext_modules,
