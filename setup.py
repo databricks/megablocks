@@ -5,6 +5,7 @@
 
 import os
 import warnings
+from typing import Any, Dict, Mapping
 
 from setuptools import find_packages, setup
 
@@ -28,17 +29,18 @@ _PACKAGE_REAL_PATH = os.path.join(_REPO_REAL_PATH, _PACKAGE_DIR)
 # Read the package version
 # We can't use `.__version__` from the library since it's not installed yet
 with open(os.path.join(_PACKAGE_REAL_PATH, '_version.py'), encoding='utf-8') as f:
-    version_globals = {}
-    version_locals = {}
-    exec(f.read(), version_globals, version_locals)
+    version_globals: Dict[str, Any] = {}
+    version_locals: Mapping[str, object] = {}
+    content = f.read()
+    exec(content, version_globals, version_locals)
     repo_version = version_locals['__version__']
 
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
+    # 'stanford-stk==0.7.0',
+    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git',
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
-    # 'stanford-stk==0.7.0',
-    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git'
 ]
 
 extra_deps = {}
