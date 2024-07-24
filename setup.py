@@ -142,7 +142,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/databricks/megablocks',
     classifiers=classifiers,
-    packages=find_packages(exclude=['tests*']),
+    packages=find_packages(exclude=['tests*', 'third_party*', 'yamls*', 'exp*', '.github*']),
     ext_modules=ext_modules,
     cmdclass=cmdclass,
     install_requires=install_requires,
