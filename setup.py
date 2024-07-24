@@ -4,6 +4,7 @@
 """MegaBlocks package setup."""
 
 import os
+import re
 import warnings
 
 from setuptools import find_packages, setup
@@ -18,6 +19,27 @@ except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
         "No module named 'torch'. Torch is required to install this repo."
     ) from e
+
+
+_PACKAGE_NAME = 'megablocks'
+_PACKAGE_DIR = 'megablocks'
+_REPO_REAL_PATH = os.path.dirname(os.path.realpath(__file__))
+_PACKAGE_REAL_PATH = os.path.join(_REPO_REAL_PATH, _PACKAGE_DIR)
+
+# Read the package version
+# We can't use `.__version__` from the library since it's not installed yet
+with open(os.path.join(_PACKAGE_REAL_PATH, '__init__.py'), encoding='utf-8') as f:
+    content = f.read()
+    print(f"Content: {content}")
+# regex: '__version__', whitespace?, '=', whitespace, quote, version, quote
+# we put parens around the version so that it becomes elem 1 of the match
+expr = re.compile(
+    r"""^__version__\s*=\s*['"]([0-9]+\.[0-9]+\.[0-9]+(?:\.\w+)?)['"]""",
+    re.MULTILINE,
+)
+repo_version = expr.findall(content)[0]
+
+
 
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
@@ -105,8 +127,8 @@ while True:
             end + len(end_tag):]
 
 setup(
-    name='megablocks',
-    version='0.5.1',
+    name=_PACKAGE_NAME,
+    version=repo_version,
     author='Trevor Gale',
     author_email='tgale@stanford.edu',
     description='MegaBlocks',
