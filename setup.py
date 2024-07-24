@@ -11,16 +11,13 @@ from setuptools import find_packages, setup
 is_torch_installed = False
 try:
     import torch
-    from torch.utils.cpp_extension import CUDA_HOME, BuildExtension, CUDAExtension
+    from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension,
+                                           CUDAExtension,)
     is_torch_installed = True
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
         "No module named 'torch'. Torch is required to install this repo."
     ) from e
-
-###############################################################################
-# Requirements
-###############################################################################
 
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
@@ -48,9 +45,6 @@ extra_deps['dev'] = [
 extra_deps['all'] = list(
     set(dep for deps in extra_deps.values() for dep in deps))
 
-###############################################################################
-# Extension Modules
-###############################################################################
 
 cmdclass = {}
 ext_modules = []
@@ -92,9 +86,6 @@ elif CUDA_HOME is None:
 else:
     warnings.warn('Warning: No CUDA devices; cuda code will not be compiled.')
 
-###############################################################################
-# README
-###############################################################################
 
 # convert README to long description on PyPI, optionally skipping certain
 # marked sections if present (e.g., for coverage / code quality badges)
@@ -112,10 +103,6 @@ while True:
         assert end != -1, 'Skipped section starts and ends imbalanced'
         long_description = long_description[:start] + long_description[
             end + len(end_tag):]
-
-###############################################################################
-# README
-###############################################################################
 
 setup(
     name='megablocks',
