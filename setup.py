@@ -28,7 +28,8 @@ _PACKAGE_REAL_PATH = os.path.join(_REPO_REAL_PATH, _PACKAGE_DIR)
 
 # Read the package version
 # We can't use `.__version__` from the library since it's not installed yet
-with open(os.path.join(_PACKAGE_REAL_PATH, '_version.py'), encoding='utf-8') as f:
+version_path = os.path.join(_PACKAGE_REAL_PATH, '_version.py')
+with open(version_path, encoding='utf-8') as f:
     version_globals: Dict[str, Any] = {}
     version_locals: Mapping[str, object] = {}
     content = f.read()
