@@ -23,9 +23,7 @@ jobs:
         include:
         - name: "gpu-2.3.0"
           container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
-          markers: "gpu"
-          pip_deps: "[dev]"  # todo: replace with `"[all]"`
-          pytest_command: "coverage run -m pytest tests"
+          gpu_num: 1
     name: ${{ matrix.name }}
     if: github.repository_owner == 'eitanturok'  # todo: replace with `databricks`
     with:
@@ -33,11 +31,11 @@ jobs:
       git_repo: eitanturok/megablocks  # todo: replace with `databricks/megablocks`
       mcloud-timeout: 3600
       name: ${{ matrix.name }}
-      pip_deps: ${{ matrix.pip_deps }}
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
+      pip_deps: "[dev]"  # todo: replace with `"[all]"`
+      pytest-command: "coverage run -m pytest tests"
+      pytest-markers: "gpu"
       python-version: 3.9
       composer_package_name: mosaicml  # Required as Composer is built from source
-      gpu_num: 1
+      gpu_num: ${{ matrix.gpu_num }}
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
