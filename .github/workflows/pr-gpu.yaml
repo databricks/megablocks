@@ -22,7 +22,8 @@ jobs:
       matrix:
         include:
         - name: "gpu-2.3.0"
-          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+          container: mosaicml/llm-foundry:2.3.1_cu121-latest
+          # container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: "gpu"
           pip_deps: "[dev]"  # todo: replace with `"[all]"`
           pytest_command: "coverage run -m pytest"
