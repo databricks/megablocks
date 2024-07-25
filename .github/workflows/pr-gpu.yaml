@@ -38,7 +38,7 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
-      git-ssh-clone: true
+      git-ssh-clone: false
       # composer_package_name: mosaicml  # Required as Composer is built from source
       gpu_num: 2  # todo: shouldn't this be 1 for job pytest-gpu-1?
     secrets:
