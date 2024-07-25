@@ -22,8 +22,7 @@ jobs:
       matrix:
         include:
         - name: "gpu-2.3.0"
-          container: mosaicml/llm-foundry:2.3.1_cu121-latest
-          # container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: "gpu"
           pip_deps: "[dev]"  # todo: replace with `"[all]"`
           pytest_command: "coverage run -m pytest tests"
@@ -40,6 +39,6 @@ jobs:
       python-version: 3.9
       git-ssh-clone: false
       # composer_package_name: mosaicml  # Required as Composer is built from source
-      gpu_num: 2  # todo: shouldn't this be 1 for job pytest-gpu-1?
+      gpu_num: 2
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
