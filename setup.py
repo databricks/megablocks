@@ -13,11 +13,14 @@ from setuptools import find_packages, setup
 # More info here: # https://pytorch.org/tutorials/advanced/cpp_extension.html
 try:
     import torch
-    from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension,
-                                           CUDAExtension,)
+    from torch.utils.cpp_extension import (
+        CUDA_HOME,
+        BuildExtension,
+        CUDAExtension,
+    )
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
-        "No module named 'torch'. `torch` is required to install this repo."
+        "No module named 'torch'. `torch` is required to install `MegaBlocks`."
     ) from e
 
 
