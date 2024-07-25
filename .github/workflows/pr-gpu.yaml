@@ -21,9 +21,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: "gpu-2.3.0"
-          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+        - name: "python3.11-pytorch2.3-gpus1"
           gpu_num: 1
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+        - name: "python3.11-pytorch2.3-gpus2"
+          gpu_num: 2
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+        - name: "python3.11-pytorch2.3-gpus4"
+          gpu_num: 4
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+        - name: "python3.11-pytorch2.3-gpus8"
+          gpu_num: 8
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
     name: ${{ matrix.name }}
     if: github.repository_owner == 'eitanturok'  # todo: replace with `databricks`
     with:
