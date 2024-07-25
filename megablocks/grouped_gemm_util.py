@@ -1,9 +1,12 @@
 # Copyright 2024 MosaicML MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
+import warnings
 
 try:
     import grouped_gemm
 except ImportError:
+    warnings.warn(
+        'No module named `grouped_gemm`. Setting `grouped_gemm` to `None`.')
     grouped_gemm = None
 
 
