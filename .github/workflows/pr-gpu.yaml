@@ -37,8 +37,7 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
-      git-ssh-clone: false
       composer_package_name: mosaicml  # Required as Composer is built from source
-      gpu_num: 2
+      gpu_num: 1
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
