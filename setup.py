@@ -44,6 +44,7 @@ extra_deps['dev'] = [
     'pytest-cov>=4,<5',
     'pytest>=7.2.1,<8',
     'pre-commit>=3.4.0,<4',
+    'mosaicml>=0.22.0',
 ]
 
 extra_deps['all'] = list(
