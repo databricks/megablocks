@@ -34,8 +34,8 @@ install_requires = [
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm==0.1.4',
-    # 'grouped_gemm @ git+https://git@github.com/eitanturok/grouped_gemm.git',
+    # 'grouped_gemm==0.1.4',
+    'grouped_gemm @ git+https://git@github.com/eitanturok/grouped_gemm.git',
 ]
 
 extra_deps['dev'] = [
