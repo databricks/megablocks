@@ -13,11 +13,8 @@ from setuptools import find_packages, setup
 # More info here: # https://pytorch.org/tutorials/advanced/cpp_extension.html
 try:
     import torch
-    from torch.utils.cpp_extension import (
-        CUDA_HOME,
-        BuildExtension,
-        CUDAExtension,
-    )
+    from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension,
+                                           CUDAExtension,)
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
         "No module named 'torch'. `torch` is required to install `MegaBlocks`."
@@ -70,7 +67,9 @@ classifiers = [
 
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
-    'stanford-stk==0.7.0',
+    'packaging>=21.3.0,<24.2',
+    # 'stanford-stk==0.7.0',
+    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git',
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
 ]
@@ -78,7 +77,8 @@ install_requires = [
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm==0.1.4',
+    # 'grouped_gemm==0.1.4',
+    'grouped_gemm @ git+https://git@github.com/eitanturok/grouped_gemm.git',
 ]
 
 extra_deps['dev'] = [
