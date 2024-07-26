@@ -12,7 +12,7 @@ is_torch_installed = False
 try:
     import torch
     from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension,
-                                           CUDAExtension)
+                                           CUDAExtension,)
     is_torch_installed = True
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
@@ -28,7 +28,8 @@ install_requires = [
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
     # 'stanford-stk==0.7.0',
-    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git'
+    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git',
+    'packaging>=21.3.0,<24.2',
 ]
 
 extra_deps = {}
