@@ -3,15 +3,11 @@ on:
   push:
     branches:
     - main
-    - dev
     - release/*
-    - eitan-tests  # todo: remove this branch
   pull_request_target:
     branches:
     - main
-    - dev
     - release/**
-    - eitan-tests  # todo: remove this branch
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
