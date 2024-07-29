@@ -1,6 +1,7 @@
-from setuptools import setup, find_packages
 import os
+
 import torch
+from setuptools import find_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 if os.environ.get("TORCH_CUDA_ARCH_LIST"):
@@ -28,19 +29,28 @@ ext_modules = [
     )
 ]
 
-install_requires=[
-    "triton>=2.1.0",
-    "stanford-stk==0.7.0",
+install_requires = [
+    'numpy>=1.21.5,<2.1.0',
+    'torch>=2.3.0,<2.4',
+    'triton>=2.1.0',
+    'stanford-stk @ git+https://git@github.com/stanford-futuredata/stk.git@a1ddf98466730b88a2988860a9d8000fd1833301',
+    'packaging>=21.3.0,<24.2',
 ]
 
 extra_deps = {}
 
 extra_deps["gg"] = [
-    "grouped_gemm==0.1.4",
+    'grouped_gemm @ git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb',
 ]
 
-extra_deps["dev"] = [
-    "absl-py",
+extra_deps['dev'] = [
+    'absl-py',
+    'coverage[toml]==7.4.4',
+    'pytest_codeblocks>=0.16.1,<0.17',
+    'pytest-cov>=4,<5',
+    'pytest>=7.2.1,<8',
+    'pre-commit>=3.4.0,<4',
+    'mosaicml>=0.22.0',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
