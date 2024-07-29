@@ -56,7 +56,7 @@ extra_deps['testing'] = [
     'mosaicml>=0.22.0',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['all'] = list(set(dep for deps in extra_deps.values() for dep in deps))
 
 setup(
     name="megablocks",
