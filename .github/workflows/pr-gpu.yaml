@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   gpu-pytests:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
+    uses: mosaicml/ci-testing/.github/actions/pytest-gpu/action.yaml@v0.1.0
     strategy:
       fail-fast: false
       matrix:
