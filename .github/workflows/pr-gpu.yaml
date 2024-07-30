@@ -14,6 +14,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+env:
+  FORCE_COLOR: "1"
 jobs:
   pytest-gpu:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
