@@ -30,7 +30,7 @@ jobs:
       git_repo: databricks/megablocks
       mcloud-timeout: 3600
       name: ${{ matrix.name }}
-      pip_deps: "[all]"
+      pip_deps: "[all,testing]"
       pytest-command: "coverage run -m pytest tests"
       pytest-markers: "gpu"
       python-version: 3.9
