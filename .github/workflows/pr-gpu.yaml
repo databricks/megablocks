@@ -45,4 +45,4 @@ jobs:
         pytest_markers: "gpu"
         composer_package_name: mosaicml  # Required as Composer is built from source
         mcloud_timeout: 3600
-        mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
