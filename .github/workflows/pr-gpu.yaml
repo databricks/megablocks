@@ -17,7 +17,7 @@ concurrency:
 jobs:
   pytest-gpu:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest # linux-ubuntu-latest
+    runs-on: linux-ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -38,8 +38,7 @@ jobs:
         container: ${{ matrix.pytorch_image }}
         python_version: ${{ matrix.python_version }}
         gpu_num: ${{ matrix.gpu_num }}
-        # git_repo: databricks/megablocks
-        git_repo: eitanturok/megablocks
+        git_repo: databricks/megablocks
         pip_deps: "[all,testing]"
         pytest_command: "coverage run -m pytest tests" # todo: remove tests from pytest tests when we delete all tests outside of MegaBlocks repo
         pytest_markers: "gpu"
