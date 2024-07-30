@@ -5,8 +5,9 @@ build-backend = "setuptools.build_meta"
 
 # Pytest
 [tool.pytest.ini_options]
-# By default, skip gpu tests
-addopts = "--tb=short -m 'not gpu' --color=yes"
+# By default, run tests in README codeblocks, raise typos in fixtures as errors,
+# have a short traceback, skip gpu tests, and display in color
+addopts = "--codeblocks --strict-markers --tb=short -m 'not gpu' --color=yes"
 pythonpath = [
   "."
 ]
