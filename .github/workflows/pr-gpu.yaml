@@ -36,14 +36,13 @@ jobs:
       with:
         name: ${{ matrix.name }}
         container: ${{ matrix.pytorch_image }}
-        python-version: ${{ matrix.python_version }}
+        python_version: ${{ matrix.python_version }}
         gpu_num: ${{ matrix.gpu_num }}
         # git_repo: databricks/megablocks
         git_repo: eitanturok/megablocks
         pip_deps: "[all,testing]"
-        pytest-command: "coverage run -m pytest tests" # todo: remove tests from pytest tests when we delete all tests outside of MegaBlocks repo
-        pytest-markers: "gpu"
+        pytest_command: "coverage run -m pytest tests" # todo: remove tests from pytest tests when we delete all tests outside of MegaBlocks repo
+        pytest_markers: "gpu"
         composer_package_name: mosaicml  # Required as Composer is built from source
-        mcloud-timeout: 3600
-      env:
+        mcloud_timeout: 3600
         mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
