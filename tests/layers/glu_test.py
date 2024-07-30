@@ -1,10 +1,8 @@
 from functools import partial
 
-import numpy as np
 import pytest
 import stk
 import torch
-from absl.testing import parameterized
 
 from megablocks.layers import dmlp_registry, testing
 from megablocks.layers.arguments import Arguments

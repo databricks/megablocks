@@ -44,6 +44,7 @@ extra_deps["gg"] = [
 ]
 
 extra_deps['dev'] = [
+    'absl-py', # todo: delete when finish removing all absl tests
     'coverage[toml]==7.4.4',
     'pytest_codeblocks>=0.16.1,<0.17',
     'pytest-cov>=4,<5',
