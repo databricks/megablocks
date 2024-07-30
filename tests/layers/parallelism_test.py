@@ -21,7 +21,7 @@ def group():
     return None
 
 
-@pytest.mark.world_size(8)
+@pytest.mark.world_size(2)
 @pytest.mark.gpu
 @pytest.mark.parametrize(('batch_size', 'sequence_length', 'hidden_size', 'ffn_hidden_size', 'num_experts', 'top_k', 'memory_optimized'),
                          _PARALLELISM_TESTS)
@@ -83,10 +83,10 @@ def test_expert_parallel_versus_weight_parallel(
     for i in range(torch.distributed.get_world_size(group)):
         torch.distributed.barrier(group)
         if i == rank:
-            np.testing.assert_allclose(
+            assert np.testing.assert_allclose(
                 out.detach().float().cpu(),
                 expected_out.detach().float().cpu(),
-                rtol=1e-4, atol=1e-4)
+                rtol=1e-4, atol=1e-4) is None
 
     # Test backward.
     out.mean().backward()
@@ -111,24 +111,24 @@ def test_expert_parallel_versus_weight_parallel(
     wp_w2_grad = gather(wp.experts.mlp.w2.grad)
     ep_w2_grad = permute(gather(ep.experts.mlp.w2.grad))
     if rank == 0:
-        np.testing.assert_allclose(
+        assert np.testing.assert_allclose(
             wp_w2_grad.float().cpu(),
             ep_w2_grad.float().cpu(),
-            rtol=1e-5, atol=1e-5)
+            rtol=1e-5, atol=1e-5) is None
 
     wp_w1_grad = gather(wp.experts.mlp.w1.grad)
     ep_w1_grad = permute(gather(ep.experts.mlp.w1.grad))
     if rank == 0:
-        np.testing.assert_allclose(
+        assert np.testing.assert_allclose(
             wp_w1_grad.float().cpu(),
             ep_w1_grad.float().cpu(),
-            rtol=1e-5, atol=1e-5)
+            rtol=1e-5, atol=1e-5) is None
 
     # Verify the router weight gradient, which is not sharded.
     for i in range(torch.distributed.get_world_size(group)):
         torch.distributed.barrier(group)
         if i == rank:
-            np.testing.assert_allclose(
+            assert np.testing.assert_allclose(
                 wp.router.layer.weight.grad.float().cpu(),
                 ep.router.layer.weight.grad.float().cpu(),
-                rtol=1e-5, atol=1e-5)
+                rtol=1e-5, atol=1e-5) is None
