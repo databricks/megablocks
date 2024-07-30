@@ -13,11 +13,11 @@ on:
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main'}}
 jobs:
   pytest-gpu:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu-latest
+    runs-on: ubuntu-latest # linux-ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
