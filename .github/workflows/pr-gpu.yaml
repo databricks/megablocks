@@ -4,12 +4,10 @@ on:
     branches:
     - main
     - release/*
-    - eitan-tests
   pull_request_target:
     branches:
     - main
     - release/**
-    - eitan-tests
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -23,15 +21,13 @@ jobs:
         include:
         - name: "python3.11-pytorch2.3.1-gpus1"
           gpu_num: 1
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
         - name: "python3.11-pytorch2.3.1-gpus2"
           gpu_num: 2
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
     name: ${{ matrix.name }}
-    if: github.repository_owner == 'eitanturok'  # todo: replace with `databricks`
+    if: github.repository_owner == 'databricks'
     with:
-      container: ${{ matrix.container }}
-      git_repo: eitanturok/megablocks  # todo: replace with `databricks/megablocks`
+      container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+      git_repo: databricks/megablocks
       mcloud-timeout: 3600
       name: ${{ matrix.name }}
       pip_deps: "[all]"
@@ -42,53 +38,3 @@ jobs:
       gpu_num: ${{ matrix.gpu_num }}
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
-
-# name: PR GPU tests
-# on:
-#   push:
-#     branches:
-#     - main
-#     - release/*
-#     - eitan-tests
-#   pull_request_target:
-#     branches:
-#     - main
-#     - release/**
-#     - eitan-tests
-#   workflow_dispatch:
-# concurrency:
-#   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-#   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
-# jobs:
-#   pytest-gpu:
-#     name: ${{ matrix.name }}
-#     runs-on: linux-ubuntu-latest
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         include:
-#         - name: "python3.11-pytorch2.3.1-gpus1"
-#           gpu_num: 1
-#           container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-#         - name: "python3.11-pytorch2.3.1-gpus8"
-#           gpu_num: 8
-#           container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-#     steps:
-#     - name: Checkout Code
-#       uses: actions/checkout@v2
-#     - name: Run PR GPU Tests
-#       uses: mosaicml/ci-testing/.github/actions/pytest-gpu/action.yaml@v0.1.0
-#       if: github.repository_owner == 'eitanturok'  # todo: replace with `databricks`
-#       with:
-#         container: ${{ matrix.container }}
-#         git_repo: eitanturok/megablocks  # todo: replace with `databricks/megablocks`
-#         mcloud-timeout: 3600
-#         name: ${{ matrix.name }}
-#         pip_deps: "[all]"
-#         pytest-command: "coverage run -m pytest tests"
-#         pytest-markers: "gpu"
-#         python-version: 3.9
-#         composer_package_name: mosaicml  # Required as Composer is built from source
-#         gpu_num: ${{ matrix.gpu_num }}
-#     secrets:
-#       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
