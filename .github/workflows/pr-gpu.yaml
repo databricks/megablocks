@@ -23,17 +23,17 @@ jobs:
         - name: "python3.11-pytorch2.3.1-gpus1"
           gpu_num: 1
           python_version: 3.11
-          pytorch_image: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
         - name: "python3.11-pytorch2.3.1-gpus2"
           gpu_num: 2
           python_version: 3.11
-          pytorch_image: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
     steps:
     - name: Run PR GPU tests
       uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
       with:
         name: ${{ matrix.name }}
-        container: ${{ matrix.pytorch_image }}
+        container: ${{ matrix.container }}
         python_version: ${{ matrix.python_version }}
         gpu_num: ${{ matrix.gpu_num }}
         git_repo: databricks/megablocks
