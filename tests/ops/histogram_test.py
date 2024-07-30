@@ -6,7 +6,7 @@ import torch
 
 from megablocks import ops
 
-HISTOGRAM_TESTS = (
+_HISTOGRAM_TESTS = (
     (1, 32, torch.int16, 128),
     (1, 1024, torch.int16, 128),
     (1, 16384, torch.int16, 128),
@@ -64,8 +64,16 @@ HISTOGRAM_TESTS = (
 )
 
 
+# Override the seed_all fixture in autouse.py because
+# _histc_cuda does not have a deterministic implementation
+@pytest.fixture()
+def seed_all():
+    torch.use_deterministic_algorithms(False)
+    return
+
+
 @pytest.mark.gpu
-@pytest.mark.parametrize(('m', 'n', 'dtype', 'max_val'), HISTOGRAM_TESTS)
+@pytest.mark.parametrize(('m', 'n', 'dtype', 'max_val'), _HISTOGRAM_TESTS)
 def test_histogram(m: int, n: int, dtype: torch.dtype, max_val: int):
     x = torch.randint(0, max_val, (m, n)).cuda().to(dtype)
 
