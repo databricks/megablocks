@@ -1,6 +1,8 @@
 import gc
+import logging
 import os
 
+import composer
 import pytest
 import torch
 from composer.devices import DeviceCPU, DeviceGPU
@@ -59,6 +61,13 @@ def configure_dist(request: pytest.FixtureRequest):
     # any test before other ranks are ready to start it, which could be a cause of random timeouts
     # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).
     dist.barrier()
+
+
+@pytest.fixture(autouse=True)
+def set_log_levels():
+    """Ensures all log levels are set to DEBUG."""
+    logging.basicConfig()
+    logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
 
 
 @pytest.fixture(autouse=True)
