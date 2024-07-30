@@ -44,7 +44,6 @@ extra_deps["gg"] = [
 ]
 
 extra_deps['dev'] = [
-    'absl-py',
     'coverage[toml]==7.4.4',
     'pytest_codeblocks>=0.16.1,<0.17',
     'pytest-cov>=4,<5',
