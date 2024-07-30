@@ -1,11 +1,10 @@
 import functools
 
-import pytest
-from composer.utils import dist
-
-from megablocks.layers import dmoe, arguments, mpu
 import numpy as np
+import pytest
 import torch
+
+from megablocks.layers import arguments, dmoe, mpu
 
 _PARALLELISM_TESTS = (
     (64, 1024, 512, 2048, 64, 1, False),
@@ -16,7 +15,7 @@ _PARALLELISM_TESTS = (
     (4, 1, 512, 2048, 4, 1, True),
 )
 
-# Is this okay to do? Passes the test but must fix long-term
+# Todo: Fix this long term
 @pytest.fixture
 def group():
     return None
