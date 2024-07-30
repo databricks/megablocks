@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # Pytest
 [tool.pytest.ini_options]
 # By default, skip gpu tests
-addopts = "--tb=short -m 'not gpu'"
+addopts = "--tb=short -m 'not gpu' --color=yes"
 pythonpath = [
   "."
 ]
