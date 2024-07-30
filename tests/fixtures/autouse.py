@@ -1,10 +1,8 @@
 import gc
 import os
 
-
 import pytest
 import torch
-
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
 
@@ -63,12 +61,12 @@ def configure_dist(request: pytest.FixtureRequest):
     dist.barrier()
 
 
-@pytest.fixture(autouse=True)
-def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
-    """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
-    each test to the rank local seed."""
-    monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
-    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+# @pytest.fixture(autouse=True)
+# def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
+#     """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
+#     each test to the rank local seed."""
+#     monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
+#     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 
 @pytest.fixture(autouse=True)
