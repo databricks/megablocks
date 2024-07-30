@@ -4,12 +4,10 @@ on:
     branches:
     - main
     - release/*
-    - eitan-tests-2
   pull_request_target:
     branches:
     - main
     - release/**
-    - eitan-tests-2
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
