@@ -1,16 +1,14 @@
-from packaging import version
 from typing import Any
 
-from megablocks.layers import common
-from megablocks.layers import gelu
-from megablocks.layers.activation_fn import act_fn
-from megablocks.layers import mpu
-from megablocks.layers import weight_parallel as wp
-from megablocks.layers.arguments import Arguments, InitFn, DEFAULT_ACTIVATION_FN
-from megablocks import grouped_gemm_util as gg
 import stk
 import torch
-import torch.nn.functional as F
+from packaging import version
+
+from megablocks import grouped_gemm_util as gg
+from megablocks.layers import common, gelu, mpu
+from megablocks.layers import weight_parallel as wp
+from megablocks.layers.activation_fn import act_fn
+from megablocks.layers.arguments import DEFAULT_ACTIVATION_FN, Arguments, InitFn
 
 
 class ScaleGradient(torch.autograd.Function):
@@ -85,7 +83,7 @@ class MLP(torch.nn.Module):
     def __init__(self, args : Arguments):
         super().__init__()
         self.args = args
-        expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
+        # expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
         experts_per_rank = mpu.experts_per_rank(args)
 
         self.w1 = torch.nn.Parameter(torch.empty(
@@ -216,7 +214,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         topo_tensors = saved_tensors[2:8]
@@ -335,7 +333,9 @@ class SparseMLP(torch.nn.Module):
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.memory_optimized_mlp:
             if self.args.activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'memory_optimized_weight_parallel_mlp not implemented for custom {activation_fn=}.')
+                raise NotImplementedError(
+                    f'memory_optimized_weight_parallel_mlp not implemented for custom activation_fn={self.args.activation_fn}.'
+                )
             return wp.memory_optimized_weight_parallel_mlp(
                 x, w1, w2, topo, group)
 
@@ -404,7 +404,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         batch_sizes = saved_tensors[2]

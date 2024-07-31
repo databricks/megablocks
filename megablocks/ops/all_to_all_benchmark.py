@@ -1,6 +1,7 @@
-from megablocks.layers.all_to_all import all_to_all
-from megablocks import benchmark_util
 import torch
+
+from megablocks import benchmark_util
+from megablocks.layers.all_to_all import all_to_all
 
 _ALL_TO_ALL_BENCHMARK = (
     (8, 1024),
@@ -35,8 +36,9 @@ def benchmark_all_to_all(group, sl, hs):
             "message_size (B)": send_recv_sizes[0] * hs * 2,  # 2B elements.
         }
 
-        fn = lambda: all_to_all(x, send_recv_sizes, send_recv_sizes, group)
-        time, std = benchmark_util.benchmark_function(fn)
+        def benchmark():
+            return all_to_all(x, send_recv_sizes, send_recv_sizes, group)
+        time, std = benchmark_util.benchmark_function(benchmark)
 
         if torch.distributed.get_rank(group) == 0:
             benchmark_util.log_benchmark("All-To-All", details, time, std)

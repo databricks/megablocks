@@ -1,14 +1,10 @@
-from megablocks.layers import common
-from megablocks.layers import mpu
-from megablocks.layers import router
-from megablocks.layers import mlp
-from megablocks.layers import sharedexpert_registry
-from megablocks.layers.all_to_all import all_to_all
-from megablocks.layers.arguments import Arguments
-import megablocks.ops as ops
 import numpy as np
 import torch
 
+import megablocks.ops as ops
+from megablocks.layers import common, mlp, mpu, router, sharedexpert_registry
+from megablocks.layers.all_to_all import all_to_all
+from megablocks.layers.arguments import Arguments
 
 _LOAD_BALANCING_LOSS = []
 
@@ -113,7 +109,7 @@ class ParallelMLP(torch.nn.Module):
 
         # Calculate the number of experts in total and the number of experts
         # owned by this rank.
-        world_size = mpu.get_expert_parallel_world_size(args)
+        # world_size = mpu.get_expert_parallel_world_size(args)
         self.num_experts = args.moe_num_experts
         self.top_k = self.args.moe_top_k
 

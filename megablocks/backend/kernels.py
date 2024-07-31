@@ -62,12 +62,12 @@ def _padded_copy(
     # Now we know what bin we're assigned to, but we need to know how
     # many threadblocks were assigned to earlier bins so we can offset
     # in our bin properly.
-    offset_in_bin = tl.program_id(0);
+    offset_in_bin = tl.program_id(0)
     if bin_idx > 0:
         offset_in_bin -= tl.load(bins + bin_idx - 1)
 
     # Load the starting index of our bin in array 'b'.
-    index_b = offset_in_bin;
+    index_b = offset_in_bin
     if bin_idx > 0:
         index_b += tl.load(padded_bins + bin_idx - 1)
 
@@ -247,12 +247,12 @@ def _padded_copy_wgrad(
     # Now we know what bin we're assigned to, but we need to know how
     # many threadblocks were assigned to earlier bins so we can offset
     # in our bin properly.
-    offset_in_bin = tl.program_id(0);
+    offset_in_bin = tl.program_id(0)
     if bin_idx > 0:
         offset_in_bin -= tl.load(bins + bin_idx - 1)
 
     # Load the starting index of our bin in array 'x'.
-    index_x = offset_in_bin;
+    index_x = offset_in_bin
     if bin_idx > 0:
         index_x += tl.load(padded_bins + bin_idx - 1)
 
@@ -264,7 +264,7 @@ def _padded_copy_wgrad(
 
     acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    for i in range(iterations):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
         scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
@@ -380,7 +380,7 @@ def _binned_copy(
     optr = b if A_TO_B else a
 
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    for i in range(iterations):
         mask = offsets < NUM_COLUMNS
         x = tl.load(iptr + offsets, mask=mask)
         x = x.to(tl.float32) * scale.to(tl.float32)
@@ -510,7 +510,7 @@ def _binned_copy_wgrad(
 
     acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    for i in range(iterations):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
         scale = tl.load(grad + offsets, mask=mask).to(tl.float32)

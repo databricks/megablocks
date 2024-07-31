@@ -1,4 +1,3 @@
-import torch
 
 
 def sum(x, dim=0):

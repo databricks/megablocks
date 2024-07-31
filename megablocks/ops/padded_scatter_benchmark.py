@@ -1,10 +1,9 @@
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
-from megablocks import benchmark_util
 import torch
+from absl.testing import parameterized
 
+from megablocks import benchmark_util, ops
 
 _PADDED_SCATTER_BENCHMARK = (
     # dMoE-Medium, 8-way EMP.
@@ -35,10 +34,10 @@ class PaddedScatterTest(parameterized.TestCase):
         # Gather the data to prepare for backwards.
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
 
-        fn = lambda: ops.padded_scatter(
-            x, indices, bin_ids, weights, bins, padded_bins, top_k)
+        def benchmark():
+            return ops.padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k)
 
-        time, std = benchmark_util.benchmark_function(fn)
+        time, std = benchmark_util.benchmark_function(benchmark)
         benchmark_util.log_benchmark(
             "Padded Scatter",
             {"sequence_length": sl,

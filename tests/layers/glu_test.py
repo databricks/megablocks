@@ -6,7 +6,6 @@ import torch
 
 from megablocks.layers import dmlp_registry, testing
 from megablocks.layers.arguments import Arguments
-from megablocks.layers.glu import GroupedGLU, SparseGLU
 
 _DENSE_TESTS = (
     (16, 1024, 512),

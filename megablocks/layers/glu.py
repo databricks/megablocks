@@ -1,11 +1,16 @@
-from megablocks.layers import common
-from megablocks.layers.activation_fn import act_fn
-from megablocks.layers.mlp import SparseMLP, SharedMLP, create_dmoe_expert_weights, resolve_dtensor
-from megablocks.layers import mpu
-from megablocks.layers.arguments import Arguments, DEFAULT_ACTIVATION_FN
-from megablocks import grouped_gemm_util as gg
 import stk
 import torch
+
+from megablocks import grouped_gemm_util as gg
+from megablocks.layers import common, mpu
+from megablocks.layers.activation_fn import act_fn
+from megablocks.layers.arguments import Arguments
+from megablocks.layers.mlp import (
+    SharedMLP,
+    SparseMLP,
+    create_dmoe_expert_weights,
+    resolve_dtensor,
+)
 
 
 class SparseGLU(SparseMLP):
@@ -91,7 +96,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, v1, w2 = saved_tensors[:3]
         batch_sizes = saved_tensors[3]
