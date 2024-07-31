@@ -9,6 +9,7 @@ from typing import Any, Dict, Mapping
 
 from setuptools import find_packages, setup
 
+
 # We require torch in setup.py to build cpp extensions "ahead of time"
 # More info here: # https://pytorch.org/tutorials/advanced/cpp_extension.html
 try:
@@ -68,21 +69,19 @@ classifiers = [
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
     'packaging>=21.3.0,<24.2',
-    # 'stanford-stk==0.7.0',
-    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git',
     'torch>=2.3.0,<2.4',
     'triton>=2.1.0',
+    'stanford-stk @ git+https://git@github.com/stanford-futuredata/stk.git@a1ddf98466730b88a2988860a9d8000fd1833301',
 ]
 
 extra_deps = {}
 
-extra_deps['gg'] = [
-    # 'grouped_gemm==0.1.4',
-    'grouped_gemm @ git+https://git@github.com/eitanturok/grouped_gemm.git',
+extra_deps["gg"] = [
+    'grouped_gemm @ git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb',
 ]
 
 extra_deps['dev'] = [
-    'absl-py',
+    'absl-py', # todo: delete when finish removing all absl tests
     'coverage[toml]==7.4.4',
     'pytest_codeblocks>=0.16.1,<0.17',
     'pytest-cov>=4,<5',
@@ -90,8 +89,14 @@ extra_deps['dev'] = [
     'pre-commit>=3.4.0,<4',
 ]
 
-extra_deps['all'] = list(
-    set(dep for deps in extra_deps.values() for dep in deps))
+extra_deps['testing'] = [
+    'mosaicml>=0.22.0',
+]
+
+extra_deps['all'] = list({
+    dep for key, deps in extra_deps.items() for dep in deps
+    if key not in {'testing'}
+})
 
 
 cmdclass = {}
