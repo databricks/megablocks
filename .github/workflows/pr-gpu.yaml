@@ -1,0 +1,45 @@
+name: PR GPU tests
+on:
+  push:
+    branches:
+    - main
+    - release/*
+  pull_request_target:
+    branches:
+    - main
+    - release/**
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main'}}
+jobs:
+  pytest-gpu:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest # todo: switch to linux-ubuntu-latest later
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: "python3.11-pytorch2.3.1-gpus1"
+          gpu_num: 1
+          python_version: 3.11
+          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+        - name: "python3.11-pytorch2.3.1-gpus2"
+          gpu_num: 2
+          python_version: 3.11
+          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+    steps:
+    - name: Run PR GPU tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        name: ${{ matrix.name }}
+        container: ${{ matrix.container }}
+        python_version: ${{ matrix.python_version }}
+        gpu_num: ${{ matrix.gpu_num }}
+        git_repo: databricks/megablocks
+        pip_deps: "[all,testing]"
+        pytest_command: "coverage run -m pytest tests" # todo: remove tests from pytest tests when we delete all tests outside of MegaBlocks repo
+        pytest_markers: "gpu"
+        composer_package_name: mosaicml  # Required as Composer is built from source
+        mcloud_timeout: 3600
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
