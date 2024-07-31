@@ -4,10 +4,12 @@ on:
     branches:
     - main
     - release/*
+    - eitan-dev # todo: delete
   pull_request_target:
     branches:
     - main
     - release/**
+    - eitan-dev  # todo: delete
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -15,7 +17,7 @@ concurrency:
 jobs:
   pytest-gpu:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu-latest
+    runs-on: ubuntu-latest # todo: replace with linux-ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
