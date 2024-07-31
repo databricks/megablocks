@@ -15,7 +15,7 @@ concurrency:
 jobs:
   pytest-gpu:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest # todo: replace with linux-ubuntu-latest
+    runs-on: ubuntu-latest # todo: switch to linux-ubuntu-latest later
     strategy:
       fail-fast: false
       matrix:
