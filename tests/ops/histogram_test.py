@@ -1,9 +1,10 @@
-import unittest
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
 
-from absl.testing import parameterized
-from megablocks import ops
+import pytest
 import torch
 
+from megablocks import ops
 
 _HISTOGRAM_TESTS = (
     (1, 32, torch.int16, 128),
@@ -63,19 +64,20 @@ _HISTOGRAM_TESTS = (
 )
 
 
-class HistogramTest(parameterized.TestCase):
-
-    @parameterized.parameters(*_HISTOGRAM_TESTS)
-    def testHistogram(self, m, n, dtype, max_val):
-        x = torch.randint(0, max_val, (m, n)).cuda().to(dtype)
-
-        out = ops.histogram(x, max_val)
-        expected_out = torch.stack(
-            [torch.histc(y, max_val, 0, max_val - 1)
-             for y in torch.split(x, 1)]
-        )
-        self.assertTrue(torch.all(torch.eq(out, expected_out)))
+# Override the seed_all fixture in autouse.py because
+# _histc_cuda does not have a deterministic implementation
+@pytest.fixture()
+def seed_all():
+    torch.use_deterministic_algorithms(False)
+    return
 
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.gpu
+@pytest.mark.parametrize(('m', 'n', 'dtype', 'max_val'), _HISTOGRAM_TESTS)
+def test_histogram(m: int, n: int, dtype: torch.dtype, max_val: int):
+    x = torch.randint(0, max_val, (m, n)).cuda().to(dtype)
+
+    out = ops.histogram(x, max_val)
+    expected_out = torch.stack(
+        [torch.histc(y, max_val, 0, max_val - 1) for y in torch.split(x, 1)])
+    assert torch.all(torch.eq(out, expected_out))

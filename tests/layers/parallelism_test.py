@@ -1,11 +1,12 @@
 import functools
 
-from megablocks.layers import dmoe, arguments, mpu
-from megablocks import benchmark_util
 import numpy as np
+import pytest
 import torch
 
-_TESTS = (
+from megablocks.layers import arguments, dmoe, mpu
+
+_PARALLELISM_TESTS = (
     (64, 1024, 512, 2048, 64, 1, False),
     (64, 1024, 512, 2048, 64, 1, True),
     # Test with fewer experts than ranks to verify tensor
@@ -14,15 +15,26 @@ _TESTS = (
     (4, 1, 512, 2048, 4, 1, True),
 )
 
+# Todo: Fix this long term
+@pytest.fixture
+def group():
+    return None
+
+
+@pytest.mark.world_size(2)
+@pytest.mark.gpu
+@pytest.mark.parametrize(('batch_size', 'sequence_length', 'hidden_size', 'ffn_hidden_size', 'num_experts', 'top_k', 'memory_optimized'),
+                         _PARALLELISM_TESTS)
 def test_expert_parallel_versus_weight_parallel(
         group,
-        batch_size,
-        sequence_length,
-        hidden_size,
-        ffn_hidden_size,
-        num_experts,
-        top_k,
-        memory_optimized):
+        batch_size: int,
+        sequence_length: int,
+        hidden_size: int,
+        ffn_hidden_size: int,
+        num_experts: int,
+        top_k: int,
+        memory_optimized: bool):
+
     init_fn = functools.partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     ep_args = arguments.Arguments(
         hidden_size=hidden_size,
@@ -71,10 +83,10 @@ def test_expert_parallel_versus_weight_parallel(
     for i in range(torch.distributed.get_world_size(group)):
         torch.distributed.barrier(group)
         if i == rank:
-            np.testing.assert_allclose(
+            assert np.testing.assert_allclose(
                 out.detach().float().cpu(),
                 expected_out.detach().float().cpu(),
-                rtol=1e-4, atol=1e-4)
+                rtol=1e-4, atol=1e-4) is None
 
     # Test backward.
     out.mean().backward()
@@ -99,36 +111,24 @@ def test_expert_parallel_versus_weight_parallel(
     wp_w2_grad = gather(wp.experts.mlp.w2.grad)
     ep_w2_grad = permute(gather(ep.experts.mlp.w2.grad))
     if rank == 0:
-        np.testing.assert_allclose(
+        assert np.testing.assert_allclose(
             wp_w2_grad.float().cpu(),
             ep_w2_grad.float().cpu(),
-            rtol=1e-5, atol=1e-5)
+            rtol=1e-5, atol=1e-5) is None
 
     wp_w1_grad = gather(wp.experts.mlp.w1.grad)
     ep_w1_grad = permute(gather(ep.experts.mlp.w1.grad))
     if rank == 0:
-        np.testing.assert_allclose(
+        assert np.testing.assert_allclose(
             wp_w1_grad.float().cpu(),
             ep_w1_grad.float().cpu(),
-            rtol=1e-5, atol=1e-5)
+            rtol=1e-5, atol=1e-5) is None
 
     # Verify the router weight gradient, which is not sharded.
     for i in range(torch.distributed.get_world_size(group)):
         torch.distributed.barrier(group)
         if i == rank:
-            np.testing.assert_allclose(
+            assert np.testing.assert_allclose(
                 wp.router.layer.weight.grad.float().cpu(),
                 ep.router.layer.weight.grad.float().cpu(),
-                rtol=1e-5, atol=1e-5)
-
-
-if __name__ == '__main__':
-    assert torch.distributed.is_available()
-    group = torch.distributed.init_process_group(backend='nccl')
-    local_rank = torch.distributed.get_rank(group)
-    torch.cuda.set_device(local_rank)
-
-    for args in _TESTS:
-        if local_rank == 0:
-            print(f"TEST: {args}")
-        test_expert_parallel_versus_weight_parallel(group, *args)
+                rtol=1e-5, atol=1e-5) is None
