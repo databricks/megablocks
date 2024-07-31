@@ -4,10 +4,12 @@ on:
     branches:
     - main
     - release/*
+    - eitan-dev # todo: delete
   pull_request_target:
     branches:
     - main
     - release/**
+    - eitan-dev  # todo: delete
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -36,7 +38,7 @@ jobs:
         container: ${{ matrix.container }}
         python_version: ${{ matrix.python_version }}
         gpu_num: ${{ matrix.gpu_num }}
-        git_repo: databricks/megablocks
+        git_repo: eitanturok/megablocks # todo: replace with databricks/megablocks
         pip_deps: "[all,testing]"
         pytest_command: "coverage run -m pytest tests" # todo: remove tests from pytest tests when we delete all tests outside of MegaBlocks repo
         pytest_markers: "gpu"
