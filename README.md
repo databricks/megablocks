@@ -22,9 +22,9 @@ NOTE: This assumes you have `numpy` and `torch` installed.
 
 Installing `megablocks[gg]` enables dMoE computation with grouped GEMM. This feature is enabled by setting the `mlp_impl` argument to `grouped`. This is currently our recommended path for Hopper-generation GPUs.
 
-Installing megablocks[dev] allows you to contribute to MegaBlocks and test locally. Installing megablocks[testing] allows you to test via Github Actions. If you've installed megablocks[dev], you can run pre-commit install to configure the pre-commit hook to automatically format the code.
+Installing `megablocks[dev]` allows you to contribute to MegaBlocks and test locally. Installing `megablocks[testing]` allows you to test via Github Actions. If you've installed megablocks[dev], you can run pre-commit install to configure the pre-commit hook to automatically format the code.
 
-MegaBlocks can be installed with all dependencies via the `megablocks[all]` package.
+MegaBlocks can be installed with all dependencies (except for `testing`) via the `megablocks[all]` package.
 
 # :steam_locomotive: Usage
 
