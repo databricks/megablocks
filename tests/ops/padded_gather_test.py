@@ -63,9 +63,14 @@ def testPaddedGather(sl: int, hs: int, ne: int, top_k: int):
     padded_bins = ops.inclusive_cumsum(padded_tokens_per_expert, 0)
     bins = ops.inclusive_cumsum(tokens_per_expert, 0)
 
-    def padded_gather(x: torch.Tensor, indices: torch.Tensor,
-                      bin_ids: torch.Tensor, bins: torch.Tensor,
-                      padded_bins: torch.Tensor, top_k: int):
+    def padded_gather(
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,
+        bins: torch.Tensor,
+        padded_bins: torch.Tensor,
+        top_k: int,
+    ):
         x = x.cpu().numpy()
         indices = indices.cpu().numpy()
         bin_ids = bin_ids.cpu().numpy()

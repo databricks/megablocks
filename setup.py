@@ -76,12 +76,12 @@ install_requires = [
 
 extra_deps = {}
 
-extra_deps["gg"] = [
+extra_deps['gg'] = [
     'grouped_gemm @ git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb',
 ]
 
 extra_deps['dev'] = [
-    'absl-py', # todo: delete when finish removing all absl tests
+    'absl-py',  # todo: delete when finish removing all absl tests
     'coverage[toml]==7.4.4',
     'pytest_codeblocks>=0.16.1,<0.17',
     'pytest-cov>=4,<5',
@@ -93,10 +93,7 @@ extra_deps['testing'] = [
     'mosaicml>=0.22.0',
 ]
 
-extra_deps['all'] = list({
-    dep for key, deps in extra_deps.items() for dep in deps
-    if key not in {'testing'}
-})
+extra_deps['all'] = list({dep for key, deps in extra_deps.items() for dep in deps if key not in {'testing'}})
 
 
 cmdclass = {}

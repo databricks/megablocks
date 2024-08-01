@@ -1,10 +1,13 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
-from absl.testing import parameterized
-from megablocks import ops
 import numpy as np
 import torch
+from absl.testing import parameterized
 
+from megablocks import ops
 
 _SORT_TESTS = (
     (16384, torch.int32, None),
@@ -12,16 +15,14 @@ _SORT_TESTS = (
     (16384, torch.int32, 128),
 )
 
-_BASELINE_SORT_TESTS = (
-    (16384,),
-)
+_BASELINE_SORT_TESTS = ((16384,),)
 
 
 def numpy_dtype(dtype):
     types = {
         torch.int16: np.int16,
         torch.int32: np.int32,
-        torch.int64: np.int64
+        torch.int64: np.int64,
     }
     return types[dtype]
 
@@ -43,13 +44,13 @@ def benchmark_function(fn, iterations=10):
 
 
 def log_benchmark(arguments, mean_t, std_t):
-    print("="*60)
-    print("Benchmark Parameters:")
+    print('=' * 60)
+    print('Benchmark Parameters:')
     for (key, value) in arguments.items():
-        print(f"{key} = {value}")
-    print("Results:")
-    print("mean / std = {:.2f}ms / {:.2f}ms".format(mean_t, std_t))
-    print("="*60)
+        print(f'{key} = {value}')
+    print('Results:')
+    print('mean / std = {:.2f}ms / {:.2f}ms'.format(mean_t, std_t))
+    print('=' * 60)
 
 
 class SortBenchmark(parameterized.TestCase):
@@ -61,12 +62,11 @@ class SortBenchmark(parameterized.TestCase):
         end_bit = int(np.ceil(np.log2(max_val)))
         x = torch.randint(0, max_val, (n,)).cuda().to(dtype)
 
-        mean_t, std_t, max_t, min_t = benchmark_function(
-            lambda: ops.sort(x, end_bit))
+        mean_t, std_t, max_t, min_t = benchmark_function(lambda: ops.sort(x, end_bit),)
         arguments = {
-            "n": n,
-            "dtype": dtype,
-            "max_val": max_val
+            'n': n,
+            'dtype': dtype,
+            'max_val': max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 
@@ -74,9 +74,10 @@ class SortBenchmark(parameterized.TestCase):
     def testTorchSort(self, n):
         x = torch.randint(0, 128, (n,)).cuda().to(torch.int32)
 
-        mean_t, std_t, max_t, min_t = benchmark_function(
-            lambda: torch.sort(x))
-        arguments = {"n": n,}
+        mean_t, std_t, max_t, min_t = benchmark_function(lambda: torch.sort(x))
+        arguments = {
+            'n': n,
+        }
         log_benchmark(arguments, mean_t, std_t)
 
 

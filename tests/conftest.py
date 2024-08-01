@@ -1,3 +1,6 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 from typing import List, Optional
 
@@ -13,7 +16,7 @@ reproducibility.configure_deterministic_mode()
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     'tests.fixtures.autouse',
-    'tests.fixtures.fixtures'
+    'tests.fixtures.fixtures',
 ]
 
 
@@ -23,8 +26,11 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker('world_size', default=_default).args[0]
 
 
-
-def _get_option(config: pytest.Config, name: str, default: Optional[str] = None) -> str:  # type: ignore
+def _get_option(
+    config: pytest.Config,
+    name: str,
+    default: Optional[str] = None,
+) -> str:  # type: ignore
     val = config.getoption(name)
     if val is not None:
         assert isinstance(val, str)
@@ -34,13 +40,18 @@ def _get_option(config: pytest.Config, name: str, default: Optional[str] = None)
         val = None
     if val is None:
         if default is None:
-            pytest.fail(f'Config option {name} is not specified but is required')
+            pytest.fail(f'Config option {name} is not specified but is required',)
         val = default
     assert isinstance(val, str)
     return val
 
 
-def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[list[str]] = None):
+def _add_option(
+    parser: pytest.Parser,
+    name: str,
+    help: str,
+    choices: Optional[list[str]] = None,
+):
     parser.addoption(
         f'--{name}',
         default=None,
