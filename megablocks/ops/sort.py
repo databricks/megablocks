@@ -1,3 +1,6 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
 import torch
