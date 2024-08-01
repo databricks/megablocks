@@ -22,3 +22,8 @@ repos:
   hooks:
   - id: isort
   rev: 5.12.0
+- repo: https://github.com/hadialqattan/pycln
+  rev: v2.1.2
+  hooks:
+  - id: pycln
+    args: [. --all]
