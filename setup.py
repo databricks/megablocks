@@ -25,7 +25,10 @@ ext_modules = [
         "megablocks_ops",
         ["csrc/ops.cu"],
         include_dirs=["csrc"],
-        extra_compile_args={"cxx": ["-fopenmp"], "nvcc": nvcc_flags},
+        extra_compile_args={
+            "cxx": ["-fopenmp"],
+            "nvcc": nvcc_flags,
+        },
     ),
 ]
 
@@ -44,7 +47,7 @@ extra_deps["gg"] = [
 ]
 
 extra_deps['dev'] = [
-    'absl-py', # todo: delete when finish removing all absl tests
+    'absl-py',  # todo: delete when finish removing all absl tests
     'coverage[toml]==7.4.4',
     'pytest_codeblocks>=0.16.1,<0.17',
     'pytest-cov>=4,<5',

@@ -48,8 +48,13 @@ def testBinnedScatter(sl: int, hs: int, ne: int, top_k: int):
 
     x = ops.binned_gather(x, indices, bins, ec, top_k)
 
-    def binned_scatter(x: torch.Tensor, indices: torch.Tensor,
-                      weights: torch.Tensor, bins: torch.Tensor, top_k: int):
+    def binned_scatter(
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        weights: torch.Tensor,
+        bins: torch.Tensor,
+        top_k: int,
+    ):
         x = x.cpu().numpy()
         indices = indices.cpu().numpy()
         weights = weights.cpu().numpy()
@@ -66,10 +71,14 @@ def testBinnedScatter(sl: int, hs: int, ne: int, top_k: int):
                 out[index, :] += scale * x[i, j, :]
             start = end
         return torch.from_numpy(out).cuda().half()
+
     out = ops.binned_scatter(x, indices, weights, bins, top_k)
     expected_out = binned_scatter(x, indices, weights, bins, top_k)
 
     # NOTE: We need to check approximate equality because the
     # scatter reduce uses atomics.
     assert np.testing.assert_allclose(
-        out.cpu(), expected_out.cpu(), rtol=5e-3) is None
+        out.cpu(),
+        expected_out.cpu(),
+        rtol=5e-3,
+    ) is None

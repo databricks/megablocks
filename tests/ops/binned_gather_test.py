@@ -46,8 +46,13 @@ def test_binned_gather(sl: int, hs: int, ne: int, top_k: int):
     _, indices = ops.sort(top_expert)
     bins = ops.inclusive_cumsum(ops.histogram(top_expert, ne), 0)
 
-    def binned_gather(x: torch.Tensor, indices: torch.Tensor,
-                      bins: torch.Tensor, ec: int, top_k: int):
+    def binned_gather(
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bins: torch.Tensor,
+        ec: int,
+        top_k: int,
+    ):
         x = x.cpu().numpy()
         indices = indices.cpu().numpy()
         bins = bins.cpu().numpy()

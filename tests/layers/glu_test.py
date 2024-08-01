@@ -14,10 +14,11 @@ _DENSE_TESTS = (
 
 
 def construct_dmoe_glu(
-        hidden_size: int,
-        ffn_hidden_size: int,
-        mlp_impl: str ='sparse',
-        memory_optimized_mlp: bool =False):
+    hidden_size: int,
+    ffn_hidden_size: int,
+    mlp_impl: str = 'sparse',
+    memory_optimized_mlp: bool = False,
+):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,
@@ -29,7 +30,8 @@ def construct_dmoe_glu(
         mlp_type='glu',
         mlp_impl=mlp_impl,
         fp16=False,
-        bf16=True)
+        bf16=True,
+    )
 
     glu = testing.GLU(args)
     dmoe_glu = dmlp_registry.get(args)
@@ -45,7 +47,6 @@ def construct_dmoe_glu(
     return args, glu, dmoe_glu
 
 
-
 @pytest.mark.gpu
 @pytest.mark.parametrize(('bs', 'sl', 'hs'), _DENSE_TESTS)
 def test_glu_forward_grouped_mlp(bs: int, sl: int, hs: int):
@@ -54,7 +55,8 @@ def test_glu_forward_grouped_mlp(bs: int, sl: int, hs: int):
     _, glu, dmoe_glu = construct_dmoe_glu(
         hidden_size=hs,
         ffn_hidden_size=hs * 2,
-        mlp_impl='grouped')
+        mlp_impl='grouped',
+    )
 
     expected_out = glu(x)
     tokens_per_expert = torch.tensor([bs * sl]).cuda()
@@ -74,7 +76,8 @@ def test_glu_forward_grouped_mlp_mem_opt(bs: int, sl: int, hs: int):
         hidden_size=hs,
         ffn_hidden_size=hs * 2,
         mlp_impl='grouped',
-        memory_optimized_mlp=True)
+        memory_optimized_mlp=True,
+    )
 
     expected_out = glu(x)
     tokens_per_expert = torch.tensor([bs * sl]).cuda()
@@ -93,7 +96,8 @@ def test_glu_forward_sparse_mlp(bs: int, sl: int, hs: int):
     _, glu, dmoe_glu = construct_dmoe_glu(
         hidden_size=hs,
         ffn_hidden_size=hs * 2,
-        mlp_impl='sparse')
+        mlp_impl='sparse',
+    )
 
     expected_out = glu(x)
     with torch.no_grad():

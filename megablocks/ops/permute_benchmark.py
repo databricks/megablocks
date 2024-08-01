@@ -39,6 +39,7 @@ class PermuteBenchmark(parameterized.TestCase):
 
         def benchmark():
             return ops.binned_gather(x, indices, bins, ec)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -62,6 +63,7 @@ class PermuteBenchmark(parameterized.TestCase):
 
         def benchmark():
             return ops.binned_scatter(x, indices, bins)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -85,6 +87,7 @@ class PermuteBenchmark(parameterized.TestCase):
 
         def benchmark():
             return ops.padded_gather(x, indices, bin_ids, bins, padded_bins)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -109,6 +112,7 @@ class PermuteBenchmark(parameterized.TestCase):
 
         def benchmark():
             return ops.padded_scatter(x, indices, bin_ids, bins, padded_bins)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,
@@ -128,6 +132,7 @@ class PermuteBenchmark(parameterized.TestCase):
 
         def benchmark():
             return y.copy_(x)
+
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
             "sequence_length": sl,

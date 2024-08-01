@@ -32,7 +32,8 @@ SORT_TESTS = [
 
 
 def torch_to_numpy_dtype(
-        dtype: torch.dtype) -> Union[np.int16, np.int32, np.int64]:
+    dtype: torch.dtype,
+) -> Union[np.int16, np.int32, np.int64]:
     types: Dict[torch.dtype, Union[np.int16, np.int32, np.int64]] = {
         torch.int16: np.int16,
         torch.int32: np.int32,

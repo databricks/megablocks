@@ -35,17 +35,28 @@ class PaddedScatterTest(parameterized.TestCase):
         x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
 
         def benchmark():
-            return ops.padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k)
+            return ops.padded_scatter(
+                x,
+                indices,
+                bin_ids,
+                weights,
+                bins,
+                padded_bins,
+                top_k,
+            )
 
         time, std = benchmark_util.benchmark_function(benchmark)
         benchmark_util.log_benchmark(
             "Padded Scatter",
-            {"sequence_length": sl,
-             "hidden_size": hs,
-             "num_experts": ne,
-             "top_k": top_k},
+            {
+                "sequence_length": sl,
+                "hidden_size": hs,
+                "num_experts": ne,
+                "top_k": top_k,
+            },
             time,
-            std)
+            std,
+        )
 
 
 if __name__ == '__main__':

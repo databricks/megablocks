@@ -4,10 +4,7 @@ import torch
 
 from megablocks.layers import arguments, dmoe
 
-_TESTS = (
-    (8, 2048, 4096, 4096, 32, 4),
-
-)
+_TESTS = ((8, 2048, 4096, 4096, 32, 4),)
 
 
 def get_tensors():
@@ -23,13 +20,14 @@ def get_tensors():
 
 
 def test_memory(
-        group,
-        batch_size,
-        sequence_length,
-        hidden_size,
-        ffn_hidden_size,
-        num_experts,
-        top_k):
+    group,
+    batch_size,
+    sequence_length,
+    hidden_size,
+    ffn_hidden_size,
+    num_experts,
+    top_k,
+):
     args = arguments.Arguments(
         hidden_size=hidden_size,
         ffn_hidden_size=ffn_hidden_size,
@@ -39,13 +37,13 @@ def test_memory(
         expert_parallel_group=group,
         fp16=False,
         bf16=True,
-        device=torch.cuda.current_device())
+        device=torch.cuda.current_device(),
+    )
     layer = dmoe.dMoE(args).cuda()
 
-    x = torch.randn(
-        (batch_size, sequence_length, hidden_size),
-        device=torch.cuda.current_device(),
-        dtype=torch.bfloat16).requires_grad_(True)
+    x = torch.randn((batch_size, sequence_length, hidden_size),
+                    device=torch.cuda.current_device(),
+                    dtype=torch.bfloat16).requires_grad_(True)
     torch.cuda.empty_cache()
 
     # Run forward + backward.
@@ -55,16 +53,18 @@ def test_memory(
 
     # Report peak memory.
     mem = torch.cuda.max_memory_allocated()
-    print("Max Memory Allocated = {:0.0f}MiB".format(
-        mem / 1e6))
-    print("Max Memory Reserved = {:0.0f}MiB".format(
-        torch.cuda.max_memory_reserved() / 1e6))
+    print("Max Memory Allocated = {:0.0f}MiB".format(mem / 1e6))
+    print(
+        "Max Memory Reserved = {:0.0f}MiB".format(
+            torch.cuda.max_memory_reserved() / 1e6,
+        ),
+    )
 
     # Calculate weight and gradient memory usage.
     weight_memory = 2 * (
-        layer.router.layer.weight.numel() +
-        layer.experts.mlp.w1.numel() +
-        layer.experts.mlp.w2.numel())
+        layer.router.layer.weight.numel() + layer.experts.mlp.w1.numel() +
+        layer.experts.mlp.w2.numel()
+    )
 
     def grad_numel(x):
         if x.grad is not None:
@@ -73,14 +73,15 @@ def test_memory(
 
     grad_memory = 2 * (
         grad_numel(layer.router.layer.weight) +
-        grad_numel(layer.experts.mlp.w1) +
-        grad_numel(layer.experts.mlp.w2))
+        grad_numel(layer.experts.mlp.w1) + grad_numel(layer.experts.mlp.w2)
+    )
     weight_memory += grad_memory
 
-    print("Weight Memory Allocated = {:0.0f}MiB".format(
-        weight_memory / 1e6))
-    print("Activation Memory Allocated = {:0.0f}MiB".format(
-        (mem - weight_memory) / 1e6))
+    print("Weight Memory Allocated = {:0.0f}MiB".format(weight_memory / 1e6))
+    print(
+        "Activation Memory Allocated = {:0.0f}MiB".format((mem - weight_memory)
+                                                          / 1e6,),
+    )
 
     # Manually calculate GPU memory usage from the garbage
     # collector.
@@ -93,8 +94,7 @@ def test_memory(
         print(f"{i}: {t.shape}, {t.numel() * 2}")
     del tensors
 
-    print("Total Bytes Found = {:0.0f}MiB".format(
-        total * 2 / 1e6))
+    print("Total Bytes Found = {:0.0f}MiB".format(total * 2 / 1e6))
 
 
 if __name__ == '__main__':

@@ -6,3 +6,15 @@ repos:
   hooks:
   - id: ruff
     args: [--fix, --exit-non-zero-on-fix]
+- repo: https://github.com/google/yapf
+  rev: v0.32.0
+  hooks:
+  - id: yapf
+    name: yapf
+    description: A formatter for Python files.
+    entry: yapf
+    args: [-i, -vv, -p]  # inplace
+    language: python
+    types: [python]
+    additional_dependencies:
+    - toml

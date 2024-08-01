@@ -7,12 +7,12 @@ import torch
 # c++ operations.
 import megablocks_ops as ops
 
-
 _BITS_FOR_DTYPE = {
     torch.int16: 16,
     torch.int32: 32,
     torch.int64: 64,
 }
+
 
 # Autograd wrapper for sort kernel.
 #
@@ -27,4 +27,6 @@ class SortOp(torch.autograd.Function):
         iota_out = torch.empty_like(x)
         ops.sort(x, end_bit, x_out, iota_out)
         return (x_out, iota_out)
+
+
 sort = SortOp.apply

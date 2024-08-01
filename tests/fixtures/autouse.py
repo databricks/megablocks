@@ -50,7 +50,8 @@ def configure_dist(request: pytest.FixtureRequest):
     device = None
 
     for item in request.session.items:
-        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        device = DeviceCPU(
+        ) if item.get_closest_marker('gpu') is None else DeviceGPU()
         break
 
     assert device is not None
@@ -74,7 +75,11 @@ def set_log_levels():
 def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
     """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
     each test to the rank local seed."""
-    monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
+    monkeypatch.setattr(
+        reproducibility,
+        'get_random_seed',
+        lambda: rank_zero_seed,
+    )
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 

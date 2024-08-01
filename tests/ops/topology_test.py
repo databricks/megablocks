@@ -48,8 +48,12 @@ def test_topology(sl: int, hs: int, ne: int):
     output_block_rows = int(padded_bins[-1]) // blocking
     output_block_columns = hs // blocking
 
-    def topology(padded_bins: torch.Tensor, blocking: torch.Tensor, rows: int,
-                 columns: int):
+    def topology(
+        padded_bins: torch.Tensor,
+        blocking: torch.Tensor,
+        rows: int,
+        columns: int,
+    ):
         padded_bins = padded_bins.cpu().numpy()
 
         out = np.zeros([rows * columns])
@@ -62,8 +66,16 @@ def test_topology(sl: int, hs: int, ne: int):
                 start += 1
         return torch.from_numpy(out).cuda().short()
 
-    out = ops.topology(padded_bins, blocking, output_block_rows,
-                       output_block_columns)
-    expected_out = topology(padded_bins, blocking, output_block_rows,
-                            output_block_columns)
+    out = ops.topology(
+        padded_bins,
+        blocking,
+        output_block_rows,
+        output_block_columns,
+    )
+    expected_out = topology(
+        padded_bins,
+        blocking,
+        output_block_rows,
+        output_block_columns,
+    )
     assert torch.all(torch.eq(out, expected_out))
