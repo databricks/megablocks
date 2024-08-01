@@ -37,21 +37,21 @@ def batched_load_balancing_loss(args: Arguments):
 
     if len(tokens_per_expert) != num_layers_per_pipeline_stage:
         raise ValueError(
-            f"Expected {num_layers_per_pipeline_stage} token_per_experts "
-            f"but found {len(tokens_per_expert)}.\nnum_layers = "
-            f"{args.num_layers}\npipeline_model_parallel_size = "
-            f"{args.pipeline_model_parallel_size}\n"
-            "num_layers_per_virtual_pipeline_stage"
-            f" = {args.num_layers_per_virtual_pipeline_stage}",
+            f'Expected {num_layers_per_pipeline_stage} token_per_experts '
+            f'but found {len(tokens_per_expert)}.\nnum_layers = '
+            f'{args.num_layers}\npipeline_model_parallel_size = '
+            f'{args.pipeline_model_parallel_size}\n'
+            'num_layers_per_virtual_pipeline_stage'
+            f' = {args.num_layers_per_virtual_pipeline_stage}',
         )
     if len(expert_scores) != num_layers_per_pipeline_stage:
         raise ValueError(
-            f"Expected {num_layers_per_pipeline_stage} expert_scores "
-            f"but found {len(tokens_per_expert)}.\nnum_layers = "
-            f"{args.num_layers}\npipeline_model_parallel_size = "
-            f"{args.pipeline_model_parallel_size}\n"
-            "num_layers_per_virtual_pipeline_stage"
-            f" = {args.num_layers_per_virtual_pipeline_stage}",
+            f'Expected {num_layers_per_pipeline_stage} expert_scores '
+            f'but found {len(tokens_per_expert)}.\nnum_layers = '
+            f'{args.num_layers}\npipeline_model_parallel_size = '
+            f'{args.pipeline_model_parallel_size}\n'
+            'num_layers_per_virtual_pipeline_stage'
+            f' = {args.num_layers_per_virtual_pipeline_stage}',
         )
 
     # Verify the shape of the tokens_per_expert and expert_scores tensors.

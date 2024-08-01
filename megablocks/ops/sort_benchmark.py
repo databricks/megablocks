@@ -41,13 +41,13 @@ def benchmark_function(fn, iterations=10):
 
 
 def log_benchmark(arguments, mean_t, std_t):
-    print("=" * 60)
-    print("Benchmark Parameters:")
+    print('=' * 60)
+    print('Benchmark Parameters:')
     for (key, value) in arguments.items():
-        print(f"{key} = {value}")
-    print("Results:")
-    print("mean / std = {:.2f}ms / {:.2f}ms".format(mean_t, std_t))
-    print("=" * 60)
+        print(f'{key} = {value}')
+    print('Results:')
+    print('mean / std = {:.2f}ms / {:.2f}ms'.format(mean_t, std_t))
+    print('=' * 60)
 
 
 class SortBenchmark(parameterized.TestCase):
@@ -61,9 +61,9 @@ class SortBenchmark(parameterized.TestCase):
 
         mean_t, std_t, max_t, min_t = benchmark_function(lambda: ops.sort(x, end_bit),)
         arguments = {
-            "n": n,
-            "dtype": dtype,
-            "max_val": max_val,
+            'n': n,
+            'dtype': dtype,
+            'max_val': max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 
@@ -73,7 +73,7 @@ class SortBenchmark(parameterized.TestCase):
 
         mean_t, std_t, max_t, min_t = benchmark_function(lambda: torch.sort(x))
         arguments = {
-            "n": n,
+            'n': n,
         }
         log_benchmark(arguments, mean_t, std_t)
 

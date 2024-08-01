@@ -5,7 +5,7 @@ import triton.language as tl
 
 def assert_is_tensor(x, ndim):
     if x.ndim != ndim:
-        raise ValueError(f"Expected {ndim}-tensor but got {x.ndim}-tensor")
+        raise ValueError(f'Expected {ndim}-tensor but got {x.ndim}-tensor')
 
 
 def assert_is_matrix(x):
@@ -14,12 +14,12 @@ def assert_is_matrix(x):
 
 def assert_is_vector(x):
     if x.ndim != 1:
-        raise ValueError(f"Expected 1-tensor but got {x.ndim}-tensor")
+        raise ValueError(f'Expected 1-tensor but got {x.ndim}-tensor')
 
 
 def assert_equal(a, b):
     if a != b:
-        raise ValueError(f"Expected dimensions to be equal but got {a} and {b}.",)
+        raise ValueError(f'Expected dimensions to be equal but got {a} and {b}.',)
 
 
 # a: (tokens, hidden_size), real.

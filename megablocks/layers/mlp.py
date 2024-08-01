@@ -243,7 +243,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # unpack saved tensors
         # dtype = ctx.dtype
@@ -467,7 +467,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # Unpack saved tensors
         # dtype = ctx.dtype
@@ -540,7 +540,7 @@ class GroupedMLP(SparseMLP):
         w2 = resolve_dtensor(w2).view(ne, -1, self.args.hidden_size)
 
         if self.args.moe_weight_parallelism:
-            raise NotImplementedError("Weight parallelism not yet supported with GroupedMLP.",)
+            raise NotImplementedError('Weight parallelism not yet supported with GroupedMLP.',)
 
         if self.args.memory_optimized_mlp:
             return memory_optimized_grouped_mlp(

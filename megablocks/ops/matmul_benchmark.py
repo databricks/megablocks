@@ -28,9 +28,9 @@ _MATMUL_TESTS = (
 
 def log_benchmark(name, arguments, time, std, flops):
     benchmark_util.log_benchmark(name, arguments, time, std)
-    print("flops = {:.2f}B".format(flops / 1e9))
-    print("throughput = {:.2f}T".format(flops / 1e9 / time))
-    print("=" * 60)
+    print('flops = {:.2f}B'.format(flops / 1e9))
+    print('throughput = {:.2f}T'.format(flops / 1e9 / time))
+    print('=' * 60)
 
 
 class MatmulBenchmark(parameterized.TestCase):
@@ -103,13 +103,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "0::Fwd::SDD::NT",
+            '0::Fwd::SDD::NT',
             arguments,
             mean_t,
             std_t,
@@ -127,13 +127,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "0::GradX::DSD::NN",
+            '0::GradX::DSD::NN',
             arguments,
             mean_t,
             std_t,
@@ -151,13 +151,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "0::GradW::DSD::TN",
+            '0::GradW::DSD::TN',
             arguments,
             mean_t,
             std_t,
@@ -175,13 +175,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "1::Fwd::DSD::NN",
+            '1::Fwd::DSD::NN',
             arguments,
             mean_t,
             std_t,
@@ -201,13 +201,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "1::GradX::SDD::NT",
+            '1::GradX::SDD::NT',
             arguments,
             mean_t,
             std_t,
@@ -227,13 +227,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "1::GradW::DSD::TN",
+            '1::GradW::DSD::TN',
             arguments,
             mean_t,
             std_t,
@@ -254,13 +254,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "0::Fwd:DDD::NT",
+            '0::Fwd:DDD::NT',
             arguments,
             mean_t,
             std_t,
@@ -280,13 +280,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "0:GradX:DDD::NN",
+            '0:GradX:DDD::NN',
             arguments,
             mean_t,
             std_t,
@@ -306,13 +306,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "0:GradW:DDD::TN",
+            '0:GradW:DDD::TN',
             arguments,
             mean_t,
             std_t,
@@ -330,13 +330,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "1::Fwd::DDD::NN",
+            '1::Fwd::DDD::NN',
             arguments,
             mean_t,
             std_t,
@@ -356,13 +356,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "1::GradX::DDD::NT",
+            '1::GradX::DDD::NT',
             arguments,
             mean_t,
             std_t,
@@ -382,13 +382,13 @@ class MatmulBenchmark(parameterized.TestCase):
 
         mean_t, std_t = benchmark_util.benchmark_function(benchmark)
         arguments = {
-            "sequence_length": sl,
-            "hidden_size": hs,
-            "ffn_hidden_size": fhs,
-            "num_experts": ne,
+            'sequence_length': sl,
+            'hidden_size': hs,
+            'ffn_hidden_size': fhs,
+            'num_experts': ne,
         }
         log_benchmark(
-            "1::GradW::DDD::TN",
+            '1::GradW::DDD::TN',
             arguments,
             mean_t,
             std_t,

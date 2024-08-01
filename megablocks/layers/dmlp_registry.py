@@ -21,7 +21,7 @@ def get(args: Arguments) -> MlpType:
     """Returns an MLP for use in a dMoE instance.
 
     Uses the provided arguments to instantiate the appropriate
-    MLP instance. This only contains MLPs for use in dMoEs 
+    MLP instance. This only contains MLPs for use in dMoEs
     (ie. only for the dropless versions of MoEs).
 
     Args:

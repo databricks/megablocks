@@ -47,12 +47,12 @@ class PaddedScatterTest(parameterized.TestCase):
 
         time, std = benchmark_util.benchmark_function(benchmark)
         benchmark_util.log_benchmark(
-            "Padded Scatter",
+            'Padded Scatter',
             {
-                "sequence_length": sl,
-                "hidden_size": hs,
-                "num_experts": ne,
-                "top_k": top_k,
+                'sequence_length': sl,
+                'hidden_size': hs,
+                'num_experts': ne,
+                'top_k': top_k,
             },
             time,
             std,

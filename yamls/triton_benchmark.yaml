@@ -11,7 +11,7 @@ integrations:
 command: |-
   export ENABLE_TMA=1
   export ENABLE_MMA_V3=1
-  
+
   cd triton/python
   pip install . --no-dependencies
 

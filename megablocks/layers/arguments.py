@@ -12,7 +12,7 @@ InitFn = Callable[[torch.Tensor], None]
 
 _ALLOWED_BITWIDTHS = (-1, 4, 8)
 
-DEFAULT_ACTIVATION_FN = partial(F.gelu, approximate="tanh")
+DEFAULT_ACTIVATION_FN = partial(F.gelu, approximate='tanh')
 
 
 @dataclasses.dataclass

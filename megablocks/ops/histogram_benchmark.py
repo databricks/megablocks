@@ -35,13 +35,13 @@ def benchmark_function(fn, iterations=10):
 
 
 def log_benchmark(arguments, mean_t, std_t):
-    print("=" * 60)
-    print("Benchmark Parameters:")
+    print('=' * 60)
+    print('Benchmark Parameters:')
     for (key, value) in arguments.items():
-        print(f"{key} = {value}")
-    print("Results:")
-    print("mean / std = {:.2f}ms / {:.2f}ms".format(mean_t, std_t))
-    print("=" * 60)
+        print(f'{key} = {value}')
+    print('Results:')
+    print('mean / std = {:.2f}ms / {:.2f}ms'.format(mean_t, std_t))
+    print('=' * 60)
 
 
 class HistogramBenchmark(parameterized.TestCase):
@@ -52,9 +52,9 @@ class HistogramBenchmark(parameterized.TestCase):
 
         mean_t, std_t, max_t, min_t = benchmark_function(lambda: ops.histogram(x, max_val),)
         arguments = {
-            "n": n,
-            "dtype": dtype,
-            "max_val": max_val,
+            'n': n,
+            'dtype': dtype,
+            'max_val': max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 
@@ -64,9 +64,9 @@ class HistogramBenchmark(parameterized.TestCase):
 
         mean_t, std_t, max_t, min_t = benchmark_function(lambda: torch.histc(x, max_val, 0, max_val - 1),)
         arguments = {
-            "n": n,
-            "dtype": dtype,
-            "max_val": max_val,
+            'n': n,
+            'dtype': dtype,
+            'max_val': max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 

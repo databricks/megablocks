@@ -53,8 +53,8 @@ def test_memory(
 
     # Report peak memory.
     mem = torch.cuda.max_memory_allocated()
-    print("Max Memory Allocated = {:0.0f}MiB".format(mem / 1e6))
-    print("Max Memory Reserved = {:0.0f}MiB".format(torch.cuda.max_memory_reserved() / 1e6,),)
+    print('Max Memory Allocated = {:0.0f}MiB'.format(mem / 1e6))
+    print('Max Memory Reserved = {:0.0f}MiB'.format(torch.cuda.max_memory_reserved() / 1e6,),)
 
     # Calculate weight and gradient memory usage.
     weight_memory = 2 * (
@@ -71,8 +71,8 @@ def test_memory(
     )
     weight_memory += grad_memory
 
-    print("Weight Memory Allocated = {:0.0f}MiB".format(weight_memory / 1e6))
-    print("Activation Memory Allocated = {:0.0f}MiB".format((mem - weight_memory) / 1e6,),)
+    print('Weight Memory Allocated = {:0.0f}MiB'.format(weight_memory / 1e6))
+    print('Activation Memory Allocated = {:0.0f}MiB'.format((mem - weight_memory) / 1e6,),)
 
     # Manually calculate GPU memory usage from the garbage
     # collector.
@@ -82,10 +82,10 @@ def test_memory(
     tensors = sorted(tensors, key=lambda x: -x.numel())
     for i, t in enumerate(tensors):
         total += t.numel()
-        print(f"{i}: {t.shape}, {t.numel() * 2}")
+        print(f'{i}: {t.shape}, {t.numel() * 2}')
     del tensors
 
-    print("Total Bytes Found = {:0.0f}MiB".format(total * 2 / 1e6))
+    print('Total Bytes Found = {:0.0f}MiB'.format(total * 2 / 1e6))
 
 
 if __name__ == '__main__':
