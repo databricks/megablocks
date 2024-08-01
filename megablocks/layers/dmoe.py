@@ -1,12 +1,10 @@
-from megablocks.layers import common
-from megablocks.layers import moe
-from megablocks.layers import dmlp_registry
-from megablocks.layers import mpu
-from megablocks.layers.arguments import Arguments
-import megablocks.ops as ops
 import numpy as np
 import stk
 import torch
+
+import megablocks.ops as ops
+from megablocks.layers import common, dmlp_registry, moe, mpu
+from megablocks.layers.arguments import Arguments
 
 
 def promote_scalar(x):

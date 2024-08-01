@@ -1,7 +1,7 @@
 from typing import Callable
 
-import torch
 import stk
+import torch
 
 
 def act_fn(

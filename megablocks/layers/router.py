@@ -1,6 +1,7 @@
+import torch
+
 from megablocks.layers import common
 from megablocks.layers.arguments import Arguments
-import torch
 
 
 # NOTE: To enable end-to-end benchmarking without convergence we

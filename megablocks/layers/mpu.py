@@ -1,5 +1,6 @@
-from megablocks.layers.arguments import Arguments
 import torch
+
+from megablocks.layers.arguments import Arguments
 
 
 def is_moe_param(tensor: torch.Tensor) -> bool:

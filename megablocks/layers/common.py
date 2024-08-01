@@ -1,5 +1,6 @@
-from megablocks.layers.arguments import Arguments
 import torch
+
+from megablocks.layers.arguments import Arguments
 
 
 def dtype(args: Arguments):

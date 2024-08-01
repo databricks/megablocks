@@ -1,9 +1,11 @@
 import dataclasses
 from functools import partial
-import megablocks.grouped_gemm_util as grouped_gemm
+from typing import Any, Callable, Optional, Union
+
 import torch
 import torch.nn.functional as F
-from typing import Any, Callable, Optional, Union
+
+import megablocks.grouped_gemm_util as grouped_gemm
 
 # Type annotation for in-place Tensor initialization function.
 InitFn = Callable[[torch.Tensor], None]
