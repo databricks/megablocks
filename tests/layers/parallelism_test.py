@@ -81,8 +81,7 @@ def test_expert_parallel_versus_weight_parallel(
     # NOTE: Include the rank in the seed so we get different data per rank.
     rank = torch.distributed.get_rank(group)
     torch.manual_seed(1234 * rank)
-    x = torch.randn((batch_size, sequence_length, hidden_size),
-                    device=torch.cuda.current_device(),
+    x = torch.randn((batch_size, sequence_length, hidden_size), device=torch.cuda.current_device(),
                     dtype=torch.float32).requires_grad_(True)
 
     # Test forward.

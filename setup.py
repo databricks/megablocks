@@ -16,9 +16,7 @@ nvcc_flags = [
     "--optimize=2",
 ]
 if device_capability:
-    nvcc_flags.append(
-        f"--generate-code=arch=compute_{device_capability},code=sm_{device_capability}",
-    )
+    nvcc_flags.append(f"--generate-code=arch=compute_{device_capability},code=sm_{device_capability}",)
 
 ext_modules = [
     CUDAExtension(
@@ -59,10 +57,7 @@ extra_deps['testing'] = [
     'mosaicml>=0.22.0',
 ]
 
-extra_deps['all'] = list({
-    dep for key, deps in extra_deps.items() for dep in deps
-    if key not in {'testing'}
-})
+extra_deps['all'] = list({dep for key, deps in extra_deps.items() for dep in deps if key not in {'testing'}})
 
 setup(
     name="megablocks",

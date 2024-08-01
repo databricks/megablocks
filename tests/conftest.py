@@ -37,9 +37,7 @@ def _get_option(
         val = None
     if val is None:
         if default is None:
-            pytest.fail(
-                f'Config option {name} is not specified but is required',
-            )
+            pytest.fail(f'Config option {name} is not specified but is required',)
         val = default
     assert isinstance(val, str)
     return val

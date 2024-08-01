@@ -19,9 +19,7 @@ def assert_is_vector(x):
 
 def assert_equal(a, b):
     if a != b:
-        raise ValueError(
-            f"Expected dimensions to be equal but got {a} and {b}.",
-        )
+        raise ValueError(f"Expected dimensions to be equal but got {a} and {b}.",)
 
 
 # a: (tokens, hidden_size), real.
@@ -182,9 +180,7 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
         assert_equal(indices.shape[0], weights.shape[0])
 
     tokens = indices.shape[0] // top_k
-    out = torch.empty((tokens, top_k, x.shape[1]),
-                      dtype=x.dtype,
-                      device=x.device)
+    out = torch.empty((tokens, top_k, x.shape[1]), dtype=x.dtype, device=x.device)
     _padded_copy[(indices.shape[0],)](
         out,
         x,
@@ -400,9 +396,7 @@ def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
         assert_equal(weights.shape[0], x.shape[0] * top_k)
 
     num_experts = bins.shape[0]
-    out = torch.zeros((num_experts, expert_capacity, x.shape[1]),
-                      dtype=x.dtype,
-                      device=x.device)
+    out = torch.zeros((num_experts, expert_capacity, x.shape[1]), dtype=x.dtype, device=x.device)
 
     _binned_copy[(num_experts, expert_capacity)](
         x,
@@ -432,9 +426,7 @@ def binned_scatter(x, indices, weights, bins, top_k):
 
     num_experts, expert_capacity, hidden_size = x.shape
     tokens = indices.shape[0] // top_k
-    out = torch.zeros((tokens, top_k, hidden_size),
-                      dtype=x.dtype,
-                      device=x.device)
+    out = torch.zeros((tokens, top_k, hidden_size), dtype=x.dtype, device=x.device)
     _binned_copy[(num_experts, expert_capacity)](
         out,
         x,

@@ -48,6 +48,9 @@ include = [
 
 # Ruff global
 [tool.ruff]
+
+preview = true # enable preview features, see https://docs.astral.sh/ruff/preview/
+
 exclude = [
     "build/**",
     "docs/**",
@@ -60,10 +63,10 @@ select = [
     "C4", # flake8-comprehensions
     # TODO port pydocstyle
     # "D", # pydocstyle
-    "LOG",
-    "PERF",
+    "LOG", # flake8-logging
+    "PERF", # Perflint
     "PLE",
-    "COM812",
+    "COM812", # missing-trailing-comma
 ]
 
 ignore = [
@@ -74,6 +77,7 @@ ignore = [
 
 # Yapf
 [tool.yapf]
+
 # Align closing bracket with visual indentation.
 align_closing_bracket_with_visual_indent = false
 
@@ -153,7 +157,7 @@ blank_line_before_nested_class_or_def = true
 coalesce_brackets = true
 
 # The column limit.
-column_limit = 80
+column_limit = 120
 
 # The style for continuation alignment. Possible values are:
 #

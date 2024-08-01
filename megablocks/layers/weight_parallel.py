@@ -260,10 +260,7 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (
-            not x.is_contiguous() or not w1.is_contiguous() or
-            not w2.is_contiguous()
-        ):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
@@ -305,10 +302,7 @@ class MemoryOptimizedWeightParallelMLP(torch.autograd.Function):
         x, w1, w2 = ctx.saved_tensors[:3]
         sdd_out = stk.Matrix(ctx.shape, *ctx.saved_tensors[3:])
 
-        if (
-            not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]
-        ):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Start the weight gather asynchronously to overlap with the

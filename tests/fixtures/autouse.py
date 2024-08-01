@@ -50,8 +50,7 @@ def configure_dist(request: pytest.FixtureRequest):
     device = None
 
     for item in request.session.items:
-        device = DeviceCPU(
-        ) if item.get_closest_marker('gpu') is None else DeviceGPU()
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
         break
 
     assert device is not None

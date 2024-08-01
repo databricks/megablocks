@@ -31,9 +31,7 @@ def batched_load_balancing_loss(args: Arguments):
     # tokens_per_expert[i].shape = (num_experts)
     # expert_scores[i].shape = (tokens, num_experts)
     tokens_per_expert, expert_scores = zip(*get_load_balancing_loss())
-    num_layers_per_pipeline_stage = (
-        args.num_layers // args.pipeline_model_parallel_size
-    )
+    num_layers_per_pipeline_stage = (args.num_layers // args.pipeline_model_parallel_size)
     if args.num_layers_per_virtual_pipeline_stage is not None:
         num_layers_per_pipeline_stage = args.num_layers_per_virtual_pipeline_stage
 
@@ -57,16 +55,10 @@ def batched_load_balancing_loss(args: Arguments):
         )
 
     # Verify the shape of the tokens_per_expert and expert_scores tensors.
-    assert all((
-        x.ndim == 1 and x.numel() == args.moe_num_experts
-        for x in tokens_per_expert
-    ))
+    assert all((x.ndim == 1 and x.numel() == args.moe_num_experts for x in tokens_per_expert))
 
     tokens = expert_scores[0].shape[0]
-    assert all(((
-        x.ndim == 2 and x.shape[1] == args.moe_num_experts and
-        x.shape[0] == tokens
-    ) for x in expert_scores))
+    assert all(((x.ndim == 2 and x.shape[1] == args.moe_num_experts and x.shape[0] == tokens) for x in expert_scores))
 
     # Concatenate the contributions of each layer and convert to
     # the correct types and formats for the dot product.
@@ -130,16 +122,11 @@ class ParallelMLP(torch.nn.Module):
             self.register_parameter('bias', None)
 
         # Select the forward function for the operating mode.
-        self.forward_fn = (
-            self.parallel_forward_once
-            if args.moe_expert_model_parallelism else self.forward_once
-        )
+        self.forward_fn = (self.parallel_forward_once if args.moe_expert_model_parallelism else self.forward_once)
 
     def expert_capacity(self, tokens):
         world_size = mpu.get_expert_parallel_world_size(self.args)
-        tokens_per_expert = (
-            self.top_k * tokens * world_size / self.num_experts
-        )
+        tokens_per_expert = (self.top_k * tokens * world_size / self.num_experts)
         return int(self.args.moe_capacity_factor * tokens_per_expert)
 
     def load_balancing_loss(self, tokens_per_expert, expert_scores):
@@ -208,9 +195,7 @@ class ParallelMLP(torch.nn.Module):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, tokens_per_expert = (
-                self.indices_and_bins(top_experts)
-            )
+            indices, bin_ids, bins, tokens_per_expert = (self.indices_and_bins(top_experts))
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
@@ -256,9 +241,7 @@ class ParallelMLP(torch.nn.Module):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, tokens_per_expert = (
-                self.indices_and_bins(top_experts)
-            )
+            indices, bin_ids, bins, tokens_per_expert = (self.indices_and_bins(top_experts))
 
             # If we're sharding the experts along the hidden dimension
             # multiple devices own parts of the same sets of experts.
@@ -270,9 +253,7 @@ class ParallelMLP(torch.nn.Module):
 
             # Pass token count information to the device on which the
             # target expert resides.
-            parallel_tokens_per_expert = torch.empty_like(
-                repeated_tokens_per_expert,
-            )
+            parallel_tokens_per_expert = torch.empty_like(repeated_tokens_per_expert,)
             tpe_handle = torch.distributed.all_to_all_single(
                 parallel_tokens_per_expert,
                 repeated_tokens_per_expert,
@@ -296,12 +277,8 @@ class ParallelMLP(torch.nn.Module):
 
             # Reshape to [world_size, num_experts_per_rank].
             world_size = mpu.get_expert_parallel_world_size(self.args)
-            repeated_tokens_per_expert = (
-                repeated_tokens_per_expert.view(world_size, experts_per_rank)
-            )
-            parallel_tokens_per_expert = (
-                parallel_tokens_per_expert.view(world_size, experts_per_rank)
-            )
+            repeated_tokens_per_expert = (repeated_tokens_per_expert.view(world_size, experts_per_rank))
+            parallel_tokens_per_expert = (parallel_tokens_per_expert.view(world_size, experts_per_rank))
 
             # TODO(tgale): It might be faster to do this on the GPU and
             # then communicate the results back to the host.
@@ -343,10 +320,7 @@ class ParallelMLP(torch.nn.Module):
                 parallel_tokens_per_expert.flatten(),
                 0,
             )
-            replicate_bins = (
-                replicate_bins.view(1)
-                if not len(replicate_bins.size()) else replicate_bins
-            )
+            replicate_bins = (replicate_bins.view(1) if not len(replicate_bins.size()) else replicate_bins)
 
             # Construct the expert indices for the permuted tokens.
             parallel_top_expert = torch.remainder(
@@ -375,10 +349,7 @@ class ParallelMLP(torch.nn.Module):
                 dtype=torch.int,
             )
             parallel_bins = ops.inclusive_cumsum(parallel_tokens_per_expert, 0)
-            parallel_bins = (
-                parallel_bins.view(1)
-                if not len(parallel_bins.size()) else parallel_bins
-            )
+            parallel_bins = (parallel_bins.view(1) if not len(parallel_bins.size()) else parallel_bins)
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.

@@ -28,13 +28,10 @@ _FORWARD_TESTS_DEFAULT = (
     (16, 1024, 128, 1, 1),
 )
 
-_FORWARD_TESTS_GROUPED_MLP = tuple([
-    p + ('grouped',) for p in _FORWARD_TESTS_DEFAULT
-]) if gg.grouped_gemm_is_available() else ()
+_FORWARD_TESTS_GROUPED_MLP = tuple([p + ('grouped',) for p in _FORWARD_TESTS_DEFAULT
+                                   ],) if gg.grouped_gemm_is_available() else ()
 
-_FORWARD_TESTS_SPARSE_MLP = tuple([
-    p + ('sparse',) for p in _FORWARD_TESTS_DEFAULT
-])
+_FORWARD_TESTS_SPARSE_MLP = tuple([p + ('sparse',) for p in _FORWARD_TESTS_DEFAULT])
 
 _FORWARD_TESTS = (_FORWARD_TESTS_SPARSE_MLP + _FORWARD_TESTS_GROUPED_MLP)
 
@@ -80,9 +77,7 @@ def construct_moes(
         ne, hs, fhs = moe_mlp.experts.mlp.w1.size()
         w1 = dmoe_mlp.experts.mlp.w1.view([ne, fhs, hs])
         moe_mlp.experts.mlp.w1.copy_(torch.transpose(w1, 1, 2).contiguous())
-        moe_mlp.experts.mlp.w2.copy_(
-            dmoe_mlp.experts.mlp.w2.view([ne, fhs, hs]),
-        )
+        moe_mlp.experts.mlp.w2.copy_(dmoe_mlp.experts.mlp.w2.view([ne, fhs, hs]),)
         moe_mlp.router.layer.weight.copy_(dmoe_mlp.router.layer.weight)
         if moe_num_experts == 1:
             mlp.w1.copy_(moe_mlp.experts.mlp.w1.squeeze())
@@ -91,8 +86,7 @@ def construct_moes(
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k', 'mlp_impl'),
-                         _FORWARD_TESTS)
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k', 'mlp_impl'), _FORWARD_TESTS)
 def test_dmoe_forward(
     bs: int,
     sl: int,
@@ -116,8 +110,7 @@ def test_dmoe_forward(
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k', 'mlp_impl'),
-                         _FORWARD_TESTS)
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k', 'mlp_impl'), _FORWARD_TESTS)
 def test_dmoe_forward_backward(
     bs: int,
     sl: int,
@@ -173,8 +166,7 @@ def test_dmoe_forward_vs_baseline(
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k', 'mlp_impl'),
-                         _FORWARD_TESTS)
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k', 'mlp_impl'), _FORWARD_TESTS)
 def test_dmoe_forward_vs_moe(
     bs: int,
     sl: int,

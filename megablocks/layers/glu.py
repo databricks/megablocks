@@ -42,9 +42,7 @@ class SparseGLU(SparseMLP):
         )
 
         if self.args.moe_weight_parallelism:
-            raise NotImplementedError(
-                "Weight parallelism not yet supported with GLU.",
-            )
+            raise NotImplementedError("Weight parallelism not yet supported with GLU.",)
 
     def forward(self, x, topo):
         if self.args.memory_optimized_mlp:
@@ -52,12 +50,8 @@ class SparseGLU(SparseMLP):
                 "Memory optimized implementation not yet supported with GLU with sparse kernels.",
             )
 
-        w1, v1, w2 = self.scale_grad(self.w1), self.scale_grad(
-            self.v1,
-        ), self.scale_grad(self.w2)
-        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(
-            v1,
-        ), resolve_dtensor(w2)
+        w1, v1, w2 = self.scale_grad(self.w1), self.scale_grad(self.v1,), self.scale_grad(self.w2)
+        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1,), resolve_dtensor(w2)
 
         # Compute the GLU.
         x1 = stk.ops.sdd(x, w1.t(), topo)
@@ -82,10 +76,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             v1 = v1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], v1: [n, k], w2: [n, k]
-        if (
-            not x.is_contiguous() or not w1.is_contiguous() or
-            not v1.is_contiguous() or not w2.is_contiguous()
-        ):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not v1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1', 'v1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
@@ -112,10 +103,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        if (
-            not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]
-        ):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Unpack saved tensors
@@ -189,9 +177,7 @@ class GroupedGLU(SparseGLU):
             self.scale_grad(self.v1),
             self.scale_grad(self.w2),
         )
-        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(
-            v1,
-        ), resolve_dtensor(w2)
+        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1,), resolve_dtensor(w2)
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)

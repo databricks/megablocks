@@ -58,13 +58,10 @@ class Arguments:
     # shared expert arguments
     shared_expert: bool = False  # enable using shared expert
     fc_cls: torch.nn.Module = torch.nn.Linear  # class of the fully connected layer in shared expert (purpose: to allow using custom FC layer eg te.Linear (for FP8))
-    fc_kwargs: dict[str, Any] = dataclasses.field(
-        default_factory=dict,
-    )  # kwargs for custom fc layers
+    fc_kwargs: dict[str, Any] = dataclasses.field(default_factory=dict,)  # kwargs for custom fc layers
     remat_act_fn: bool = True  # enable act fn to be rematerialized instead of stored
     shared_expert_hidden_size: Optional[
-        int
-    ] = None  # hidden size of the shared expert IF we want to set it to something different from hidden_size
+        int] = None  # hidden size of the shared expert IF we want to set it to something different from hidden_size
     shared_expert_weighted_sum: bool = False  # enable using weighted sum for shared expert output (wieghted by number of experts used)
 
     def __post_init__(self):

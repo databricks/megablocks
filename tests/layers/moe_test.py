@@ -60,8 +60,7 @@ def construct_moe(
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'),
-                         _FORWARD_TESTS)
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'), _FORWARD_TESTS)
 def test_moe_forward(bs: int, sl: int, hs: int, num_experts: int, top_k: int):
     x = torch.randn(sl, bs, hs).half().cuda()
 
@@ -78,8 +77,7 @@ def test_moe_forward(bs: int, sl: int, hs: int, num_experts: int, top_k: int):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'),
-                         _FORWARD_TESTS)
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'), _FORWARD_TESTS)
 def test_moe_forward_backward(
     bs: int,
     sl: int,

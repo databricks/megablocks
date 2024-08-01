@@ -54,6 +54,5 @@ class GLU(FFN):
         )
 
     def forward(self, x):
-        x1 = F.gelu(torch.matmul(x, self.w1),
-                    approximate="tanh") * torch.matmul(x, self.v1)
+        x1 = F.gelu(torch.matmul(x, self.w1), approximate="tanh") * torch.matmul(x, self.v1)
         return torch.matmul(x1, self.w2)

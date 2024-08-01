@@ -5,9 +5,7 @@ class AllToAllOp(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, x, output_split_sizes, input_split_sizes, group, async_op):
-        out = torch.empty((sum(output_split_sizes),) + x.shape[1:],
-                          device=x.device,
-                          dtype=x.dtype)
+        out = torch.empty((sum(output_split_sizes),) + x.shape[1:], device=x.device, dtype=x.dtype)
 
         ctx.input_shape = x.shape
         ctx.output_split_sizes = output_split_sizes

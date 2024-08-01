@@ -58,9 +58,7 @@ class SortBenchmark(parameterized.TestCase):
         end_bit = int(np.ceil(np.log2(max_val)))
         x = torch.randint(0, max_val, (n,)).cuda().to(dtype)
 
-        mean_t, std_t, max_t, min_t = benchmark_function(
-            lambda: ops.sort(x, end_bit),
-        )
+        mean_t, std_t, max_t, min_t = benchmark_function(lambda: ops.sort(x, end_bit),)
         arguments = {
             "n": n,
             "dtype": dtype,

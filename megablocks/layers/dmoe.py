@@ -24,8 +24,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
 
         # Calculate the number of bits needed to represent the column indices
         # in the intermediate sparse matrix.
-        max_column_index = ((self.ffn_hidden_size * self.num_experts) //
-                            self.blocking)
+        max_column_index = ((self.ffn_hidden_size * self.num_experts) // self.blocking)
         self.transpose_sort_end_bit = max(
             int(np.ceil(np.log2(max_column_index))),
             1,
@@ -69,8 +68,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         assert padded_tokens % self.blocking == 0
         if self.ffn_hidden_size % self.blocking != 0:
             raise ValueError(
-                f'The ffn_hidden_size {self.ffn_hidden_size} must be divisible by '
-                +
+                f'The ffn_hidden_size {self.ffn_hidden_size} must be divisible by ' +
                 f'the block size {self.blocking}. Please update your configuration.',
             )
 
@@ -160,9 +158,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, padded_bins, tokens_per_expert = (
-                self.indices_and_padded_bins(top_experts)
-            )
+            indices, bin_ids, bins, padded_bins, tokens_per_expert = (self.indices_and_padded_bins(top_experts))
 
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
@@ -245,9 +241,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
         expert_weights = expert_weights.flatten()
         top_experts = top_experts.flatten()
         with torch.no_grad():
-            indices, bin_ids, bins, tokens_per_expert = (
-                self.indices_and_bins(top_experts)
-            )
+            indices, bin_ids, bins, tokens_per_expert = (self.indices_and_bins(top_experts))
 
         out = self.grouped_permute_and_compute(
             x,

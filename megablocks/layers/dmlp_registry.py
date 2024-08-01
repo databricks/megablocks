@@ -35,8 +35,6 @@ def get(args: Arguments) -> MlpType:
         raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
 
     if args.mlp_impl not in _REGISTRY[args.mlp_type]:
-        raise ValueError(
-            f'{args.mlp_type} does not support {args.mlp_impl} backend.',
-        )
+        raise ValueError(f'{args.mlp_type} does not support {args.mlp_impl} backend.',)
 
     return _REGISTRY[args.mlp_type][args.mlp_impl](args)

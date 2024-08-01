@@ -148,9 +148,7 @@ class MLP(torch.nn.Module):
 
         self.gradient_scale = None
         if self.args.moe_expert_model_parallelism:
-            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(
-                self.args,
-            )
+            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args,)
 
     def scale_grad(self, w):
         if self.gradient_scale is None:
@@ -208,10 +206,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (
-            not x.is_contiguous() or not w1.is_contiguous() or
-            not w2.is_contiguous()
-        ):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         topo_tensors = (
@@ -247,10 +242,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        if (
-            not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]
-        ):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # unpack saved tensors
@@ -328,10 +320,8 @@ class SparseMLP(torch.nn.Module):
     def __init__(self, args: Arguments):
         super().__init__()
         self.args = args
-        self._num_rows_per_rank = (
-            (mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
-            mpu.get_weight_parallel_world_size(args)
-        )
+        self._num_rows_per_rank = ((mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
+                                   mpu.get_weight_parallel_world_size(args))
 
         self.w1 = torch.nn.Parameter(
             torch.empty(
@@ -378,9 +368,7 @@ class SparseMLP(torch.nn.Module):
                 ),
             )
 
-        self._should_set_parallelism_attribute = (
-            args.moe_expert_model_parallelism or args.moe_weight_parallelism
-        )
+        self._should_set_parallelism_attribute = (args.moe_expert_model_parallelism or args.moe_weight_parallelism)
         mpu.set_expert_model_parallel_attributes(
             self.w1,
             self._should_set_parallelism_attribute,
@@ -392,9 +380,7 @@ class SparseMLP(torch.nn.Module):
 
         self.gradient_scale = None
         if self.args.moe_expert_model_parallelism:
-            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(
-                self.args,
-            )
+            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args,)
 
     def scale_grad(self, w):
         if self.gradient_scale is None:
@@ -454,10 +440,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (
-            not x.is_contiguous() or not w1.is_contiguous() or
-            not w2.is_contiguous()
-        ):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
@@ -483,10 +466,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_bwd
     def backward(ctx, ddsd_out):
-        if (
-            not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]
-        ):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError("Expected all MLP inputs to need grad.")
 
         # Unpack saved tensors
@@ -560,9 +540,7 @@ class GroupedMLP(SparseMLP):
         w2 = resolve_dtensor(w2).view(ne, -1, self.args.hidden_size)
 
         if self.args.moe_weight_parallelism:
-            raise NotImplementedError(
-                "Weight parallelism not yet supported with GroupedMLP.",
-            )
+            raise NotImplementedError("Weight parallelism not yet supported with GroupedMLP.",)
 
         if self.args.memory_optimized_mlp:
             return memory_optimized_grouped_mlp(

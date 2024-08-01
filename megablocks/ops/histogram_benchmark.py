@@ -49,9 +49,7 @@ class HistogramBenchmark(parameterized.TestCase):
     def testHistogram(self, n, dtype, max_val):
         x = torch.randint(0, max_val, (n,)).cuda().to(dtype)
 
-        mean_t, std_t, max_t, min_t = benchmark_function(
-            lambda: ops.histogram(x, max_val),
-        )
+        mean_t, std_t, max_t, min_t = benchmark_function(lambda: ops.histogram(x, max_val),)
         arguments = {
             "n": n,
             "dtype": dtype,
@@ -63,9 +61,7 @@ class HistogramBenchmark(parameterized.TestCase):
     def testTorchHistogram(self, n, dtype, max_val):
         x = torch.randint(0, 128, (n,)).cuda().to(dtype)
 
-        mean_t, std_t, max_t, min_t = benchmark_function(
-            lambda: torch.histc(x, max_val, 0, max_val - 1),
-        )
+        mean_t, std_t, max_t, min_t = benchmark_function(lambda: torch.histc(x, max_val, 0, max_val - 1),)
         arguments = {
             "n": n,
             "dtype": dtype,
