@@ -75,8 +75,11 @@ def set_log_levels():
 
 @pytest.fixture(autouse=True)
 def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
-    """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
-    each test to the rank local seed."""
+    """Monkeypatch reproducibility.
+
+    Make get_random_seed to always return the rank zero seed, and set the random seed before each test to the rank local
+    seed.
+    """
     monkeypatch.setattr(
         reproducibility,
         'get_random_seed',
