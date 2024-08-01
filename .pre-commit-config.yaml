@@ -1,3 +1,6 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 default_language_version:
   python: python3
 repos:
@@ -68,6 +71,17 @@ repos:
     - "#"
     - --allow-past-years
     types: [python]
+- repo: https://github.com/PyCQA/pydocstyle
+  rev: 6.1.1
+  hooks:
+  - id: pydocstyle
+    name: pydocstyle
+    entry: pydocstyle
+    language: python
+    types: [python]
+    exclude: (.ci|.github)
+    additional_dependencies:
+    - toml
 - repo: https://github.com/PyCQA/docformatter
   rev: v1.5.0
   hooks:

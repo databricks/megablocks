@@ -1,3 +1,6 @@
+# Copyright 2024 MosaicML MegaBlocks authors
+# SPDX-License-Identifier: Apache-2.0
+
 # build requirements
 [build-system]
 requires = ["setuptools < 70.0.0", "torch >= 2.3.0, < 2.4"]
@@ -69,11 +72,27 @@ select = [
     "COM812", # missing-trailing-comma
 ]
 
+extend-select = ["D404"] # pydocstyle
+
 ignore = [
     "C408",
     "PERF2",
     "PERF4",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D400",
+    "D401",
+    "D415",
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 
 # iSort
 [tool.isort]
@@ -486,3 +505,9 @@ ignore_patterns = [
     "wandb/**/*.py",
     "build/**/*.py",
 ]
+
+# PyDocStyle
+[tool.pydocstyle]
+convention="google"
+add_ignore="D100,D101,D102,D103,D104,D105,D107,D400,D401,D415"
+add_select="D404"
