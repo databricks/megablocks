@@ -75,6 +75,14 @@ ignore = [
     "PERF4",
 ]
 
+# iSort
+[tool.isort]
+multi_line_output = 0
+line_length = 120
+skip = ["env", "wandb", "runs", "build", "node_modules" ]
+include_trailing_comma = true
+split_on_trailing_comma = true
+
 # Yapf
 [tool.yapf]
 
