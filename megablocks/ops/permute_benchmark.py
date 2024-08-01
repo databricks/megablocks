@@ -19,7 +19,7 @@ _PERMUTE_TESTS = (
     (16384 * 8, 768, 16),
     (16384 * 8, 768, 32),
     (16384 * 8, 768, 64),
-    (16384 * 8, 768, 128)
+    (16384 * 8, 768, 128),
 )
 
 
@@ -43,7 +43,7 @@ class PermuteBenchmark(parameterized.TestCase):
         arguments = {
             "sequence_length": sl,
             "hidden_size": hs,
-            "num_experts": ne
+            "num_experts": ne,
         }
         benchmark_util.log_benchmark("BinnedGather", arguments, mean_t, std_t)
 
@@ -66,7 +66,7 @@ class PermuteBenchmark(parameterized.TestCase):
         arguments = {
             "sequence_length": sl,
             "hidden_size": hs,
-            "num_experts": ne
+            "num_experts": ne,
         }
         benchmark_util.log_benchmark("BinnedScatter", arguments, mean_t, std_t)
 
@@ -89,7 +89,7 @@ class PermuteBenchmark(parameterized.TestCase):
         arguments = {
             "sequence_length": sl,
             "hidden_size": hs,
-            "num_experts": ne
+            "num_experts": ne,
         }
         benchmark_util.log_benchmark("PaddedGather", arguments, mean_t, std_t)
 
@@ -113,7 +113,7 @@ class PermuteBenchmark(parameterized.TestCase):
         arguments = {
             "sequence_length": sl,
             "hidden_size": hs,
-            "num_experts": ne
+            "num_experts": ne,
         }
         benchmark_util.log_benchmark("PaddedScatter", arguments, mean_t, std_t)
 
@@ -132,7 +132,7 @@ class PermuteBenchmark(parameterized.TestCase):
         arguments = {
             "sequence_length": sl,
             "hidden_size": hs,
-            "num_experts": ne
+            "num_experts": ne,
         }
         benchmark_util.log_benchmark("Copy", arguments, mean_t, std_t)
 

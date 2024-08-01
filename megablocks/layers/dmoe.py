@@ -95,7 +95,7 @@ class ParallelDroplessMLP(moe.ParallelMLP):
             device='meta')
         shape = (
             padded_tokens,
-            self.ffn_hidden_size * mpu.experts_per_rank(self.args)
+            self.ffn_hidden_size * mpu.experts_per_rank(self.args),
         )
         row_indices = stk.ops.row_indices(
             shape, data, offsets, column_indices)

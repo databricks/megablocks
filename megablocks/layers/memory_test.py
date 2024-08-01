@@ -1,7 +1,8 @@
 import gc
 
-from megablocks.layers import dmoe, arguments
 import torch
+
+from megablocks.layers import arguments, dmoe
 
 _TESTS = (
     (8, 2048, 4096, 4096, 32, 4),
@@ -10,7 +11,7 @@ _TESTS = (
 
 
 def get_tensors():
-    ptrs = set([])
+    ptrs = set()
     out = []
     for obj in gc.get_objects():
         if torch.is_tensor(obj):

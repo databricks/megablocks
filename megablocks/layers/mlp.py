@@ -334,7 +334,7 @@ class SparseMLP(torch.nn.Module):
         if self.args.memory_optimized_mlp:
             if self.args.activation_fn is not DEFAULT_ACTIVATION_FN:
                 raise NotImplementedError(
-                    f'memory_optimized_weight_parallel_mlp not implemented for custom activation_fn={self.args.activation_fn}.'
+                    f'memory_optimized_weight_parallel_mlp not implemented for custom activation_fn={self.args.activation_fn}.',
                 )
             return wp.memory_optimized_weight_parallel_mlp(
                 x, w1, w2, topo, group)

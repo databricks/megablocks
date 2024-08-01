@@ -44,3 +44,30 @@ concurrency = ["thread"]
 include = [
     "megablocks/*"
 ]
+
+
+# Ruff global
+[tool.ruff]
+exclude = [
+    "build/**",
+    "docs/**",
+    "node_modules/**",
+]
+
+# Ruff linter
+[tool.ruff.lint]
+select = [
+    "C4", # flake8-comprehensions
+    # TODO port pydocstyle
+    # "D", # pydocstyle
+    "LOG",
+    "PERF",
+    "PLE",
+    "COM812",
+]
+
+ignore = [
+    "C408",
+    "PERF2",
+    "PERF4",
+]

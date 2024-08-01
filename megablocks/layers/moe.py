@@ -54,16 +54,16 @@ def batched_load_balancing_loss(args : Arguments):
             f" = {args.num_layers_per_virtual_pipeline_stage}")
 
     # Verify the shape of the tokens_per_expert and expert_scores tensors.
-    assert all([
+    assert all((
         x.ndim == 1 and x.numel() == args.moe_num_experts
         for x in tokens_per_expert
-    ])
+    ))
 
     tokens = expert_scores[0].shape[0]
-    assert all([
+    assert all((
         (x.ndim == 2 and x.shape[1] == args.moe_num_experts and
          x.shape[0] == tokens) for x in expert_scores
-    ])
+    ))
 
 
     # Concatenate the contributions of each layer and convert to
@@ -345,7 +345,7 @@ class ParallelMLP(torch.nn.Module):
                 torch.arange(
                     self.num_experts * mpu.hidden_sharding_degree(self.args),
                     dtype=torch.int32,
-                    device=indices.device
+                    device=indices.device,
                 ),
                 mpu.experts_per_rank(self.args),
             )
@@ -406,7 +406,7 @@ class ParallelMLP(torch.nn.Module):
         shape = (
             mpu.hidden_sharding_degree(self.args),
             -1,
-            self.args.hidden_size
+            self.args.hidden_size,
         )
         x = ops.sum(x.view(shape), dim=0)
 

@@ -21,7 +21,7 @@ def numpy_dtype(dtype):
     types = {
         torch.int16: np.int16,
         torch.int32: np.int32,
-        torch.int64: np.int64
+        torch.int64: np.int64,
     }
     return types[dtype]
 
@@ -66,7 +66,7 @@ class SortBenchmark(parameterized.TestCase):
         arguments = {
             "n": n,
             "dtype": dtype,
-            "max_val": max_val
+            "max_val": max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 

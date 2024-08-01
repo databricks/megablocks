@@ -17,7 +17,7 @@ nvcc_flags = [
 ]
 if device_capability:
     nvcc_flags.append(
-        f"--generate-code=arch=compute_{device_capability},code=sm_{device_capability}"
+        f"--generate-code=arch=compute_{device_capability},code=sm_{device_capability}",
     )
 
 ext_modules = [
@@ -26,7 +26,7 @@ ext_modules = [
         ["csrc/ops.cu"],
         include_dirs=["csrc"],
         extra_compile_args={"cxx": ["-fopenmp"], "nvcc": nvcc_flags},
-    )
+    ),
 ]
 
 install_requires = [

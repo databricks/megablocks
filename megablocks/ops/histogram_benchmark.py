@@ -54,7 +54,7 @@ class HistogramBenchmark(parameterized.TestCase):
         arguments = {
             "n": n,
             "dtype": dtype,
-            "max_val": max_val
+            "max_val": max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 
@@ -67,7 +67,7 @@ class HistogramBenchmark(parameterized.TestCase):
         arguments = {
             "n": n,
             "dtype": dtype,
-            "max_val": max_val
+            "max_val": max_val,
         }
         log_benchmark(arguments, mean_t, std_t)
 

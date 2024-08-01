@@ -36,7 +36,7 @@ def torch_to_numpy_dtype(
     types: Dict[torch.dtype, Union[np.int16, np.int32, np.int64]] = {
         torch.int16: np.int16,
         torch.int32: np.int32,
-        torch.int64: np.int64
+        torch.int64: np.int64,
     }
     return types[dtype]
 
