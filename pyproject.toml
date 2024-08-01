@@ -489,3 +489,41 @@ ignore_patterns = [
 convention="google"
 add_ignore="D100,D101,D102,D103,D104,D105,D107,D400,D401,D415"
 add_select="D404"
+
+
+# Pyright
+[tool.pyright]
+exclude = ['env-**', 'venv*', '.venv', 'tests/*', '**benchmark']
+stubPath = ""  # suppress useless 'stubPath is not a valid directory' errors
+
+reportUnnecessaryIsInstance = "none" # it is ok to do this for clarity or safety
+reportMissingTypeStubs = "none"
+reportIncompatibleMethodOverride = "none"
+reportIncompatibleVariableOverride = "error"
+reportUnusedImport = "error"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnusedVariable = "error"
+reportDuplicateImport = "error"
+reportWildcardImportFromLibrary = "error"
+reportUntypedFunctionDecorator = "warning"
+reportPrivateImportUsage = "none"
+reportUndefinedVariable = "error"
+strictParameterNoneValue = true
+reportPropertyTypeMismatch = "error"
+reportUntypedNamedTuple = "error"
+reportUnnecessaryCast = "error"
+reportInvalidTypeVarUse = "error"
+reportOverlappingOverload = "error"
+reportUninitializedInstanceVariable = "error"
+reportInvalidStringEscapeSequence = "error"
+reportMissingParameterType = "error"
+reportCallInDefaultInitializer = "error"
+reportUnnecessaryComparison = "error"
+reportSelfClsParameterName = "error"
+reportImplicitStringConcatenation = "warning"  # TODO: make this an error
+reportInvalidStubStatement = "error"
+reportIncompleteStub = "error"
+reportUnsupportedDunderAll = "error"
+reportUnusedCoroutine = "error"
+reportMissingImports = "none"
