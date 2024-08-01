@@ -23,7 +23,7 @@ def clear_cuda_cache(request: pytest.FixtureRequest):
 
 @pytest.fixture(autouse=True)
 def reset_mlflow_tracking_dir():
-    """Reset MLFlow tracking dir so it doesn't persist across tests"""
+    """Reset MLFlow tracking dir so it doesn't persist across tests."""
     try:
         import mlflow
         mlflow.set_tracking_uri(None)  # type: ignore

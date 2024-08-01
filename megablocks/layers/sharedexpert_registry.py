@@ -23,7 +23,6 @@ def get(args: Arguments) -> Union[mlp.SharedMLP, glu.SharedGLU]:
 
     Returns:
         An instantiated SharedMLP constructed using the input args.
-
     """
     if args.mlp_type not in _REGISTRY:
         raise ValueError(f'Unsupported mlp type: {args.mlp_type}')

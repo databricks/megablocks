@@ -206,7 +206,7 @@ class GroupedGLU(SparseGLU):
 
 
 class SharedGLU(SharedMLP):
-    """GPU for shared expert
+    """GPU for shared expert.
 
     Note: this is a copy -> pasta -> modify of the LLM-Foundry MPTGLU class
     """

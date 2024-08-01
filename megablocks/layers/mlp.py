@@ -561,7 +561,7 @@ class GroupedMLP(SparseMLP):
 
 
 class SharedMLP(torch.nn.Module):
-    """MLP for shared expert
+    """MLP for shared expert.
 
     Note: this is a copy -> pasta -> modify of the LLM-Foundry MPTMLP class
     """

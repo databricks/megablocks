@@ -32,7 +32,6 @@ def get(args: Arguments) -> MlpType:
 
     Returns:
         An instantiated MLP constructed using the input args.
-
     """
     if args.mlp_type not in _REGISTRY:
         raise ValueError(f'Unsupported mlp type: {args.mlp_type}')
