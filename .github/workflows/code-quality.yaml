@@ -19,7 +19,7 @@ defaults:
     working-directory: .
 jobs:
   code-quality:
-    runs-on: ubuntu-latest  # todo: switch to linux-ubuntu-latest later
+    runs-on: ubuntu-latest  # TODO: switch to linux-ubuntu-latest later
     timeout-minutes: 30
     strategy:
       matrix:
