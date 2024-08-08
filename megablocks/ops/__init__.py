@@ -1,4 +1,4 @@
-# Copyright 2024 Databricks MegaBlocks authors
+# Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
 from megablocks.ops.binned_gather import binned_gather
