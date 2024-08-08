@@ -1,9 +1,6 @@
 # Copyright 2024 Databricks MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2024 MosaicML MegaBlocks authors
-# SPDX-License-Identifier: Apache-2.0
-
 """MegaBlocks package setup."""
 
 import os
@@ -16,11 +13,7 @@ from setuptools import find_packages, setup
 # More info here: # https://pytorch.org/tutorials/advanced/cpp_extension.html
 try:
     import torch
-    from torch.utils.cpp_extension import (
-        CUDA_HOME,
-        BuildExtension,
-        CUDAExtension,
-    )
+    from torch.utils.cpp_extension import CUDA_HOME, BuildExtension, CUDAExtension
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError("No module named 'torch'. `torch` is required to install `MegaBlocks`.",) from e
 

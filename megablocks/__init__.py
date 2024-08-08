@@ -1,9 +1,6 @@
 # Copyright 2024 Databricks MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2024 MosaicML MegaBlocks authors
-# SPDX-License-Identifier: Apache-2.0
-
 from megablocks.layers.arguments import Arguments
 from megablocks.layers.dmoe import ParallelDroplessMLP, dMoE
 from megablocks.layers.glu import SparseGLU

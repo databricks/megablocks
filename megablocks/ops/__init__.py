@@ -1,9 +1,6 @@
 # Copyright 2024 Databricks MegaBlocks authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2024 MosaicML MegaBlocks authors
-# SPDX-License-Identifier: Apache-2.0
-
 from megablocks.ops.binned_gather import binned_gather
 from megablocks.ops.binned_scatter import binned_scatter
 from megablocks.ops.cumsum import exclusive_cumsum, inclusive_cumsum
