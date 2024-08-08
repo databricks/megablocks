@@ -39,7 +39,7 @@ jobs:
         gpu_num: ${{ matrix.gpu_num }}
         git_repo: databricks/megablocks
         pip_deps: "[all,testing]"
-        pytest_command: "coverage run -m pytest tests"  # TODO: remove `tests` when delete tests outside megablocks dir
+        pytest_command: "coverage run -m pytest tests"  # TODO delete `tests` after removing all tests in megablocks dir
         pytest_markers: "gpu"
         composer_package_name: mosaicml  # Required as Composer is built from source
         mcloud_timeout: 3600
