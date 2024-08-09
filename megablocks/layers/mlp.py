@@ -376,27 +376,6 @@ class SparseMLP(torch.nn.Module):
             return w
         return scale_gradient(w, self.gradient_scale)
 
-    def parallel_forward(self, x, topo):
-        group = None
-        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
-        if self.args.memory_optimized_mlp:
-            if self.args.activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(
-                    f'memory_optimized_weight_parallel_mlp not implemented for custom activation_fn={self.args.activation_fn}.',
-                )
-            return wp.memory_optimized_weight_parallel_mlp(
-                x,
-                w1,
-                w2,
-                topo,
-                group,
-            )
-
-        # Compute the MLP.
-        x = wp.sdd_nt(x, w1, topo, group)
-        activation_fn_out = act_fn(x, self.args.activation_fn)
-        return wp.dsd_nn(activation_fn_out, w2, group)
-
     def forward(self, x, topo):
         w1, w2 = self.scale_grad(self.w1), self.scale_grad(self.w2)
         w1, w2 = resolve_dtensor(w1), resolve_dtensor(w2)
