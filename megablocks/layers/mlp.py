@@ -9,7 +9,6 @@ from packaging import version
 
 from megablocks import grouped_gemm_util as gg
 from megablocks.layers import common, gelu, mpu
-from megablocks.layers import weight_parallel as wp
 from megablocks.layers.activation_fn import act_fn
 from megablocks.layers.arguments import DEFAULT_ACTIVATION_FN, Arguments, InitFn
 
