@@ -41,6 +41,7 @@ def copy_expert_model_parallel_attributes(
             getattr(source_tensor, 'expert_model_parallel'),
         )
 
+
 def synchronized_print(group, *x):
     world_size = torch.distributed.get_world_size(group)
     rank = torch.distributed.get_rank(group)
