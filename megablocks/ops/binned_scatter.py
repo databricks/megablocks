@@ -1,6 +1,11 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
+from stk.backend.autocast import custom_bwd, custom_fwd
+
 from megablocks.backend import kernels
-from stk.backend.autocast import custom_fwd, custom_bwd
+
 
 # Autograd wrapper for binned_scatter kernel.
 class BinnedScatterOp(torch.autograd.Function):
@@ -23,7 +28,13 @@ class BinnedScatterOp(torch.autograd.Function):
         grad = grad.contiguous()
         x, indices, weights, bins = ctx.saved_tensors
         out = kernels.binned_gather(
-            grad, indices, weights, bins, ctx.bin_size, ctx.top_k)
+            grad,
+            indices,
+            weights,
+            bins,
+            ctx.bin_size,
+            ctx.top_k,
+        )
 
         wgrad = None
         if ctx.needs_input_grad[2]:
@@ -32,6 +43,9 @@ class BinnedScatterOp(torch.autograd.Function):
                 grad,
                 indices,
                 bins,
-                ctx.top_k)
+                ctx.top_k,
+            )
         return out, None, wgrad, None, None
+
+
 binned_scatter = BinnedScatterOp.apply

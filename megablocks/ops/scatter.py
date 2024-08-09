@@ -1,6 +1,10 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
+from stk.backend.autocast import custom_bwd, custom_fwd
+
 from megablocks.backend import kernels
-from stk.backend.autocast import custom_fwd, custom_bwd
 
 
 # Autograd wrapper for scatter kernel.
@@ -13,8 +17,7 @@ class ScatterOp(torch.autograd.Function):
         ctx.save_for_backward(indices, bin_ids, weights, bins, *maybe_x)
         ctx.top_k = top_k
         ctx.x_shape = x.shape
-        return kernels.scatter(
-            x, indices, bin_ids, weights, bins, top_k)
+        return kernels.scatter(x, indices, bin_ids, weights, bins, top_k)
 
     @staticmethod
     @custom_bwd
@@ -31,7 +34,8 @@ class ScatterOp(torch.autograd.Function):
                 bin_ids,
                 weights,
                 bins,
-                ctx.top_k)
+                ctx.top_k,
+            )
 
         wgrad = None
         if ctx.needs_input_grad[3]:  # need wgrad
@@ -42,14 +46,17 @@ class ScatterOp(torch.autograd.Function):
                 indices,
                 bin_ids,
                 bins,
-                ctx.top_k)
+                ctx.top_k,
+            )
         return dgrad, None, None, wgrad, None, None, None
 
 
-def scatter(x: torch.Tensor,
-            indices: torch.Tensor,
-            bin_ids: torch.Tensor,
-            weights: torch.Tensor,
-            bins: torch.Tensor,
-            top_k: int):
+def scatter(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: torch.Tensor,
+    bins: torch.Tensor,
+    top_k: int,
+):
     return ScatterOp.apply(x, indices, bin_ids, weights, bins, top_k)

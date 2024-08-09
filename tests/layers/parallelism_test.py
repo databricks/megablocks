@@ -1,3 +1,6 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import functools
 
 import numpy as np
@@ -15,6 +18,7 @@ _PARALLELISM_TESTS = (
     (4, 1, 512, 2048, 4, 1, True),
 )
 
+
 # Todo: Fix this long term
 @pytest.fixture
 def group():
@@ -23,17 +27,25 @@ def group():
 
 @pytest.mark.world_size(2)
 @pytest.mark.gpu
-@pytest.mark.parametrize(('batch_size', 'sequence_length', 'hidden_size', 'ffn_hidden_size', 'num_experts', 'top_k', 'memory_optimized'),
-                         _PARALLELISM_TESTS)
+@pytest.mark.parametrize((
+    'batch_size',
+    'sequence_length',
+    'hidden_size',
+    'ffn_hidden_size',
+    'num_experts',
+    'top_k',
+    'memory_optimized',
+), _PARALLELISM_TESTS)
 def test_expert_parallel_versus_weight_parallel(
-        group,
-        batch_size: int,
-        sequence_length: int,
-        hidden_size: int,
-        ffn_hidden_size: int,
-        num_experts: int,
-        top_k: int,
-        memory_optimized: bool):
+    group,
+    batch_size: int,
+    sequence_length: int,
+    hidden_size: int,
+    ffn_hidden_size: int,
+    num_experts: int,
+    top_k: int,
+    memory_optimized: bool,
+):
 
     init_fn = functools.partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     ep_args = arguments.Arguments(
@@ -47,7 +59,8 @@ def test_expert_parallel_versus_weight_parallel(
         bf16=False,
         device=torch.cuda.current_device(),
         init_method=init_fn,
-        memory_optimized_mlp=memory_optimized)
+        memory_optimized_mlp=memory_optimized,
+    )
     wp_args = arguments.Arguments(
         hidden_size=hidden_size,
         ffn_hidden_size=ffn_hidden_size,
@@ -59,7 +72,8 @@ def test_expert_parallel_versus_weight_parallel(
         bf16=False,
         device=torch.cuda.current_device(),
         init_method=init_fn,
-        memory_optimized_mlp=memory_optimized)
+        memory_optimized_mlp=memory_optimized,
+    )
 
     # NOTE: Reset the seed so that the models get identical weights.
     torch.manual_seed(1234)
@@ -70,10 +84,8 @@ def test_expert_parallel_versus_weight_parallel(
     # NOTE: Include the rank in the seed so we get different data per rank.
     rank = torch.distributed.get_rank(group)
     torch.manual_seed(1234 * rank)
-    x = torch.randn(
-        (batch_size, sequence_length, hidden_size),
-        device=torch.cuda.current_device(),
-        dtype=torch.float32).requires_grad_(True)
+    x = torch.randn((batch_size, sequence_length, hidden_size), device=torch.cuda.current_device(),
+                    dtype=torch.float32).requires_grad_(True)
 
     # Test forward.
     out, _ = wp(x)
@@ -86,7 +98,9 @@ def test_expert_parallel_versus_weight_parallel(
             assert np.testing.assert_allclose(
                 out.detach().float().cpu(),
                 expected_out.detach().float().cpu(),
-                rtol=1e-4, atol=1e-4) is None
+                rtol=1e-4,
+                atol=1e-4,
+            ) is None
 
     # Test backward.
     out.mean().backward()
@@ -97,8 +111,7 @@ def test_expert_parallel_versus_weight_parallel(
     def gather(x):
         m, n = x.shape
         world_size = torch.distributed.get_world_size(group)
-        out = torch.empty(
-            m * world_size, n, device=x.device, dtype=x.dtype)
+        out = torch.empty(m * world_size, n, device=x.device, dtype=x.dtype)
         torch.distributed.all_gather_into_tensor(out, x, group=group)
         return out
 
@@ -114,7 +127,9 @@ def test_expert_parallel_versus_weight_parallel(
         assert np.testing.assert_allclose(
             wp_w2_grad.float().cpu(),
             ep_w2_grad.float().cpu(),
-            rtol=1e-5, atol=1e-5) is None
+            rtol=1e-5,
+            atol=1e-5,
+        ) is None
 
     wp_w1_grad = gather(wp.experts.mlp.w1.grad)
     ep_w1_grad = permute(gather(ep.experts.mlp.w1.grad))
@@ -122,7 +137,9 @@ def test_expert_parallel_versus_weight_parallel(
         assert np.testing.assert_allclose(
             wp_w1_grad.float().cpu(),
             ep_w1_grad.float().cpu(),
-            rtol=1e-5, atol=1e-5) is None
+            rtol=1e-5,
+            atol=1e-5,
+        ) is None
 
     # Verify the router weight gradient, which is not sharded.
     for i in range(torch.distributed.get_world_size(group)):
@@ -131,4 +148,6 @@ def test_expert_parallel_versus_weight_parallel(
             assert np.testing.assert_allclose(
                 wp.router.layer.weight.grad.float().cpu(),
                 ep.router.layer.weight.grad.float().cpu(),
-                rtol=1e-5, atol=1e-5) is None
+                rtol=1e-5,
+                atol=1e-5,
+            ) is None

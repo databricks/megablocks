@@ -1,6 +1,10 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
+from stk.backend.autocast import custom_bwd, custom_fwd
+
 from megablocks.backend import kernels
-from stk.backend.autocast import custom_fwd, custom_bwd
 
 
 # Autograd wrapper for gather kernel.
@@ -11,8 +15,7 @@ class GatherOp(torch.autograd.Function):
     def forward(ctx, x, indices, bin_ids, bins, top_k):
         ctx.save_for_backward(indices, bin_ids, bins)
         ctx.top_k = top_k
-        return kernels.gather(
-            x, indices, bin_ids, None, bins, top_k)
+        return kernels.gather(x, indices, bin_ids, None, bins, top_k)
 
     @staticmethod
     @custom_bwd
@@ -20,7 +23,8 @@ class GatherOp(torch.autograd.Function):
         grad = grad.contiguous()
 
         indices, bin_ids, bins = ctx.saved_tensors
-        out = kernels.scatter(
-            grad, indices, bin_ids, None, bins, ctx.top_k)
+        out = kernels.scatter(grad, indices, bin_ids, None, bins, ctx.top_k)
         return out, None, None, None, None, None
+
+
 gather = GatherOp.apply

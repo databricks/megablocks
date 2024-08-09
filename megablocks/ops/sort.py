@@ -1,12 +1,16 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
 import torch
 
-# TODO(tgale): Wrap this in a try-block with better
-# error message and instructions for building the
-# c++ operations.
-import megablocks_ops as ops
-
+# Wrap this in a try-block with better error message and
+# instructions for building the c++ operations.
+try:
+    import megablocks_ops as ops  # type: ignore
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
 
 _BITS_FOR_DTYPE = {
     torch.int16: 16,
@@ -14,8 +18,8 @@ _BITS_FOR_DTYPE = {
     torch.int64: 64,
 }
 
+
 # Autograd wrapper for sort kernel.
-#
 # NOTE: Does not support gradients.
 class SortOp(torch.autograd.Function):
 
@@ -27,4 +31,6 @@ class SortOp(torch.autograd.Function):
         iota_out = torch.empty_like(x)
         ops.sort(x, end_bit, x_out, iota_out)
         return (x_out, iota_out)
+
+
 sort = SortOp.apply

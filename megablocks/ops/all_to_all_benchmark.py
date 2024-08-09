@@ -1,6 +1,10 @@
-from megablocks.layers.all_to_all import all_to_all
-from megablocks import benchmark_util
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
+
+from megablocks import benchmark_util
+from megablocks.layers.all_to_all import all_to_all
 
 _ALL_TO_ALL_BENCHMARK = (
     (8, 1024),
@@ -23,23 +27,26 @@ _ALL_TO_ALL_BENCHMARK = (
     (1024 * 1024, 1024),
 )
 
+
 def benchmark_all_to_all(group, sl, hs):
-        world_size = torch.distributed.get_world_size(group)
-        assert (sl % world_size) == 0
-        send_recv_sizes = [sl // world_size] * world_size
+    world_size = torch.distributed.get_world_size(group)
+    assert (sl % world_size) == 0
+    send_recv_sizes = [sl // world_size] * world_size
 
-        x = torch.randn((sl, hs)).cuda().half()
+    x = torch.randn((sl, hs)).cuda().half()
 
-        details = {
-            "world_size": world_size,
-            "message_size (B)": send_recv_sizes[0] * hs * 2,  # 2B elements.
-        }
+    details = {
+        'world_size': world_size,
+        'message_size (B)': send_recv_sizes[0] * hs * 2,  # 2B elements.
+    }
 
-        fn = lambda: all_to_all(x, send_recv_sizes, send_recv_sizes, group)
-        time, std = benchmark_util.benchmark_function(fn)
+    def benchmark():
+        return all_to_all(x, send_recv_sizes, send_recv_sizes, group)
 
-        if torch.distributed.get_rank(group) == 0:
-            benchmark_util.log_benchmark("All-To-All", details, time, std)
+    time, std = benchmark_util.benchmark_function(benchmark)
+
+    if torch.distributed.get_rank(group) == 0:
+        benchmark_util.log_benchmark('All-To-All', details, time, std)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,12 @@
-from megablocks.layers.arguments import Arguments
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 
-def dtype(args : Arguments):
+from megablocks.layers.arguments import Arguments
+
+
+def dtype(args: Arguments):
     if args.fp16:
         return torch.float16
     elif args.bf16:
