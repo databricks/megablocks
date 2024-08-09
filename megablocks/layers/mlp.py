@@ -310,8 +310,7 @@ class SparseMLP(torch.nn.Module):
     def __init__(self, args: Arguments):
         super().__init__()
         self.args = args
-        self._num_rows_per_rank = ((mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
-                                   mpu.get_weight_parallel_world_size(args))
+        self._num_rows_per_rank = mpu.experts_per_rank(args) * mpu.features_per_rank(args)
 
         self.w1 = torch.nn.Parameter(
             torch.empty(
@@ -378,7 +377,7 @@ class SparseMLP(torch.nn.Module):
         return scale_gradient(w, self.gradient_scale)
 
     def parallel_forward(self, x, topo):
-        group = self.args.weight_parallel_group
+        group = None
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
         if self.args.memory_optimized_mlp:
             if self.args.activation_fn is not DEFAULT_ACTIVATION_FN:
