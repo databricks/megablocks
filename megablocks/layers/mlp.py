@@ -179,8 +179,7 @@ def create_dmoe_expert_weights(
         columns,
         init_method,
     )
-    weights = weights.view([-1, columns])
-    return weights
+    return weights.view([-1, columns])
 
 
 class MemoryOptimizedMLP(torch.autograd.Function):
