@@ -9,7 +9,7 @@ import torch
 
 from megablocks.layers import dmlp_registry
 from megablocks.layers.arguments import Arguments
-from tests.layers.testing import GLU
+from tests.layers.architectures import GLU
 
 _DENSE_TESTS = (
     (16, 1024, 512),

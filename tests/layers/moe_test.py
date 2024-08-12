@@ -8,7 +8,7 @@ import torch
 
 from megablocks.layers.arguments import Arguments
 from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
-from tests.layers.testing import FFN
+from tests.layers.architectures import FFN
 
 _FORWARD_TESTS = (
     (16, 1024, 512, 1, 1),

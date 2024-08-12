@@ -10,7 +10,7 @@ from megablocks import grouped_gemm_util as gg
 from megablocks.layers.arguments import Arguments
 from megablocks.layers.dmoe import dMoE
 from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
-from tests.layers.testing import FFN
+from tests.layers.architectures import FFN
 
 # min size: (1, 2, 128, 2, 1)
 _FORWARD_TESTS_DEFAULT = (
