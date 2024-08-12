@@ -6,8 +6,9 @@ from functools import partial
 import pytest
 import torch
 
-from megablocks.layers import moe, testing
 from megablocks.layers.arguments import Arguments
+from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
+from tests.layers.architectures import FFN
 
 _FORWARD_TESTS = (
     (16, 1024, 512, 1, 1),
@@ -48,8 +49,8 @@ def construct_moe(
         init_method=init_method,
     )
 
-    mlp = testing.FFN(args)
-    moe_mlp = moe.MoE(args)
+    mlp = FFN(args)
+    moe_mlp = MoE(args)
 
     mlp.cuda(torch.cuda.current_device()).half()
     moe_mlp.cuda(torch.cuda.current_device()).half()
@@ -76,7 +77,7 @@ def test_moe_forward(bs: int, sl: int, hs: int, num_experts: int, top_k: int):
 
     out, _ = layer(x)
     assert out.shape == x.shape
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
@@ -101,11 +102,11 @@ def test_moe_forward_backward(
     out, _ = layer(x)
     assert out.shape == x.shape
 
-    loss = out.sum() + moe.batched_load_balancing_loss(args)
+    loss = out.sum() + batched_load_balancing_loss(args)
     loss.backward()
     layer.zero_grad(set_to_none=True)
     x.grad = None
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
@@ -119,7 +120,7 @@ def test_moe_forward_vs_dense(bs: int, sl: int, hs: int):
     out, _ = moe_mlp(x)
     assert out.shape == x.shape == expected_out.shape
     assert torch.allclose(out, expected_out)
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
@@ -137,7 +138,7 @@ def test_moe_forward_backward_vs_dense(bs: int, sl: int, hs: int):
     w2_grad = moe_mlp.experts.mlp.w2.grad.detach().squeeze()
     moe_mlp.zero_grad(set_to_none=True)
     x.grad = None
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
     expected_out = mlp(x)
     expected_loss = expected_out.sum()
@@ -152,4 +153,4 @@ def test_moe_forward_backward_vs_dense(bs: int, sl: int, hs: int):
     assert w2_grad.shape == expected_w2_grad.shape
     assert torch.allclose(w1_grad, expected_w1_grad)
     assert torch.allclose(w2_grad, expected_w2_grad)
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()

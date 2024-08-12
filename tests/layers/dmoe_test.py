@@ -7,8 +7,10 @@ import pytest
 import torch
 
 from megablocks import grouped_gemm_util as gg
-from megablocks.layers import dmoe, moe, testing
 from megablocks.layers.arguments import Arguments
+from megablocks.layers.dmoe import dMoE
+from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
+from tests.layers.architectures import FFN
 
 # min size: (1, 2, 128, 2, 1)
 _FORWARD_TESTS_DEFAULT = (
@@ -64,9 +66,9 @@ def construct_moes(
         bf16=True,
     )
 
-    mlp = testing.FFN(args)
-    moe_mlp = moe.MoE(args)
-    dmoe_mlp = dmoe.dMoE(args)
+    mlp = FFN(args)
+    moe_mlp = MoE(args)
+    dmoe_mlp = dMoE(args)
 
     mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
     moe_mlp.cuda(torch.cuda.current_device()).to(torch.bfloat16)
@@ -106,7 +108,7 @@ def test_dmoe_forward(
 
     out, _ = layer(x)
     assert out.shape == x.shape
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
@@ -132,12 +134,12 @@ def test_dmoe_forward_backward(
 
     out, _ = layer(x)
     assert out.shape == x.shape
-    loss = out.sum() + moe.batched_load_balancing_loss(args)
+    loss = out.sum() + batched_load_balancing_loss(args)
     loss.backward()
     assert x.grad is not None
     layer.zero_grad(set_to_none=True)
     x.grad = None
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
