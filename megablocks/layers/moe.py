@@ -127,12 +127,12 @@ class ParallelMLP(torch.nn.Module):
         # Select the forward function for the operating mode.
         self.forward_fn = (self.parallel_forward_once if args.moe_expert_model_parallelism else self.forward_once)
 
-    def expert_capacity(self, tokens):
+    def expert_capacity(self, tokens: int) -> int:
         world_size = mpu.get_expert_parallel_world_size(self.args)
         tokens_per_expert = (self.top_k * tokens * world_size / self.num_experts)
         return int(self.args.moe_capacity_factor * tokens_per_expert)
 
-    def load_balancing_loss(self, tokens_per_expert, expert_scores):
+    def load_balancing_loss(self, tokens_per_expert: torch.Tensor, expert_scores: torch.Tensor):
         """Calculate the load balancing loss contribution."""
         assert len(expert_scores.size()) == 2
         tokens, num_experts = expert_scores.size()
@@ -146,7 +146,7 @@ class ParallelMLP(torch.nn.Module):
             expert_scores.mean(dim=0),
         )
 
-    def indices_and_bins(self, top_expert):
+    def indices_and_bins(self, top_expert: torch.Tensor):
         # Sort the expert ids to produce the scatter/gather
         # indices for the permutation.
         #
@@ -171,14 +171,14 @@ class ParallelMLP(torch.nn.Module):
 
     def permute_and_compute(
         self,
-        x,
-        tokens_per_expert,  # unused
-        indices,
-        bin_ids,  # unused
-        expert_weights,
-        bins,
-        expert_capacity,
-        top_k,
+        x: torch.Tensor,
+        tokens_per_expert: int,  # unused
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,  # unused
+        expert_weights: torch.Tensor,
+        bins: torch.Tensor,
+        expert_capacity: int,
+        top_k: int,
     ):
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
@@ -191,7 +191,7 @@ class ParallelMLP(torch.nn.Module):
         # Un-route the data for the MoE output.
         return ops.binned_scatter(x, indices, expert_weights, bins, top_k)
 
-    def forward_once(self, x, expert_weights, top_experts):
+    def forward_once(self, x: torch.Tensor, expert_weights: torch.Tensor, top_experts: torch.Tensor):
         # x: [sl, bs, hs]
         # expert_weights: [sl * bs, top-k]
         # top_experts: [sl * bs, top-k]
@@ -202,7 +202,7 @@ class ParallelMLP(torch.nn.Module):
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
-            sl, bs, hs = x.size()
+            sl, bs, _ = x.size()
             expert_capacity = self.expert_capacity(sl * bs)
             if expert_capacity == 0:
                 expert_capacity = torch.max(tokens_per_expert).item()
@@ -219,7 +219,7 @@ class ParallelMLP(torch.nn.Module):
         )
         return x, tokens_per_expert
 
-    def parallel_forward_once(self, x, expert_weights, top_experts):
+    def parallel_forward_once(self, x: torch.Tensor, expert_weights: torch.Tensor, top_experts: torch.Tensor):
         # NOTE: This function implements the same computation as forward_once
         # but with expert model parallelism.
         #
@@ -356,7 +356,7 @@ class ParallelMLP(torch.nn.Module):
 
             # If expert_capacity is set to zero, set the number of tokens
             # per expert to the maximum we need to avoid dropping tokens.
-            tokens, hs = x.size()
+            tokens, _ = x.size()
             expert_capacity = self.expert_capacity(tokens)
             if expert_capacity == 0:
                 expert_capacity = torch.max(parallel_tokens_per_expert).item()
@@ -405,7 +405,7 @@ class ParallelMLP(torch.nn.Module):
         x = ops.scatter(x, indices, bin_ids, expert_weights, bins, self.top_k)
         return x, tokens_per_expert.flatten()
 
-    def forward(self, x, scores, expert_weights, top_experts):
+    def forward(self, x: torch.Tensor, scores: torch.Tensor, expert_weights: torch.Tensor, top_experts: torch.Tensor):
         in_shape = x.size()
 
         # Compute the experts.
@@ -439,7 +439,7 @@ class MoE(torch.nn.Module):
     def _init_experts_mlp(self, args: Arguments):
         return ParallelMLP(args)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         # NOTE: If we're going to cast the activations to lower precision
         # do it before we permute the tokens to save bandwidth.
         x = common.cast_if_autocast_enabled(x)

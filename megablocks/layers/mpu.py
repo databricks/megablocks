@@ -1,6 +1,8 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional
+
 import torch
 
 from megablocks.layers.arguments import Arguments
@@ -42,7 +44,7 @@ def copy_expert_model_parallel_attributes(
         )
 
 
-def synchronized_print(group, *x):
+def synchronized_print(group: Optional[torch.distributed.ProcessGroup], *x: torch.Tensor):
     world_size = torch.distributed.get_world_size(group)
     rank = torch.distributed.get_rank(group)
     for i in range(world_size):
