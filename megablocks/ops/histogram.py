@@ -1,6 +1,8 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
 import torch
@@ -18,7 +20,7 @@ except ModuleNotFoundError as e:
 class HistogramOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, x, max_val):
+    def forward(ctx: Any, x: torch.Tensor, max_val: float):
         return ops.histogram(x, max_val)
 
 
