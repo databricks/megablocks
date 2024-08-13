@@ -1,6 +1,8 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
 import torch
@@ -18,7 +20,7 @@ except ModuleNotFoundError as e:
 class ExclusiveCumsumOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, x, dim):
+    def forward(ctx: Any, x: torch.Tensor, dim: int):
         if len(x.size()) == 1:
             x = x.view([1, -1])
             out = torch.empty_like(x)
@@ -35,7 +37,7 @@ exclusive_cumsum = ExclusiveCumsumOp.apply
 class InclusiveCumsumOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, x, dim):
+    def forward(ctx: Any, x: torch.Tensor, dim: int):
         if len(x.size()) == 1:
             x = x.view([1, -1])
             out = torch.empty_like(x)
