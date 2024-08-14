@@ -375,7 +375,7 @@ def _binned_copy(
     num_experts: int,
     expert_capacity: int,
     indices: torch.Tensor,
-    weights: Optional[torch.Tensor],
+    weights, #: Optional[torch.Tensor],
     bins: torch.Tensor,
     NUM_COLUMNS: tl.constexpr,
     TOP_K: tl.constexpr,
@@ -454,7 +454,6 @@ def binned_gather(
 
     num_experts = bins.shape[0]
     out = torch.zeros((num_experts, expert_capacity, x.shape[1]), dtype=x.dtype, device=x.device)
-
     _binned_copy[(num_experts, expert_capacity)](
         x,
         out,

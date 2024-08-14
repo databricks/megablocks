@@ -6,6 +6,9 @@ from typing import List, Optional
 
 import pytest
 from composer.utils import reproducibility
+from icecream import install
+
+install()
 
 # Allowed options for pytest.mark.world_size()
 WORLD_SIZE_OPTIONS = (1, 2)
