@@ -15,9 +15,14 @@ class ScatterOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(
-        ctx: Any, x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, weights: torch.Tensor,
-        bins: torch.Tensor, top_k: int
-    ):
+        ctx: Any,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,
+        weights: torch.Tensor,
+        bins: torch.Tensor,
+        top_k: int,
+    ) -> torch.Tensor:
         maybe_x = [x] if ctx.needs_input_grad[3] else []
         ctx.save_for_backward(indices, bin_ids, weights, bins, *maybe_x)
         ctx.top_k = top_k
@@ -63,5 +68,5 @@ def scatter(
     weights: torch.Tensor,
     bins: torch.Tensor,
     top_k: int,
-):
+) -> torch.Tensor:
     return ScatterOp.apply(x, indices, bin_ids, weights, bins, top_k)

@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import megablocks.grouped_gemm_util as grouped_gemm
 
 # Type annotation for in-place Tensor initialization function.
-InitFn = Callable[[torch.Tensor], None]
+InitFn = Union[Callable[[torch.Tensor], None], partial[torch.Tensor]]
 
 _ALLOWED_BITWIDTHS = (-1, 4, 8)
 
@@ -51,7 +51,7 @@ class Arguments:
     # Initialization arguments.
     fp16: bool = True
     bf16: bool = False
-    device: torch.device = torch.cuda.current_device()
+    device: Union[int, torch.device] = torch.cuda.current_device()
     init_method: InitFn = partial(torch.nn.init.normal_, mean=0.0, std=0.02)
     output_layer_init_method: InitFn = init_method
 
@@ -60,7 +60,7 @@ class Arguments:
 
     # shared expert arguments
     shared_expert: bool = False  # enable using shared expert
-    fc_cls: torch.nn.Module = torch.nn.Linear  # class of the fully connected layer in shared expert (purpose: to allow using custom FC layer eg te.Linear (for FP8))
+    fc_cls: Any = torch.nn.Linear  # class of the fully connected layer in shared expert (purpose: to allow using custom FC layer eg te.Linear (for FP8))
     fc_kwargs: dict[str, Any] = dataclasses.field(default_factory=dict,)  # kwargs for custom fc layers
     remat_act_fn: bool = True  # enable act fn to be rematerialized instead of stored
     shared_expert_hidden_size: Optional[
@@ -75,7 +75,7 @@ class Arguments:
             self.shared_expert_hidden_size = self.ffn_hidden_size
 
 
-def from_megatron(megatron_args):
+def from_megatron(megatron_args: Any):
     args = Arguments()
     for field in dataclasses.fields(args):
         if hasattr(megatron_args, field.name):

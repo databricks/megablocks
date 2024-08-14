@@ -37,7 +37,7 @@ exclusive_cumsum = ExclusiveCumsumOp.apply
 class InclusiveCumsumOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx: Any, x: torch.Tensor, dim: int):
+    def forward(ctx: Any, x: torch.Tensor, dim: int) -> torch.Tensor:
         if len(x.size()) == 1:
             x = x.view([1, -1])
             out = torch.empty_like(x)

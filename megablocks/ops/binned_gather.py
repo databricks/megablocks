@@ -14,7 +14,12 @@ class BinnedGatherOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(
-        ctx: Any, x: torch.Tensor, indices: torch.Tensor, bins: torch.Tensor, bin_size: torch.Tensor, top_k: int
+        ctx: Any,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bins: torch.Tensor,
+        bin_size: int,
+        top_k: int,
     ):
         ctx.save_for_backward(indices, bins)
         ctx.top_k = top_k

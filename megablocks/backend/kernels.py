@@ -106,8 +106,13 @@ def _padded_copy(
 
 
 def padded_gather(
-    x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, weights: Optional[torch.Tensor], bins: torch.Tensor,
-    padded_bins: torch.Tensor, top_k: int
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
+    top_k: int,
 ):
     # Validate the input shapes.
     assert_is_matrix(x)
@@ -143,8 +148,12 @@ def padded_gather(
 
 
 def gather(
-    x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, weights: Optional[torch.Tensor], bins: torch.Tensor,
-    top_k: int
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    top_k: int,
 ):
     # Validate the input shapes.
     assert_is_matrix(x)
@@ -178,9 +187,14 @@ def gather(
 
 
 def padded_scatter(
-    x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, weights: Optional[torch.Tensor], bins: torch.Tensor,
-    padded_bins: torch.Tensor, top_k: int
-):
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
+    top_k: int,
+) -> torch.Tensor:
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_vector(indices)
@@ -214,8 +228,13 @@ def padded_scatter(
 
 
 def scatter(
-    x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, weights: torch.Tensor, bins: torch.Tensor, top_k: int
-):
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    top_k: int,
+) -> torch.Tensor:
     return padded_scatter(x, indices, bin_ids, weights, bins, bins, top_k)
 
 
@@ -289,8 +308,13 @@ def _padded_copy_wgrad(
 
 
 def padded_scatter_wgrad(
-    x: torch.Tensor, grad: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, bins: torch.Tensor,
-    padded_bins: torch.Tensor, top_k: int
+    x: torch.Tensor,
+    grad: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
+    top_k: int,
 ):
     # Validate the input shapes.
     assert_is_matrix(x)
@@ -319,7 +343,12 @@ def padded_scatter_wgrad(
 
 
 def scatter_wgrad(
-    x: torch.Tensor, grad: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, bins: torch.Tensor, top_k: int
+    x: torch.Tensor,
+    grad: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    bins: torch.Tensor,
+    top_k: int,
 ):
     return padded_scatter_wgrad(x, grad, indices, bin_ids, bins, bins, top_k)
 
@@ -407,8 +436,12 @@ def _binned_copy(
 
 
 def binned_gather(
-    x: torch.Tensor, indices: torch.Tensor, weights: Optional[torch.Tensor], bins: torch.Tensor, expert_capacity: int,
-    top_k: int
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    expert_capacity: int,
+    top_k: int,
 ):
     # Validate the input shapes.
     assert_is_matrix(x)
@@ -439,7 +472,11 @@ def binned_gather(
 
 
 def binned_scatter(
-    x: torch.Tensor, indices: torch.Tensor, weights: Optional[torch.Tensor], bins: torch.Tensor, top_k: int
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    top_k: int,
 ):
     # Validate the input shapes.
     assert_is_tensor(x, 3)

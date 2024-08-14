@@ -72,9 +72,7 @@ def hidden_sharding_degree(args: Arguments) -> int:
         raise ValueError(f'Cannot shard {args.ffn_hidden_size} features {hsd} ways.',)
     if (esd * hsd) != world_size:
         raise ValueError(
-            f"Invalid sharding. 'expert_sharding_degree' "
-            f'({esd}) * hidden_sharding_degree '
-            f'({hsd}) != world_size ({world_size}).',
+            f"Invalid sharding. 'expert_sharding_degree' ({esd}) * hidden_sharding_degree ({hsd}) != world_size ({world_size}).",
         )
     return hsd
 

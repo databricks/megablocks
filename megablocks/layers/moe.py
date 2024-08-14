@@ -146,7 +146,7 @@ class ParallelMLP(torch.nn.Module):
             expert_scores.mean(dim=0),
         )
 
-    def indices_and_bins(self, top_expert: torch.Tensor):
+    def indices_and_bins(self, top_expert: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
         # Sort the expert ids to produce the scatter/gather
         # indices for the permutation.
         #
