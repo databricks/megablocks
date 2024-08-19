@@ -7,8 +7,9 @@ import pytest
 import stk
 import torch
 
-from megablocks.layers import dmlp_registry, testing
+from megablocks.layers import dmlp_registry
 from megablocks.layers.arguments import Arguments
+from tests.layers.architectures import GLU
 
 _DENSE_TESTS = (
     (16, 1024, 512),
@@ -36,7 +37,7 @@ def construct_dmoe_glu(
         bf16=True,
     )
 
-    glu = testing.GLU(args)
+    glu = GLU(args)
     dmoe_glu = dmlp_registry.get(args)
 
     dmoe_glu.cuda(torch.cuda.current_device()).to(torch.bfloat16)

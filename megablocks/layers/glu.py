@@ -44,9 +44,6 @@ class SparseGLU(SparseMLP):
             self._should_set_parallelism_attribute,
         )
 
-        if self.args.moe_weight_parallelism:
-            raise NotImplementedError('Weight parallelism not yet supported with GLU.',)
-
     def forward(self, x, topo):
         if self.args.memory_optimized_mlp:
             raise NotImplementedError(
