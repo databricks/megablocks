@@ -64,13 +64,13 @@ install_requires = [
     'packaging>=21.3.0,<24.2',
     'torch>=2.3.0,<2.5',
     'triton>=2.1.0',
-    'stanford-stk @ git+https://git@github.com/stanford-futuredata/stk.git@a1ddf98466730b88a2988860a9d8000fd1833301',
+    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git@bump-version',
 ]
 
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm @ git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb',
+    'grouped_gemm @ git+https://git@github.com/eitanturok/grouped_gemm.git@bump-version',
 ]
 
 extra_deps['dev'] = [
