@@ -32,11 +32,11 @@ jobs:
         - name: "python3.11-pytorch2.4.0-gpus1"
           gpu_num: 1
           python_version: 3.11
-          container: mosaicml/pytorch:2.4.0_cu121-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
         - name: "python3.11-pytorch2.4.0-gpus2"
           gpu_num: 2
           python_version: 3.11
-          container: mosaicml/pytorch:2.4.0_cu121-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
     steps:
     - name: Run PR GPU tests
       uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
