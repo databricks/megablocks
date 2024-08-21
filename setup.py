@@ -83,7 +83,8 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['testing'] = [
-    'mosaicml>=0.22.0',
+    # 'mosaicml>=0.23.6', # uses when released
+    'mosaicml @ git+https://github.com/mosaicml/composer.git@7c48cfc00ed5df553c947b336fee72437d2e68a7',
 ]
 
 extra_deps['all'] = list({dep for key, deps in extra_deps.items() for dep in deps if key not in {'testing'}})
