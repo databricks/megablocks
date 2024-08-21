@@ -21,14 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: "python3.11-pytorch2.3.1-gpus1"
-          gpu_num: 1
-          python_version: 3.11
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-        - name: "python3.11-pytorch2.3.1-gpus2"
-          gpu_num: 2
-          python_version: 3.11
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
         - name: "python3.11-pytorch2.4.0-gpus1"
           gpu_num: 1
           python_version: 3.11
