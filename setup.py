@@ -64,13 +64,13 @@ install_requires = [
     'packaging>=21.3.0,<24.2',
     'torch>=2.4.0,<2.4.1',
     'triton>=2.1.0',
-    'stanford-stk @ git+https://git@github.com/eitanturok/stk.git@bump-version',
+    'stanford-stk>=0.7.1',
 ]
 
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm @ git+https://git@github.com/eitanturok/grouped_gemm.git@bump-version',
+    'grouped_gemm>=0.1.6',
 ]
 
 extra_deps['dev'] = [
@@ -83,8 +83,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['testing'] = [
-    # 'mosaicml>=0.23.6', # uses when released
-    'mosaicml @ git+https://github.com/mosaicml/composer.git@7c48cfc00ed5df553c947b336fee72437d2e68a7',
+    'mosaicml>=0.23.6',
 ]
 
 extra_deps['all'] = list({dep for key, deps in extra_deps.items() for dep in deps if key not in {'testing'}})
