@@ -14,8 +14,14 @@ class PaddedScatterOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(
-        ctx: Any, x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, weights: torch.Tensor,
-        bins: torch.Tensor, padded_bins: torch.Tensor, top_k: int
+        ctx: Any,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,
+        weights: torch.Tensor,
+        bins: torch.Tensor,
+        padded_bins: torch.Tensor,
+        top_k: int,
     ):
         maybe_x = [x] if ctx.needs_input_grad[3] else []
         ctx.save_for_backward(

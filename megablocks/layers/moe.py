@@ -1,5 +1,6 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -146,7 +147,7 @@ class ParallelMLP(torch.nn.Module):
             expert_scores.mean(dim=0),
         )
 
-    def indices_and_bins(self, top_expert: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
+    def indices_and_bins(self, top_expert: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # Sort the expert ids to produce the scatter/gather
         # indices for the permutation.
         #
@@ -167,6 +168,12 @@ class ParallelMLP(torch.nn.Module):
         # Calculate the bin bounds for the sorted tokens.
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
         bins = bins.view(1) if not len(bins.size()) else bins
+
+        assert isinstance(indices, torch.Tensor)
+        assert isinstance(bin_ids, torch.Tensor)
+        assert isinstance(bins, torch.Tensor)
+        assert isinstance(tokens_per_expert, torch.Tensor)
+
         return indices, bin_ids, bins, tokens_per_expert
 
     def permute_and_compute(

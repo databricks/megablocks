@@ -14,8 +14,13 @@ class PaddedGatherOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(
-        ctx: Any, x: torch.Tensor, indices: torch.Tensor, bin_ids: torch.Tensor, bins: torch.Tensor,
-        padded_bins: torch.Tensor, top_k: int
+        ctx: Any,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,
+        bins: torch.Tensor,
+        padded_bins: torch.Tensor,
+        top_k: int,
     ):
         ctx.save_for_backward(indices, bin_ids, bins, padded_bins)
         ctx.top_k = top_k

@@ -14,7 +14,12 @@ class BinnedScatterOp(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(
-        ctx: Any, x: torch.Tensor, indices: torch.Tensor, weights: torch.Tensor, bins: torch.Tensor, top_k: int
+        ctx: Any,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        weights: torch.Tensor,
+        bins: torch.Tensor,
+        top_k: int,
     ):
         assert len(x.size()) == 3
         ctx.bin_size = x.size(1)
