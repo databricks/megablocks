@@ -410,6 +410,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
+        assert gg.backend is not None
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
 
         # activation_fn
@@ -451,6 +452,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             activation_grad_fn = activation_fn_out.backward
 
         # Compute dw2 with recomputed activation_fn output.
+        assert gg.backend is not None
         dw2 = gg.backend.gmm(
             activation_fn_out,
             ddsd_out,
@@ -515,6 +517,7 @@ class GroupedMLP(SparseMLP):
             )
 
         # Compute the MLP.
+        assert gg.ops is not None
         x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x = self.args.activation_fn(x)
         return gg.ops.gmm(x, w2, batch_sizes)
