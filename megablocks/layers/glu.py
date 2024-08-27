@@ -1,7 +1,7 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
-import stk
+import stk.ops
 import torch
 
 from megablocks import grouped_gemm_util as gg

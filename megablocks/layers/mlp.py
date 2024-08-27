@@ -5,6 +5,8 @@ from typing import Any
 
 import stk
 import torch
+import stk.ops
+import stk.backend.triton_kernels
 from packaging import version
 
 from megablocks import grouped_gemm_util as gg
