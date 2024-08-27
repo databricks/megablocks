@@ -4,6 +4,7 @@
 import torch
 import torch.distributed as dist
 
+
 class AllToAllOp(torch.autograd.Function):
 
     @staticmethod

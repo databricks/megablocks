@@ -10,9 +10,11 @@ from megablocks.layers.arguments import Arguments
 
 
 class MoeParam(torch.Tensor):
+
     def __init__(self):
         super().__init__(self)
         self.expert_model_parallel: bool
+
 
 def is_moe_param(tensor: torch.Tensor) -> bool:
     return hasattr(tensor, 'expert_model_parallel')
@@ -32,6 +34,7 @@ def set_expert_model_parallel_attributes(
 ):
     assert not hasattr(tensor, 'expert_model_parallel')
     setattr(tensor, 'expert_model_parallel', is_parallel)
+
 
 def param_is_expert_model_parallel(param: MoeParam) -> bool:
     return (hasattr(param, 'expert_model_parallel') and param.expert_model_parallel)

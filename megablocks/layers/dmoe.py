@@ -3,8 +3,8 @@
 
 import numpy as np
 import stk.ops
-from stk import Matrix
 import torch
+from stk import Matrix
 
 import megablocks.ops as ops
 from megablocks.layers import common, dmlp_registry, moe, mpu

@@ -6,8 +6,8 @@ from functools import partial
 from typing import Any, Callable, Optional, Union
 
 import torch
-import torch.nn.functional as F
 import torch.distributed as dist
+import torch.nn.functional as F
 
 import megablocks.grouped_gemm_util as grouped_gemm
 

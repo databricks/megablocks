@@ -1,10 +1,10 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, Union, Any
+from typing import Any, Callable, Union
 
-from stk import Matrix
 import torch
+from stk import Matrix
 
 
 def act_fn(

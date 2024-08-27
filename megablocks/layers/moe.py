@@ -1,6 +1,6 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -149,7 +149,8 @@ class ParallelMLP(torch.nn.Module):
             expert_scores.mean(dim=0),
         )
 
-    def indices_and_bins(self, top_expert: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def indices_and_bins(self,
+                         top_expert: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # Sort the expert ids to produce the scatter/gather
         # indices for the permutation.
         #
