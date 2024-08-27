@@ -4,6 +4,7 @@ from typing import Tuple
 
 import numpy as np
 import torch
+import torch.distributed as dist
 
 import megablocks.ops as ops
 from megablocks.layers import common, mlp, mpu, router, sharedexpert_registry
@@ -264,7 +265,7 @@ class ParallelMLP(torch.nn.Module):
             # Pass token count information to the device on which the
             # target expert resides.
             parallel_tokens_per_expert = torch.empty_like(repeated_tokens_per_expert,)
-            tpe_handle = torch.distributed.all_to_all_single(
+            tpe_handle = dist.all_to_all_single(
                 parallel_tokens_per_expert,
                 repeated_tokens_per_expert,
                 group=self.args.expert_parallel_group,

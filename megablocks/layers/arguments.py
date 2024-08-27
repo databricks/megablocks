@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional, Union
 
 import torch
 import torch.nn.functional as F
+import torch.distributed as dist
 
 import megablocks.grouped_gemm_util as grouped_gemm
 
@@ -39,7 +40,7 @@ class Arguments:
 
     # Parallelism arguments.
     moe_expert_model_parallelism: bool = False
-    expert_parallel_group: Optional[torch.distributed.ProcessGroup] = None
+    expert_parallel_group: Optional[dist.ProcessGroup] = None
     pipeline_model_parallel_size: int = 1
     num_layers_per_virtual_pipeline_stage: Optional[int] = None
 
