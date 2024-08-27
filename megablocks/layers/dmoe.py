@@ -3,7 +3,7 @@
 
 import numpy as np
 import stk.ops
-import stk.Matrix
+from stk import Matrix
 import torch
 
 import megablocks.ops as ops
