@@ -1,6 +1,6 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import torch
@@ -112,6 +112,7 @@ class ParallelMLP(torch.nn.Module):
         # Expert MLP.
         self.mlp = mlp.MLP(args)
 
+        self.bias: Optional[torch.Tensor]
         if self.args.bias:
             # Note that the output bias is not parallelized with expert
             # model parallelism.
@@ -156,7 +157,9 @@ class ParallelMLP(torch.nn.Module):
         # prior? Could we place the `torch.max` operation to return
         # 32-bit expert indices?
         top_expert = top_expert.int()
-        bin_ids, indices = ops.sort(top_expert, self.sort_end_bit)
+        output = ops.sort(top_expert, self.sort_end_bit)
+        assert output is not None
+        bin_ids, indices = output
 
         # Histogram the expert ids to identify the number of
         # tokens routed to each expert.
@@ -168,6 +171,7 @@ class ParallelMLP(torch.nn.Module):
 
         # Calculate the bin bounds for the sorted tokens.
         bins = ops.inclusive_cumsum(tokens_per_expert, 0)
+        assert bins is not None
         bins = bins.view(1) if not len(bins.size()) else bins
 
         assert isinstance(indices, torch.Tensor)
@@ -190,7 +194,9 @@ class ParallelMLP(torch.nn.Module):
     ):
         # Route the tokens for MoE computation.
         x = x.view(-1, x.shape[-1])
-        x = ops.binned_gather(x, indices, bins, expert_capacity, top_k)
+        output = ops.binned_gather(x, indices, bins, expert_capacity, top_k)
+        assert output is not None
+        x = output
 
         # Perform the expert computation. Note that we don't
         # use biases for these linear operations.
@@ -278,7 +284,9 @@ class ParallelMLP(torch.nn.Module):
         # This view updates the shape of the tensor from [sl, bs, hs] to
         # [sl * bs, hs] prior to the permutation.
         x = x.view(-1, x.shape[-1])
-        x = ops.gather(x, indices, bin_ids, bins, self.top_k)
+        output = ops.gather(x, indices, bin_ids, bins, self.top_k)
+        assert output is not None
+        x = output
 
         # Compute the number of tokens that will be received from each
         # device and permute the input data across the devices.

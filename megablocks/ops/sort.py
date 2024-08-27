@@ -1,7 +1,7 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
@@ -26,7 +26,7 @@ _BITS_FOR_DTYPE = {
 class SortOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx: Any, x: torch.Tensor, end_bit: Optional[int] = None):
+    def forward(ctx: Any, x: torch.Tensor, end_bit: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         if end_bit is None:
             end_bit = _BITS_FOR_DTYPE[x.dtype]
         x_out = torch.empty_like(x)
@@ -36,3 +36,4 @@ class SortOp(torch.autograd.Function):
 
 
 sort = SortOp.apply
+
