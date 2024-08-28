@@ -1,20 +1,25 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
+import warnings
 
+_grouped_gemm_is_available: bool = False
 try:
     import grouped_gemm
-except ImportError:
-    grouped_gemm = None
+    _grouped_gemm_is_available = True
+except ImportError as error:
+    warnings.warn('Grouped GEMM not available.')
 
 
 def grouped_gemm_is_available():
-    return grouped_gemm is not None
+    return _grouped_gemm_is_available
 
 
 def assert_grouped_gemm_is_available():
-    assert grouped_gemm_is_available(
-    ), ('Grouped GEMM not available. Please run '
-        '`pip install git+https://github.com/tgale96/grouped_gemm@main`.')
+    msg = (
+        'Grouped GEMM not available. Please run '
+        '`pip install git+https://github.com/tgale96/grouped_gemm@main`.',
+    )
+    assert _grouped_gemm_is_available, msg
 
 
 backend = grouped_gemm.backend if grouped_gemm_is_available() else None

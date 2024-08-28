@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-import stk
+import stk.ops
 import torch
+from stk import Matrix
 
 import megablocks.ops as ops
 from megablocks.layers import common, dmlp_registry, moe, mpu

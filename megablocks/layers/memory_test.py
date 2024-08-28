@@ -4,6 +4,7 @@
 import gc
 
 import torch
+import torch.distributed as dist
 
 from megablocks.layers import arguments, dmoe
 
@@ -92,9 +93,9 @@ def test_memory(
 
 
 if __name__ == '__main__':
-    assert torch.distributed.is_available()
-    group = torch.distributed.init_process_group(backend='nccl')
-    local_rank = torch.distributed.get_rank(group)
+    assert dist.is_available()
+    group = dist.init_process_group(backend='nccl')
+    local_rank = dist.get_rank(group)
     torch.cuda.set_device(local_rank)
 
     for args in _TESTS:
