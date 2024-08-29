@@ -83,7 +83,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['testing'] = [
-    'mosaicml>=0.23.6',
+    'mosaicml>=0.24.1',
 ]
 
 extra_deps['all'] = list({dep for key, deps in extra_deps.items() for dep in deps if key not in {'testing'}})
