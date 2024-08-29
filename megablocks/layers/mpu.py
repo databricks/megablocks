@@ -1,9 +1,19 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional
+
 import torch
+import torch.distributed as dist
 
 from megablocks.layers.arguments import Arguments
+
+
+class MoeParam(torch.Tensor):
+
+    def __init__(self):
+        super().__init__(self)
+        self.expert_model_parallel: bool
 
 
 def is_moe_param(tensor: torch.Tensor) -> bool:
@@ -11,11 +21,11 @@ def is_moe_param(tensor: torch.Tensor) -> bool:
 
 
 def get_expert_parallel_world_size(args: Arguments) -> int:
-    return (torch.distributed.get_world_size(args.expert_parallel_group) if args.moe_expert_model_parallelism else 1)
+    return (dist.get_world_size(args.expert_parallel_group) if args.moe_expert_model_parallelism else 1)
 
 
 def get_expert_parallel_rank(args: Arguments) -> int:
-    return (torch.distributed.get_rank(args.expert_parallel_group) if args.moe_expert_model_parallelism else 0)
+    return (dist.get_rank(args.expert_parallel_group) if args.moe_expert_model_parallelism else 0)
 
 
 def set_expert_model_parallel_attributes(
@@ -26,7 +36,7 @@ def set_expert_model_parallel_attributes(
     setattr(tensor, 'expert_model_parallel', is_parallel)
 
 
-def param_is_expert_model_parallel(param: torch.Tensor) -> bool:
+def param_is_expert_model_parallel(param: MoeParam) -> bool:
     return (hasattr(param, 'expert_model_parallel') and param.expert_model_parallel)
 
 
@@ -42,11 +52,11 @@ def copy_expert_model_parallel_attributes(
         )
 
 
-def synchronized_print(group, *x):
-    world_size = torch.distributed.get_world_size(group)
-    rank = torch.distributed.get_rank(group)
+def synchronized_print(group: Optional[dist.ProcessGroup], *x: torch.Tensor):
+    world_size = dist.get_world_size(group)
+    rank = dist.get_rank(group)
     for i in range(world_size):
-        torch.distributed.barrier(group)
+        dist.barrier(group)
         if i == rank:
             print(f'rank = {rank}', *x)
 
@@ -70,9 +80,7 @@ def hidden_sharding_degree(args: Arguments) -> int:
         raise ValueError(f'Cannot shard {args.ffn_hidden_size} features {hsd} ways.',)
     if (esd * hsd) != world_size:
         raise ValueError(
-            f"Invalid sharding. 'expert_sharding_degree' "
-            f'({esd}) * hidden_sharding_degree '
-            f'({hsd}) != world_size ({world_size}).',
+            f"Invalid sharding. 'expert_sharding_degree' ({esd}) * hidden_sharding_degree ({hsd}) != world_size ({world_size}).",
         )
     return hsd
 

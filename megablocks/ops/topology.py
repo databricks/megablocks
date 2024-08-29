@@ -1,6 +1,8 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 # NOTE: Torch needs to be imported before the custom
 # extensions. Otherwise libc10.so cannot be found.
 import torch
@@ -19,11 +21,11 @@ class TopologyOp(torch.autograd.Function):
 
     @staticmethod
     def forward(
-        ctx,
-        padded_bins,
-        block_size,
-        output_block_rows,
-        output_block_columns,
+        ctx: Any,
+        padded_bins: torch.Tensor,
+        block_size: int,
+        output_block_rows: int,
+        output_block_columns: int,
     ):
         out = torch.empty(
             output_block_rows * output_block_columns,

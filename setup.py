@@ -143,4 +143,5 @@ setup(
     install_requires=install_requires,
     extras_require=extra_deps,
     python_requires='>=3.9',
+    package_data={_PACKAGE_NAME: ['py.typed']},
 )

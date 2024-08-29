@@ -1,26 +1,27 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
+from typing import Any, Optional
 
 import torch
 import triton
 import triton.language as tl
 
 
-def assert_is_tensor(x, ndim):
+def assert_is_tensor(x: torch.Tensor, ndim: int):
     if x.ndim != ndim:
         raise ValueError(f'Expected {ndim}-tensor but got {x.ndim}-tensor')
 
 
-def assert_is_matrix(x):
+def assert_is_matrix(x: torch.Tensor):
     assert_is_tensor(x, 2)
 
 
-def assert_is_vector(x):
+def assert_is_vector(x: torch.Tensor):
     if x.ndim != 1:
         raise ValueError(f'Expected 1-tensor but got {x.ndim}-tensor')
 
 
-def assert_equal(a, b):
+def assert_equal(a: Any, b: Any):
     if a != b:
         raise ValueError(f'Expected dimensions to be equal but got {a} and {b}.',)
 
@@ -43,13 +44,13 @@ def assert_equal(a, b):
 )
 @triton.jit
 def _padded_copy(
-    a,
-    b,
-    indices,
-    bin_ids,
-    weights,
-    bins,
-    padded_bins,
+    a: torch.Tensor,
+    b: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Any,
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
     NUM_COLUMNS: tl.constexpr,
     TOP_K: tl.constexpr,
     BLOCK_X: tl.constexpr,
@@ -93,7 +94,8 @@ def _padded_copy(
     iptr = a if A_TO_B else b
     optr = b if A_TO_B else a
 
-    for i in range(tl.cdiv(NUM_COLUMNS, BLOCK_X)):
+    iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
+    for _ in range(iterations):
         mask = offsets < NUM_COLUMNS
         x = tl.load(iptr + offsets, mask=mask)
         x = x.to(tl.float32) * scale.to(tl.float32)
@@ -103,7 +105,15 @@ def _padded_copy(
         offsets += BLOCK_X
 
 
-def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
+def padded_gather(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
+    top_k: int,
+):
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_vector(indices)
@@ -119,7 +129,7 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
 
     # NOTE: Because of the padding, the output size is dynamic.
     # We load the final padded bin bound to get the output rows.
-    output_rows = padded_bins[-1].cpu().item()
+    output_rows = int(padded_bins[-1].cpu().item())
     out = torch.zeros((output_rows, x.shape[1]), dtype=x.dtype, device=x.device)
     _padded_copy[(indices.shape[0],)](
         x,
@@ -137,7 +147,14 @@ def padded_gather(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     return out
 
 
-def gather(x, indices, bin_ids, weights, bins, top_k):
+def gather(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    top_k: int,
+):
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_vector(indices)
@@ -169,7 +186,15 @@ def gather(x, indices, bin_ids, weights, bins, top_k):
     return out
 
 
-def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
+def padded_scatter(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
+    top_k: int,
+) -> torch.Tensor:
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_vector(indices)
@@ -202,7 +227,14 @@ def padded_scatter(x, indices, bin_ids, weights, bins, padded_bins, top_k):
     return out.sum(dim=1) if top_k > 1 else out.view(tokens, x.shape[1])
 
 
-def scatter(x, indices, bin_ids, weights, bins, top_k):
+def scatter(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    top_k: int,
+) -> torch.Tensor:
     return padded_scatter(x, indices, bin_ids, weights, bins, bins, top_k)
 
 
@@ -225,13 +257,13 @@ def scatter(x, indices, bin_ids, weights, bins, top_k):
 )
 @triton.jit
 def _padded_copy_wgrad(
-    x,
-    grad,
-    wgrad,
-    indices,
-    bin_ids,
-    bins,
-    padded_bins,
+    x: torch.Tensor,
+    grad: torch.Tensor,
+    wgrad: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
     NUM_COLUMNS: tl.constexpr,
     TOP_K: tl.constexpr,
     BLOCK_X: tl.constexpr,
@@ -263,7 +295,7 @@ def _padded_copy_wgrad(
 
     acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(iterations):
+    for _ in range(iterations):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
         scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
@@ -275,7 +307,15 @@ def _padded_copy_wgrad(
     tl.store(wgrad, out)
 
 
-def padded_scatter_wgrad(x, grad, indices, bin_ids, bins, padded_bins, top_k):
+def padded_scatter_wgrad(
+    x: torch.Tensor,
+    grad: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    bins: torch.Tensor,
+    padded_bins: torch.Tensor,
+    top_k: int,
+):
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_matrix(grad)
@@ -302,7 +342,14 @@ def padded_scatter_wgrad(x, grad, indices, bin_ids, bins, padded_bins, top_k):
     return out
 
 
-def scatter_wgrad(x, grad, indices, bin_ids, bins, top_k):
+def scatter_wgrad(
+    x: torch.Tensor,
+    grad: torch.Tensor,
+    indices: torch.Tensor,
+    bin_ids: torch.Tensor,
+    bins: torch.Tensor,
+    top_k: int,
+):
     return padded_scatter_wgrad(x, grad, indices, bin_ids, bins, bins, top_k)
 
 
@@ -323,13 +370,13 @@ def scatter_wgrad(x, grad, indices, bin_ids, bins, top_k):
 )
 @triton.jit
 def _binned_copy(
-    a,
-    b,
-    num_experts,
-    expert_capacity,
-    indices,
-    weights,
-    bins,
+    a: torch.Tensor,
+    b: torch.Tensor,
+    num_experts: int,
+    expert_capacity: int,
+    indices: torch.Tensor,
+    weights, #: Optional[torch.Tensor],
+    bins: torch.Tensor,
     NUM_COLUMNS: tl.constexpr,
     TOP_K: tl.constexpr,
     BLOCK_X: tl.constexpr,
@@ -378,7 +425,7 @@ def _binned_copy(
     optr = b if A_TO_B else a
 
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(iterations):
+    for _ in range(iterations):
         mask = offsets < NUM_COLUMNS
         x = tl.load(iptr + offsets, mask=mask)
         x = x.to(tl.float32) * scale.to(tl.float32)
@@ -388,7 +435,14 @@ def _binned_copy(
         offsets += BLOCK_X
 
 
-def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
+def binned_gather(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    expert_capacity: int,
+    top_k: int,
+):
     # Validate the input shapes.
     assert_is_matrix(x)
     assert_is_vector(indices)
@@ -400,7 +454,6 @@ def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
 
     num_experts = bins.shape[0]
     out = torch.zeros((num_experts, expert_capacity, x.shape[1]), dtype=x.dtype, device=x.device)
-
     _binned_copy[(num_experts, expert_capacity)](
         x,
         out,
@@ -417,7 +470,13 @@ def binned_gather(x, indices, weights, bins, expert_capacity, top_k):
     return out
 
 
-def binned_scatter(x, indices, weights, bins, top_k):
+def binned_scatter(
+    x: torch.Tensor,
+    indices: torch.Tensor,
+    weights: Optional[torch.Tensor],
+    bins: torch.Tensor,
+    top_k: int,
+):
     # Validate the input shapes.
     assert_is_tensor(x, 3)
     assert_is_vector(indices)
@@ -465,13 +524,13 @@ def binned_scatter(x, indices, weights, bins, top_k):
 )
 @triton.jit
 def _binned_copy_wgrad(
-    x,
-    grad,
-    wgrad,
-    num_experts,
-    expert_capacity,
-    indices,
-    bins,
+    x: torch.Tensor,
+    grad: torch.Tensor,
+    wgrad: torch.Tensor,
+    num_experts: int,
+    expert_capacity: int,
+    indices: torch.Tensor,
+    bins: torch.Tensor,
     NUM_COLUMNS: tl.constexpr,
     TOP_K: tl.constexpr,
     BLOCK_X: tl.constexpr,
@@ -505,7 +564,7 @@ def _binned_copy_wgrad(
 
     acc = tl.zeros((BLOCK_X,), dtype=tl.float32)
     iterations = tl.cdiv(NUM_COLUMNS, BLOCK_X)
-    for i in range(iterations):
+    for _ in range(iterations):
         mask = offsets < NUM_COLUMNS
         data = tl.load(x + offsets, mask=mask).to(tl.float32)
         scale = tl.load(grad + offsets, mask=mask).to(tl.float32)
@@ -517,7 +576,7 @@ def _binned_copy_wgrad(
     tl.store(wgrad, out)
 
 
-def binned_scatter_wgrad(x, grad, indices, bins, top_k):
+def binned_scatter_wgrad(x: torch.Tensor, grad: torch.Tensor, indices: torch.Tensor, bins: torch.Tensor, top_k: int):
     # Validate the input shapes.
     assert_is_tensor(x, 3)
     assert_is_matrix(grad)

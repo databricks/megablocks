@@ -1,5 +1,6 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
+from typing import Any
 
 import torch
 
@@ -14,7 +15,7 @@ from megablocks.layers.arguments import Arguments
 class _UniformExpertAssignment(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, x, num_experts):
+    def forward(ctx: Any, x: torch.Tensor, num_experts: int):
         out = torch.arange(x.numel(), dtype=x.dtype, device=x.device)
         out = torch.remainder(out, num_experts)
         return out.view(x.shape)
@@ -43,18 +44,19 @@ class LearnedRouter(torch.nn.Module):
         )
         args.init_method(self.layer.weight)
 
-    def jitter(self, x):
+    def jitter(self, x: torch.Tensor):
+        assert isinstance(self.args.moe_jitter_eps, float)
         low = 1.0 - self.args.moe_jitter_eps
         high = 1.0 + self.args.moe_jitter_eps
         noise = torch.rand(x.size(), dtype=x.dtype, device=x.device)
         return low + noise * (high - low)
 
-    def _top_k(self, scores):
+    def _top_k(self, scores: torch.Tensor):
         if self.args.moe_top_k == 1:
             return scores.max(dim=-1, keepdim=True)
         return torch.topk(scores, self.args.moe_top_k, dim=-1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         if self.training and self.args.moe_jitter_eps is not None:
             x = x * self.jitter(x)
 

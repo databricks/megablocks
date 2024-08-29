@@ -1,7 +1,7 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
-import stk
+import stk.ops
 import torch
 
 from megablocks import grouped_gemm_util as gg
@@ -80,6 +80,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             raise ValueError("Expected contiguous 'x', 'w1', 'v1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
+        assert gg.backend is not None
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
         v1_out = gg.backend.gmm(x, v1, batch_sizes, trans_b=True)
 
@@ -123,6 +124,7 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             activation_grad_fn = activation_fn_out.backward
 
         # Compute dw2 with recomputed activation_fn output.
+        assert gg.backend is not None
         dw2 = gg.backend.gmm(
             activation_fn_out,
             ddsd_out,
@@ -196,6 +198,7 @@ class GroupedGLU(SparseGLU):
             )
 
         # Compute the MLP.
+        assert gg.ops is not None
         x1 = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x2 = gg.ops.gmm(x, v1, batch_sizes, trans_b=True)
         x1 = self.args.activation_fn(x1) * x2

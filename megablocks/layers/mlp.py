@@ -4,6 +4,8 @@
 from typing import Any
 
 import stk
+import stk.backend.triton_kernels
+import stk.ops
 import torch
 from packaging import version
 
@@ -17,20 +19,20 @@ class ScaleGradient(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, scale):
+    def forward(ctx: Any, x: torch.Tensor, scale: float):
         ctx.scale = scale
         return x
 
     @staticmethod
     @torch.cuda.amp.custom_bwd
-    def backward(ctx, grad):
+    def backward(ctx: torch.Tensor, grad: torch.Tensor):
         return grad * ctx.scale, None
 
 
 scale_gradient = ScaleGradient.apply
 
 
-def resolve_dtensor(weight):
+def resolve_dtensor(weight: torch.Tensor):
     if version.parse(torch.__version__) >= version.parse('2.0.0'):
         from torch.distributed._tensor import DTensor
         if isinstance(weight, DTensor):
@@ -408,6 +410,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
+        assert gg.backend is not None
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
 
         # activation_fn
@@ -429,7 +432,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_bwd
-    def backward(ctx, ddsd_out):
+    def backward(ctx: Any, ddsd_out: torch.Tensor):
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
 
@@ -449,6 +452,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             activation_grad_fn = activation_fn_out.backward
 
         # Compute dw2 with recomputed activation_fn output.
+        assert gg.backend is not None
         dw2 = gg.backend.gmm(
             activation_fn_out,
             ddsd_out,
@@ -513,6 +517,7 @@ class GroupedMLP(SparseMLP):
             )
 
         # Compute the MLP.
+        assert gg.ops is not None
         x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x = self.args.activation_fn(x)
         return gg.ops.gmm(x, w2, batch_sizes)

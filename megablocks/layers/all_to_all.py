@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+import torch.distributed as dist
 
 
 class AllToAllOp(torch.autograd.Function):
@@ -14,7 +15,7 @@ class AllToAllOp(torch.autograd.Function):
         ctx.output_split_sizes = output_split_sizes
         ctx.input_split_sizes = input_split_sizes
         ctx.group = group
-        handle = torch.distributed.all_to_all_single(
+        handle = dist.all_to_all_single(
             out,
             x,
             output_split_sizes=output_split_sizes,
@@ -32,7 +33,7 @@ class AllToAllOp(torch.autograd.Function):
                 device=grad.device,
                 dtype=grad.dtype,
             )
-            torch.distributed.all_to_all_single(
+            dist.all_to_all_single(
                 out,
                 grad,
                 output_split_sizes=ctx.input_split_sizes,

@@ -1,6 +1,8 @@
 # Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any, Optional
+
 import torch
 from stk.backend.autocast import custom_bwd, custom_fwd
 
@@ -12,7 +14,15 @@ class ScatterOp(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, indices, bin_ids, weights, bins, top_k):
+    def forward(
+        ctx: Any,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,
+        weights: torch.Tensor,
+        bins: torch.Tensor,
+        top_k: int,
+    ) -> torch.Tensor:
         maybe_x = [x] if ctx.needs_input_grad[3] else []
         ctx.save_for_backward(indices, bin_ids, weights, bins, *maybe_x)
         ctx.top_k = top_k
@@ -21,7 +31,7 @@ class ScatterOp(torch.autograd.Function):
 
     @staticmethod
     @custom_bwd
-    def backward(ctx, grad):
+    def backward(ctx: Any, grad: torch.Tensor):
         grad = grad.contiguous()
         saved_tensors = ctx.saved_tensors
 
@@ -58,5 +68,5 @@ def scatter(
     weights: torch.Tensor,
     bins: torch.Tensor,
     top_k: int,
-):
+) -> Optional[torch.Tensor]:
     return ScatterOp.apply(x, indices, bin_ids, weights, bins, top_k)

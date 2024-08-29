@@ -4,7 +4,7 @@
 import torch
 
 
-def round_up(x, value):
+def round_up(x: torch.Tensor, value: int):
     assert isinstance(value, int)
     assert x.dtype == torch.int32
 
