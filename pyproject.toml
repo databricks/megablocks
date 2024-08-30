@@ -3,7 +3,7 @@
 
 # build requirements
 [build-system]
-requires = ["setuptools < 70.0.0", "torch >= 2.3.0, < 2.4"]
+requires = ["setuptools < 70.0.0", "torch >= 2.4.0, < 2.4.1"]
 build-backend = "setuptools.build_meta"
 
 # Pytest

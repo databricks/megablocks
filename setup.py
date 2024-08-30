@@ -62,15 +62,15 @@ classifiers = [
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
     'packaging>=21.3.0,<24.2',
-    'torch>=2.3.0,<2.4',
+    'torch>=2.4.0,<2.4.1',
     'triton>=2.1.0',
-    'stanford-stk @ git+https://git@github.com/stanford-futuredata/stk.git@a1ddf98466730b88a2988860a9d8000fd1833301',
+    'stanford-stk @ git+https://git@github.com/stanford-futuredata/stk.git@v0.7.1',
 ]
 
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm @ git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb',
+    'grouped_gemm @ git+https://git@github.com/tgale96/grouped_gemm.git@v0.1.6',
 ]
 
 extra_deps['dev'] = [
@@ -83,7 +83,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['testing'] = [
-    'mosaicml>=0.22.0',
+    'mosaicml>=0.24.1',
 ]
 
 extra_deps['all'] = list({dep for key, deps in extra_deps.items() for dep in deps if key not in {'testing'}})
