@@ -18,13 +18,13 @@ from megablocks.layers.arguments import DEFAULT_ACTIVATION_FN, Arguments, InitFn
 class ScaleGradient(torch.autograd.Function):
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
+    @torch.amp.custom_fwd(device_type='cuda')
     def forward(ctx: Any, x: torch.Tensor, scale: float):
         ctx.scale = scale
         return x
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.custom_bwd(device_type='cuda')
     def backward(ctx: torch.Tensor, grad: torch.Tensor):
         return grad * ctx.scale, None
 
@@ -188,7 +188,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
     """Sparse MLP with manually scheduled memory reuse."""
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
+    @torch.amp.custom_fwd(device_type='cuda')
     def forward(ctx, x, w1, w2, topo, activation_fn):
         # Cast inputs using ctx dtype from AMP
         if ctx._fwd_used_autocast:
@@ -230,7 +230,7 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         return dsd_out
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.custom_bwd(device_type='cuda')
     def backward(ctx, ddsd_out):
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
@@ -398,7 +398,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
     """GroupedMLP with manually scheduled memory reuse."""
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
+    @torch.amp.custom_fwd(device_type='cuda')
     def forward(ctx, x, w1, w2, batch_sizes, activation_fn):
         # Cast inputs using ctx dtype from AMP
         if ctx._fwd_used_autocast:
@@ -431,7 +431,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         return dsd_out
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.custom_bwd(device_type='cuda')
     def backward(ctx: Any, ddsd_out: torch.Tensor):
         if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
             raise ValueError('Expected all MLP inputs to need grad.')
