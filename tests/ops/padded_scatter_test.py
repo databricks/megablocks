@@ -1,4 +1,4 @@
-# Copyright 2024 MosaicML MegaBlocks authors
+# Copyright 2024 Databricks
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -94,10 +94,15 @@ def testPaddedScatter(sl: int, hs: int, ne: int, top_k: int):
     # Gather the data to prepare for backwards.
     x = ops.padded_gather(x, indices, bin_ids, bins, padded_bins, top_k)
 
-    def padded_scatter(x: torch.Tensor, indices: torch.Tensor,
-                       bin_ids: torch.Tensor, weights: torch.Tensor,
-                       bins: torch.Tensor, padded_bins: torch.Tensor,
-                       top_k: int):
+    def padded_scatter(
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        bin_ids: torch.Tensor,
+        weights: torch.Tensor,
+        bins: torch.Tensor,
+        padded_bins: torch.Tensor,
+        top_k: int,
+    ):
         x = x.detach().cpu().numpy()
         indices: np.ndarray = _to_numpy(indices)
         bin_ids: np.ndarray = _to_numpy(bin_ids)
@@ -120,10 +125,24 @@ def testPaddedScatter(sl: int, hs: int, ne: int, top_k: int):
                 in_idx += 1
         return torch.from_numpy(out).cuda().half()
 
-    out = ops.padded_scatter(x, indices, bin_ids, weights, bins, padded_bins,
-                             top_k)
-    expected_out = padded_scatter(x, indices, bin_ids, weights, bins,
-                                  padded_bins, top_k)
+    out = ops.padded_scatter(
+        x,
+        indices,
+        bin_ids,
+        weights,
+        bins,
+        padded_bins,
+        top_k,
+    )
+    expected_out = padded_scatter(
+        x,
+        indices,
+        bin_ids,
+        weights,
+        bins,
+        padded_bins,
+        top_k,
+    )
 
     out.backward(torch.randn_like(out))  # sanity check backward pass
 

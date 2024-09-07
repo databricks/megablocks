@@ -1,10 +1,14 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 from functools import partial
 
 import pytest
 import torch
 
-from megablocks.layers import moe, testing
 from megablocks.layers.arguments import Arguments
+from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
+from tests.layers.architectures import FFN
 
 _FORWARD_TESTS = (
     (16, 1024, 512, 1, 1),
@@ -22,7 +26,6 @@ _FORWARD_TESTS = (
     (16, 1024, 512, 8, 8),
 )
 
-
 _DENSE_TESTS = (
     (16, 1024, 512),
     (8, 2048, 512),
@@ -30,11 +33,12 @@ _DENSE_TESTS = (
 
 
 def construct_moe(
-        hidden_size,
-        ffn_hidden_size,
-        moe_num_experts=1,
-        moe_capacity_factor=1,
-        moe_top_k=1):
+    hidden_size,
+    ffn_hidden_size,
+    moe_num_experts=1,
+    moe_capacity_factor=1,
+    moe_top_k=1,
+):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,
@@ -42,10 +46,11 @@ def construct_moe(
         moe_num_experts=moe_num_experts,
         moe_capacity_factor=moe_capacity_factor,
         moe_top_k=moe_top_k,
-        init_method=init_method)
+        init_method=init_method,
+    )
 
-    mlp = testing.FFN(args)
-    moe_mlp = moe.MoE(args)
+    mlp = FFN(args)
+    moe_mlp = MoE(args)
 
     mlp.cuda(torch.cuda.current_device()).half()
     moe_mlp.cuda(torch.cuda.current_device()).half()
@@ -59,8 +64,7 @@ def construct_moe(
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'),
-                         _FORWARD_TESTS)
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'), _FORWARD_TESTS)
 def test_moe_forward(bs: int, sl: int, hs: int, num_experts: int, top_k: int):
     x = torch.randn(sl, bs, hs).half().cuda()
 
@@ -68,16 +72,23 @@ def test_moe_forward(bs: int, sl: int, hs: int, num_experts: int, top_k: int):
         hidden_size=hs,
         ffn_hidden_size=hs * 2,
         moe_num_experts=num_experts,
-        moe_top_k=top_k)
+        moe_top_k=top_k,
+    )
 
     out, _ = layer(x)
     assert out.shape == x.shape
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
+
 
 @pytest.mark.gpu
-@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'),
-                         _FORWARD_TESTS)
-def test_moe_forward_backward(bs: int, sl: int, hs: int, num_experts: int, top_k: int):
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'), _FORWARD_TESTS)
+def test_moe_forward_backward(
+    bs: int,
+    sl: int,
+    hs: int,
+    num_experts: int,
+    top_k: int,
+):
     x = torch.randn(sl, bs, hs).half().cuda()
     x.requires_grad_(True)
 
@@ -85,16 +96,17 @@ def test_moe_forward_backward(bs: int, sl: int, hs: int, num_experts: int, top_k
         hidden_size=hs,
         ffn_hidden_size=hs * 2,
         moe_num_experts=num_experts,
-        moe_top_k=top_k)
+        moe_top_k=top_k,
+    )
 
     out, _ = layer(x)
     assert out.shape == x.shape
 
-    loss = out.sum() + moe.batched_load_balancing_loss(args)
+    loss = out.sum() + batched_load_balancing_loss(args)
     loss.backward()
     layer.zero_grad(set_to_none=True)
     x.grad = None
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
@@ -102,15 +114,13 @@ def test_moe_forward_backward(bs: int, sl: int, hs: int, num_experts: int, top_k
 def test_moe_forward_vs_dense(bs: int, sl: int, hs: int):
     x = torch.randn(sl, bs, hs).half().cuda()
 
-    _, mlp, moe_mlp = construct_moe(
-        hidden_size=hs,
-        ffn_hidden_size=hs * 2)
+    _, mlp, moe_mlp = construct_moe(hidden_size=hs, ffn_hidden_size=hs * 2)
 
     expected_out = mlp(x)
     out, _ = moe_mlp(x)
     assert out.shape == x.shape == expected_out.shape
     assert torch.allclose(out, expected_out)
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
 
 @pytest.mark.gpu
@@ -119,9 +129,7 @@ def test_moe_forward_backward_vs_dense(bs: int, sl: int, hs: int):
     x = torch.randn(sl, bs, hs).half().cuda()
     x.requires_grad_(True)
 
-    _, mlp, moe_mlp = construct_moe(
-        hidden_size=hs,
-        ffn_hidden_size=hs * 2)
+    _, mlp, moe_mlp = construct_moe(hidden_size=hs, ffn_hidden_size=hs * 2)
 
     out, _ = moe_mlp(x)
     loss = out.sum()
@@ -130,7 +138,7 @@ def test_moe_forward_backward_vs_dense(bs: int, sl: int, hs: int):
     w2_grad = moe_mlp.experts.mlp.w2.grad.detach().squeeze()
     moe_mlp.zero_grad(set_to_none=True)
     x.grad = None
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()
 
     expected_out = mlp(x)
     expected_loss = expected_out.sum()
@@ -141,8 +149,8 @@ def test_moe_forward_backward_vs_dense(bs: int, sl: int, hs: int):
     x.grad = None
 
     # Verify the gradients match.
-    assert w1_grad.shape ==  expected_w1_grad.shape
+    assert w1_grad.shape == expected_w1_grad.shape
     assert w2_grad.shape == expected_w2_grad.shape
     assert torch.allclose(w1_grad, expected_w1_grad)
     assert torch.allclose(w2_grad, expected_w2_grad)
-    moe.clear_load_balancing_loss()
+    clear_load_balancing_loss()

@@ -1,3 +1,6 @@
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 import gc
 import logging
 import os
@@ -20,7 +23,7 @@ def clear_cuda_cache(request: pytest.FixtureRequest):
 
 @pytest.fixture(autouse=True)
 def reset_mlflow_tracking_dir():
-    """Reset MLFlow tracking dir so it doesn't persist across tests"""
+    """Reset MLFlow tracking dir so it doesn't persist across tests."""
     try:
         import mlflow
         mlflow.set_tracking_uri(None)  # type: ignore
@@ -72,9 +75,16 @@ def set_log_levels():
 
 @pytest.fixture(autouse=True)
 def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
-    """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
-    each test to the rank local seed."""
-    monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
+    """Monkeypatch reproducibility.
+
+    Make get_random_seed to always return the rank zero seed, and set the random seed before each test to the rank local
+    seed.
+    """
+    monkeypatch.setattr(
+        reproducibility,
+        'get_random_seed',
+        lambda: rank_zero_seed,
+    )
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 

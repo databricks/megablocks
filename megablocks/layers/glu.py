@@ -1,39 +1,57 @@
-from megablocks.layers import common
-from megablocks.layers.activation_fn import act_fn
-from megablocks.layers.mlp import SparseMLP, SharedMLP, create_dmoe_expert_weights, resolve_dtensor
-from megablocks.layers import mpu
-from megablocks.layers.arguments import Arguments, DEFAULT_ACTIVATION_FN
-from megablocks import grouped_gemm_util as gg
-import stk
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
+import stk.ops
 import torch
+
+from megablocks import grouped_gemm_util as gg
+from megablocks.layers import common, mpu
+from megablocks.layers.activation_fn import act_fn
+from megablocks.layers.arguments import Arguments
+from megablocks.layers.mlp import (
+    SharedMLP,
+    SparseMLP,
+    create_dmoe_expert_weights,
+    resolve_dtensor,
+)
 
 
 class SparseGLU(SparseMLP):
 
-    def __init__(self, args : Arguments):
+    def __init__(self, args: Arguments):
         super().__init__(args)
-        self.v1 = torch.nn.Parameter(torch.empty(
-            self._num_rows_per_rank,
-            args.hidden_size,
-            device=args.device,
-            dtype=common.dtype(args)))
+        self.v1 = torch.nn.Parameter(
+            torch.empty(
+                self._num_rows_per_rank,
+                args.hidden_size,
+                device=args.device,
+                dtype=common.dtype(args),
+            ),
+        )
         with torch.no_grad():
-            self.v1.copy_(create_dmoe_expert_weights(
-                args, args.moe_num_experts, args.ffn_hidden_size,
-                args.hidden_size, args.init_method))
+            self.v1.copy_(
+                create_dmoe_expert_weights(
+                    args,
+                    args.moe_num_experts,
+                    args.ffn_hidden_size,
+                    args.hidden_size,
+                    args.init_method,
+                ),
+            )
 
         mpu.set_expert_model_parallel_attributes(
-            self.v1, self._should_set_parallelism_attribute)
-
-        if self.args.moe_weight_parallelism:
-            raise NotImplementedError("Weight parallelism not yet supported with GLU.")
+            self.v1,
+            self._should_set_parallelism_attribute,
+        )
 
     def forward(self, x, topo):
         if self.args.memory_optimized_mlp:
-            raise NotImplementedError("Memory optimized implementation not yet supported with GLU with sparse kernels.")
+            raise NotImplementedError(
+                'Memory optimized implementation not yet supported with GLU with sparse kernels.',
+            )
 
-        w1, v1, w2 = self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2)
-        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1), resolve_dtensor(w2)
+        w1, v1, w2 = self.scale_grad(self.w1), self.scale_grad(self.v1,), self.scale_grad(self.w2)
+        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1,), resolve_dtensor(w2)
 
         # Compute the GLU.
         x1 = stk.ops.sdd(x, w1.t(), topo)
@@ -44,11 +62,12 @@ class SparseGLU(SparseMLP):
 
         return stk.ops.dsd(x1, w2)
 
+
 class MemoryOptimizedGroupedGLU(torch.autograd.Function):
     """GroupedMLP with manually scheduled memory reuse."""
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
+    @torch.amp.autocast_mode.custom_fwd(device_type='cuda')
     def forward(ctx, x, w1, v1, w2, batch_sizes, activation_fn):
         # Cast inputs using ctx dtype from AMP
         if ctx._fwd_used_autocast:
@@ -57,11 +76,11 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
             v1 = v1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], v1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous() or
-            not v1.is_contiguous() or not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not v1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1', 'v1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
+        assert gg.backend is not None
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
         v1_out = gg.backend.gmm(x, v1, batch_sizes, trans_b=True)
 
@@ -83,15 +102,13 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
         return dsd_out
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.autocast_mode.custom_bwd(device_type='cuda')
     def backward(ctx, ddsd_out):
-        if (not ctx.needs_input_grad[0] or
-            not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # Unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, v1, w2 = saved_tensors[:3]
         batch_sizes = saved_tensors[3]
@@ -101,21 +118,31 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
         # Rematerialize activation_fn output.
         activation_fn = ctx.activation_fn
         with torch.set_grad_enabled(True):
-                sdd_out.requires_grad = True
-                v1_out.requires_grad = True
-                activation_fn_out = activation_fn(sdd_out) * v1_out
-                activation_grad_fn = activation_fn_out.backward
+            sdd_out.requires_grad = True
+            v1_out.requires_grad = True
+            activation_fn_out = activation_fn(sdd_out) * v1_out
+            activation_grad_fn = activation_fn_out.backward
 
         # Compute dw2 with recomputed activation_fn output.
+        assert gg.backend is not None
         dw2 = gg.backend.gmm(
-            activation_fn_out, ddsd_out, batch_sizes, trans_a=True)
+            activation_fn_out,
+            ddsd_out,
+            batch_sizes,
+            trans_a=True,
+        )
 
         # Compute dactivation_fn_out.
         #
         # NOTE: We reuse the activation_fn_out allocation.
         dactivation_fn_out = activation_fn_out
         gg.backend.gmm(
-            ddsd_out, w2, batch_sizes, trans_b=True, c=dactivation_fn_out)
+            ddsd_out,
+            w2,
+            batch_sizes,
+            trans_b=True,
+            c=dactivation_fn_out,
+        )
 
         # Compute dsdd_out.
         #
@@ -139,14 +166,20 @@ class MemoryOptimizedGroupedGLU(torch.autograd.Function):
         dx += gg.backend.gmm(dv1_out, v1, batch_sizes)
         return dx, dw1, dv1, dw2, None, None
 
+
 memory_optimized_grouped_glu = MemoryOptimizedGroupedGLU.apply
 
 
 class GroupedGLU(SparseGLU):
+
     def forward(self, x, tokens_per_expert):
         batch_sizes = tokens_per_expert.cpu().to(torch.long)
-        w1, v1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.v1), self.scale_grad(self.w2))
-        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1), resolve_dtensor(w2)
+        w1, v1, w2 = (
+            self.scale_grad(self.w1),
+            self.scale_grad(self.v1),
+            self.scale_grad(self.w2),
+        )
+        w1, v1, w2 = resolve_dtensor(w1), resolve_dtensor(v1,), resolve_dtensor(w2)
 
         # Re-shape the weights for the grouped GEMMs.
         ne = mpu.experts_per_rank(self.args)
@@ -156,10 +189,16 @@ class GroupedGLU(SparseGLU):
 
         if self.args.memory_optimized_mlp:
             return memory_optimized_grouped_glu(
-                x, w1, v1, w2, batch_sizes,
-                self.args.activation_fn)
+                x,
+                w1,
+                v1,
+                w2,
+                batch_sizes,
+                self.args.activation_fn,
+            )
 
         # Compute the MLP.
+        assert gg.ops is not None
         x1 = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x2 = gg.ops.gmm(x, v1, batch_sizes, trans_b=True)
         x1 = self.args.activation_fn(x1) * x2
@@ -167,11 +206,12 @@ class GroupedGLU(SparseGLU):
 
 
 class SharedGLU(SharedMLP):
-    """GPU for shared expert
+    """GPU for shared expert.
 
     Note: this is a copy -> pasta -> modify of the LLM-Foundry MPTGLU class
     """
-    def __init__(self, args : Arguments):
+
+    def __init__(self, args: Arguments):
         super().__init__(args)
         self.gate_proj = args.fc_cls(
             args.hidden_size,

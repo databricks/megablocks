@@ -1,34 +1,38 @@
-from packaging import version
+# Copyright 2024 Databricks
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Any
 
-from megablocks.layers import common
-from megablocks.layers import gelu
-from megablocks.layers.activation_fn import act_fn
-from megablocks.layers import mpu
-from megablocks.layers import weight_parallel as wp
-from megablocks.layers.arguments import Arguments, InitFn, DEFAULT_ACTIVATION_FN
-from megablocks import grouped_gemm_util as gg
 import stk
+import stk.backend.triton_kernels
+import stk.ops
 import torch
-import torch.nn.functional as F
+from packaging import version
+
+from megablocks import grouped_gemm_util as gg
+from megablocks.layers import common, gelu, mpu
+from megablocks.layers.activation_fn import act_fn
+from megablocks.layers.arguments import DEFAULT_ACTIVATION_FN, Arguments, InitFn
 
 
 class ScaleGradient(torch.autograd.Function):
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
-    def forward(ctx, x, scale):
+    @torch.amp.autocast_mode.custom_fwd(device_type='cuda')
+    def forward(ctx: Any, x: torch.Tensor, scale: float):
         ctx.scale = scale
         return x
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
-    def backward(ctx, grad):
+    @torch.amp.autocast_mode.custom_bwd(device_type='cuda')
+    def backward(ctx: torch.Tensor, grad: torch.Tensor):
         return grad * ctx.scale, None
+
+
 scale_gradient = ScaleGradient.apply
 
 
-def resolve_dtensor(weight):
+def resolve_dtensor(weight: torch.Tensor):
     if version.parse(torch.__version__) >= version.parse('2.0.0'):
         from torch.distributed._tensor import DTensor
         if isinstance(weight, DTensor):
@@ -36,18 +40,23 @@ def resolve_dtensor(weight):
     return weight
 
 
-def create_moe_expert_weights(args : Arguments,
-                              num_experts : int,
-                              ffn_hidden_size : int,
-                              hidden_size : int,
-                              init_method : InitFn):
+def create_moe_expert_weights(
+    args: Arguments,
+    num_experts: int,
+    ffn_hidden_size: int,
+    hidden_size: int,
+    init_method: InitFn,
+):
     # Create the entire weight matrix such that the sampled weights will
     # not vary between data parallelism and expert model parallelism for
     # the same random seed.
     master_weights = torch.empty(
-        num_experts, ffn_hidden_size, hidden_size,
+        num_experts,
+        ffn_hidden_size,
+        hidden_size,
         device=args.device,
-        dtype=common.dtype(args))
+        dtype=common.dtype(args),
+    )
     init_method(master_weights)
 
     if not args.moe_expert_model_parallelism:
@@ -75,35 +84,44 @@ def create_moe_expert_weights(args : Arguments,
 
     # Slice the weight matrix to get the chunk for this rank.
     with torch.no_grad():
-        weights = master_weights[
-            start_expert:end_expert, start_row:end_row]
+        weights = master_weights[start_expert:end_expert, start_row:end_row]
     return weights
 
 
 class MLP(torch.nn.Module):
 
-    def __init__(self, args : Arguments):
+    def __init__(self, args: Arguments):
         super().__init__()
         self.args = args
-        expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
+        # expert_parallel_world_size = mpu.get_expert_parallel_world_size(args)
         experts_per_rank = mpu.experts_per_rank(args)
 
-        self.w1 = torch.nn.Parameter(torch.empty(
-            experts_per_rank,
-            args.hidden_size,
-            mpu.features_per_rank(args),
-            device=args.device,
-            dtype=common.dtype(args)))
-        self.w2 = torch.nn.Parameter(torch.empty(
-            experts_per_rank,
-            mpu.features_per_rank(args),
-            args.hidden_size,
-            device=args.device,
-            dtype=common.dtype(args)))
+        self.w1 = torch.nn.Parameter(
+            torch.empty(
+                experts_per_rank,
+                args.hidden_size,
+                mpu.features_per_rank(args),
+                device=args.device,
+                dtype=common.dtype(args),
+            ),
+        )
+        self.w2 = torch.nn.Parameter(
+            torch.empty(
+                experts_per_rank,
+                mpu.features_per_rank(args),
+                args.hidden_size,
+                device=args.device,
+                dtype=common.dtype(args),
+            ),
+        )
         mpu.set_expert_model_parallel_attributes(
-            self.w1, args.moe_expert_model_parallelism)
+            self.w1,
+            args.moe_expert_model_parallelism,
+        )
         mpu.set_expert_model_parallel_attributes(
-            self.w2, args.moe_expert_model_parallelism)
+            self.w2,
+            args.moe_expert_model_parallelism,
+        )
 
         # Initialize the parameters for the MLP.
         #
@@ -115,16 +133,26 @@ class MLP(torch.nn.Module):
         # usage.
         with torch.no_grad():
             w1 = create_moe_expert_weights(
-                args, args.moe_num_experts, args.ffn_hidden_size,
-                args.hidden_size, args.init_method)
+                args,
+                args.moe_num_experts,
+                args.ffn_hidden_size,
+                args.hidden_size,
+                args.init_method,
+            )
             self.w1.copy_(w1.transpose(1, 2).contiguous())
-            self.w2.copy_(create_moe_expert_weights(
-                args, args.moe_num_experts, args.ffn_hidden_size,
-                args.hidden_size, args.output_layer_init_method))
+            self.w2.copy_(
+                create_moe_expert_weights(
+                    args,
+                    args.moe_num_experts,
+                    args.ffn_hidden_size,
+                    args.hidden_size,
+                    args.output_layer_init_method,
+                ),
+            )
 
         self.gradient_scale = None
         if self.args.moe_expert_model_parallelism:
-            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args)
+            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args,)
 
     def scale_grad(self, w):
         if self.gradient_scale is None:
@@ -139,35 +167,28 @@ class MLP(torch.nn.Module):
         return torch.bmm(x, w2)
 
 
-def create_dmoe_expert_weights(args : Arguments,
-                               num_experts : int,
-                               rows : int,
-                               columns : int,
-                               init_method : InitFn):
+def create_dmoe_expert_weights(
+    args: Arguments,
+    num_experts: int,
+    rows: int,
+    columns: int,
+    init_method: InitFn,
+):
     weights = create_moe_expert_weights(
-        args, num_experts, rows, columns, init_method)
-    weights = weights.view([-1, columns])
-    rows, columns = weights.shape
-
-    if not args.moe_weight_parallelism:
-        return weights
-
-    # Caclculate the number of rows on this weight parallel partition.
-    # 'rows' must be divisible by weight parallel world size.
-    weight_parallel_world_size = mpu.get_weight_parallel_world_size(args)
-    assert (rows % weight_parallel_world_size) == 0
-    num_rows_per_rank = rows // weight_parallel_world_size
-    rank = mpu.get_weight_parallel_rank(args)
-    start_row = rank * num_rows_per_rank
-    end_row = (rank + 1) * num_rows_per_rank
-    return weights[start_row:end_row]
+        args,
+        num_experts,
+        rows,
+        columns,
+        init_method,
+    )
+    return weights.view([-1, columns])
 
 
 class MemoryOptimizedMLP(torch.autograd.Function):
     """Sparse MLP with manually scheduled memory reuse."""
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
+    @torch.amp.autocast_mode.custom_fwd(device_type='cuda')
     def forward(ctx, x, w1, w2, topo, activation_fn):
         # Cast inputs using ctx dtype from AMP
         if ctx._fwd_used_autocast:
@@ -175,16 +196,17 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous() or
-            not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
-        topo_tensors = (topo.row_indices,
-                        topo.column_indices,
-                        topo.offsets,
-                        topo.column_indices_t,
-                        topo.offsets_t,
-                        topo.block_offsets_t)
+        topo_tensors = (
+            topo.row_indices,
+            topo.column_indices,
+            topo.offsets,
+            topo.column_indices_t,
+            topo.offsets_t,
+            topo.block_offsets_t,
+        )
 
         # Layer 0: x @ w1.t().
         sdd_out = stk.ops.sdd(x, w1.t(), topo)
@@ -208,15 +230,13 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         return dsd_out
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.autocast_mode.custom_bwd(device_type='cuda')
     def backward(ctx, ddsd_out):
-        if (not ctx.needs_input_grad[0] or
-            not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         topo_tensors = saved_tensors[2:8]
@@ -226,7 +246,11 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # rematerialize activation function output
         activation_fn = ctx.activation_fn
         sdd_out = stk.Matrix(ctx.shape, sdd_out_data, *topo_tensors)
-        activation_fn_out, activation_grad_fn = act_fn(sdd_out, activation_fn, return_grad_fn=True)
+        activation_fn_out, activation_grad_fn = act_fn(
+            sdd_out,
+            activation_fn,
+            return_grad_fn=True,
+        )
 
         # Compute dw2 with recomputed activation_fn output.
         dw2 = stk.ops.dsd(activation_fn_out.t(), ddsd_out)
@@ -236,12 +260,14 @@ class MemoryOptimizedMLP(torch.autograd.Function):
         # NOTE: We reuse the activation_fn_out allocation.
         dactivation_fn_out = activation_fn_out
         stk.backend.triton_kernels.sdd(
-            ddsd_out, w2.t(),
+            ddsd_out,
+            w2.t(),
             dactivation_fn_out.shape,
             dactivation_fn_out.data,
             dactivation_fn_out.offsets,
             dactivation_fn_out.row_indices,
-            dactivation_fn_out.column_indices)
+            dactivation_fn_out.column_indices,
+        )
 
         # Compute dsdd_out.
         #
@@ -270,33 +296,38 @@ class MemoryOptimizedMLP(torch.autograd.Function):
             dsdd_out.block_offsets_t,
             False,
             w1,
-            ddsd_out)
+            ddsd_out,
+        )
         dx = ddsd_out
         return dx, dw1, dw2, None, None
+
 
 memory_optimized_mlp = MemoryOptimizedMLP.apply
 
 
 class SparseMLP(torch.nn.Module):
 
-    def __init__(self, args : Arguments):
+    def __init__(self, args: Arguments):
         super().__init__()
         self.args = args
-        self._num_rows_per_rank = (
-            (mpu.experts_per_rank(args) * mpu.features_per_rank(args)) //
-            mpu.get_weight_parallel_world_size(args)
-        )
+        self._num_rows_per_rank = mpu.experts_per_rank(args) * mpu.features_per_rank(args)
 
-        self.w1 = torch.nn.Parameter(torch.empty(
-            self._num_rows_per_rank,
-            args.hidden_size,
-            device=args.device,
-            dtype=common.dtype(args)))
-        self.w2 = torch.nn.Parameter(torch.empty(
-            self._num_rows_per_rank,
-            args.hidden_size,
-            device=args.device,
-            dtype=common.dtype(args)))
+        self.w1 = torch.nn.Parameter(
+            torch.empty(
+                self._num_rows_per_rank,
+                args.hidden_size,
+                device=args.device,
+                dtype=common.dtype(args),
+            ),
+        )
+        self.w2 = torch.nn.Parameter(
+            torch.empty(
+                self._num_rows_per_rank,
+                args.hidden_size,
+                device=args.device,
+                dtype=common.dtype(args),
+            ),
+        )
 
         # Initialize the parameters for the MLP.
         #
@@ -307,51 +338,55 @@ class SparseMLP(torch.nn.Module):
         # and the slice which causes large increases in our peak memory
         # usage.
         with torch.no_grad():
-            self.w1.copy_(create_dmoe_expert_weights(
-                args, args.moe_num_experts, args.ffn_hidden_size,
-                args.hidden_size, args.init_method))
-            self.w2.copy_(create_dmoe_expert_weights(
-                args, args.moe_num_experts, args.ffn_hidden_size,
-                args.hidden_size, args.output_layer_init_method))
+            self.w1.copy_(
+                create_dmoe_expert_weights(
+                    args,
+                    args.moe_num_experts,
+                    args.ffn_hidden_size,
+                    args.hidden_size,
+                    args.init_method,
+                ),
+            )
+            self.w2.copy_(
+                create_dmoe_expert_weights(
+                    args,
+                    args.moe_num_experts,
+                    args.ffn_hidden_size,
+                    args.hidden_size,
+                    args.output_layer_init_method,
+                ),
+            )
 
-        self._should_set_parallelism_attribute = (
-            args.moe_expert_model_parallelism or args.moe_weight_parallelism)
+        self._should_set_parallelism_attribute = args.moe_expert_model_parallelism
         mpu.set_expert_model_parallel_attributes(
-            self.w1, self._should_set_parallelism_attribute)
+            self.w1,
+            self._should_set_parallelism_attribute,
+        )
         mpu.set_expert_model_parallel_attributes(
-            self.w2, self._should_set_parallelism_attribute)
+            self.w2,
+            self._should_set_parallelism_attribute,
+        )
 
         self.gradient_scale = None
         if self.args.moe_expert_model_parallelism:
-            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args)
+            self.gradient_scale = 1 / mpu.get_expert_parallel_world_size(self.args,)
 
     def scale_grad(self, w):
         if self.gradient_scale is None:
             return w
         return scale_gradient(w, self.gradient_scale)
 
-    def parallel_forward(self, x, topo):
-        group = self.args.weight_parallel_group
-        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
-        if self.args.memory_optimized_mlp:
-            if self.args.activation_fn is not DEFAULT_ACTIVATION_FN:
-                raise NotImplementedError(f'memory_optimized_weight_parallel_mlp not implemented for custom {activation_fn=}.')
-            return wp.memory_optimized_weight_parallel_mlp(
-                x, w1, w2, topo, group)
-
-        # Compute the MLP.
-        x = wp.sdd_nt(x, w1, topo, group)
-        activation_fn_out = act_fn(x, self.args.activation_fn)
-        return wp.dsd_nn(activation_fn_out, w2, group)
-
     def forward(self, x, topo):
         w1, w2 = self.scale_grad(self.w1), self.scale_grad(self.w2)
         w1, w2 = resolve_dtensor(w1), resolve_dtensor(w2)
-        if self.args.moe_weight_parallelism:
-            return self.parallel_forward(x, topo)
-        elif self.args.memory_optimized_mlp:
+        if self.args.memory_optimized_mlp:
             return memory_optimized_mlp(
-                x, w1, w2, topo, self.args.activation_fn)
+                x,
+                w1,
+                w2,
+                topo,
+                self.args.activation_fn,
+            )
 
         # Compute the MLP.
         x = stk.ops.sdd(x, w1.t(), topo)
@@ -363,7 +398,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
     """GroupedMLP with manually scheduled memory reuse."""
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd
+    @torch.amp.autocast_mode.custom_fwd(device_type='cuda')
     def forward(ctx, x, w1, w2, batch_sizes, activation_fn):
         # Cast inputs using ctx dtype from AMP
         if ctx._fwd_used_autocast:
@@ -371,11 +406,11 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             w1 = w1.to(ctx._dtype)
             w2 = w2.to(ctx._dtype)
         # x: [m, k], w1: [n, k], w2: [n, k]
-        if (not x.is_contiguous() or not w1.is_contiguous() or
-            not w2.is_contiguous()):
+        if (not x.is_contiguous() or not w1.is_contiguous() or not w2.is_contiguous()):
             raise ValueError("Expected contiguous 'x', 'w1' and 'w2'.")
 
         # Layer 0: x @ w1.t().
+        assert gg.backend is not None
         sdd_out = gg.backend.gmm(x, w1, batch_sizes, trans_b=True)
 
         # activation_fn
@@ -396,15 +431,13 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         return dsd_out
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
-    def backward(ctx, ddsd_out):
-        if (not ctx.needs_input_grad[0] or
-            not ctx.needs_input_grad[1] or
-            not ctx.needs_input_grad[2]):
-            raise ValueError("Expected all MLP inputs to need grad.")
+    @torch.amp.autocast_mode.custom_bwd(device_type='cuda')
+    def backward(ctx: Any, ddsd_out: torch.Tensor):
+        if (not ctx.needs_input_grad[0] or not ctx.needs_input_grad[1] or not ctx.needs_input_grad[2]):
+            raise ValueError('Expected all MLP inputs to need grad.')
 
         # Unpack saved tensors
-        dtype = ctx.dtype
+        # dtype = ctx.dtype
         saved_tensors = ctx.saved_tensors
         w1, w2 = saved_tensors[:2]
         batch_sizes = saved_tensors[2]
@@ -419,15 +452,25 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
             activation_grad_fn = activation_fn_out.backward
 
         # Compute dw2 with recomputed activation_fn output.
+        assert gg.backend is not None
         dw2 = gg.backend.gmm(
-            activation_fn_out, ddsd_out, batch_sizes, trans_a=True)
+            activation_fn_out,
+            ddsd_out,
+            batch_sizes,
+            trans_a=True,
+        )
 
         # Compute dactivation_fn_out.
         #
         # NOTE: We reuse the activation_fn_out allocation.
         dactivation_fn_out = activation_fn_out
         gg.backend.gmm(
-            ddsd_out, w2, batch_sizes, trans_b=True, c=dactivation_fn_out)
+            ddsd_out,
+            w2,
+            batch_sizes,
+            trans_b=True,
+            c=dactivation_fn_out,
+        )
 
         # Compute dsdd_out.
         #
@@ -449,6 +492,7 @@ class MemoryOptimizedGroupedMLP(torch.autograd.Function):
         dx = ddsd_out
         return dx, dw1, dw2, None, None
 
+
 memory_optimized_grouped_mlp = MemoryOptimizedGroupedMLP.apply
 
 
@@ -463,27 +507,29 @@ class GroupedMLP(SparseMLP):
         w1 = resolve_dtensor(w1).view(ne, -1, self.args.hidden_size)
         w2 = resolve_dtensor(w2).view(ne, -1, self.args.hidden_size)
 
-        if self.args.moe_weight_parallelism:
-            raise NotImplementedError(
-                "Weight parallelism not yet supported with GroupedMLP.")
-
         if self.args.memory_optimized_mlp:
             return memory_optimized_grouped_mlp(
-                x, w1, w2, batch_sizes,
-                self.args.activation_fn)
+                x,
+                w1,
+                w2,
+                batch_sizes,
+                self.args.activation_fn,
+            )
 
         # Compute the MLP.
+        assert gg.ops is not None
         x = gg.ops.gmm(x, w1, batch_sizes, trans_b=True)
         x = self.args.activation_fn(x)
         return gg.ops.gmm(x, w2, batch_sizes)
 
 
 class SharedMLP(torch.nn.Module):
-    """MLP for shared expert
+    """MLP for shared expert.
 
     Note: this is a copy -> pasta -> modify of the LLM-Foundry MPTMLP class
     """
-    def __init__(self, args : Arguments):
+
+    def __init__(self, args: Arguments):
         super().__init__()
         self.args = args
         self.fc_kwargs: dict[str, Any] = {
@@ -505,7 +551,11 @@ class SharedMLP(torch.nn.Module):
         )
         self.down_proj._is_residual = True  # a flag for llm-foundry init
 
-    def add_experts_sharedexpert(self, shared_expert_out: torch.Tensor, expert_out: torch.Tensor) -> torch.Tensor:
+    def add_experts_sharedexpert(
+        self,
+        shared_expert_out: torch.Tensor,
+        expert_out: torch.Tensor,
+    ) -> torch.Tensor:
         # Helper function to add expert output to shared expert output
         # with optional weighted sum.
         if self.args.shared_expert_weighted_sum:
@@ -513,7 +563,10 @@ class SharedMLP(torch.nn.Module):
             # wieghted by number of experts used
             t_experts = self.args.moe_top_k + 1
             sh_mlp_out = shared_expert_out / t_experts
-            return sh_mlp_out.add(expert_out, alpha=(self.args.moe_top_k / t_experts))
+            return sh_mlp_out.add(
+                expert_out,
+                alpha=(self.args.moe_top_k / t_experts),
+            )
 
         return shared_expert_out + expert_out
 

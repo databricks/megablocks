@@ -15,22 +15,23 @@ concurrency:
 jobs:
   pytest-gpu:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest # todo: switch to linux-ubuntu-latest later
+    if: github.repository_owner == 'databricks'
+    runs-on: ubuntu-latest  # TODO: switch to linux-ubuntu-latest later
     strategy:
       fail-fast: false
       matrix:
         include:
-        - name: "python3.11-pytorch2.3.1-gpus1"
+        - name: "python3.11-pytorch2.4.0-gpus1"
           gpu_num: 1
           python_version: 3.11
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-        - name: "python3.11-pytorch2.3.1-gpus2"
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
+        - name: "python3.11-pytorch2.4.0-gpus2"
           gpu_num: 2
           python_version: 3.11
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
     steps:
     - name: Run PR GPU tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
       with:
         name: ${{ matrix.name }}
         container: ${{ matrix.container }}
@@ -38,7 +39,8 @@ jobs:
         gpu_num: ${{ matrix.gpu_num }}
         git_repo: databricks/megablocks
         pip_deps: "[all,testing]"
-        pytest_command: "coverage run -m pytest tests" # todo: remove tests from pytest tests when we delete all tests outside of MegaBlocks repo
+        pytest_command: "coverage run -m pytest tests"
+        # TODO: remove tests from pytest tests when we delete all tests in the MegaBlocks dir
         pytest_markers: "gpu"
         composer_package_name: mosaicml  # Required as Composer is built from source
         mcloud_timeout: 3600
