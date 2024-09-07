@@ -134,7 +134,7 @@ def test_dmoe_forward_backward(
 
     out, _ = layer(x)
     assert out.shape == x.shape
-    loss = out.sum() + batched_load_balancing_loss(args)
+    loss = out.sum() + batched_load_balancing_loss(args)[0]
     loss.backward()
     assert x.grad is not None
     layer.zero_grad(set_to_none=True)
