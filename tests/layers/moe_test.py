@@ -102,7 +102,7 @@ def test_moe_forward_backward(
     out, _ = layer(x)
     assert out.shape == x.shape
 
-    loss = out.sum() + batched_load_balancing_loss(args)
+    loss = out.sum() + batched_load_balancing_loss(args)[0]
     loss.backward()
     layer.zero_grad(set_to_none=True)
     x.grad = None
