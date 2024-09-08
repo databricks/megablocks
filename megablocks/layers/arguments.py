@@ -68,6 +68,10 @@ class Arguments:
         int] = None  # hidden size of the shared expert IF we want to set it to something different from hidden_size
     shared_expert_weighted_sum: bool = False  # enable using weighted sum for shared expert output (wieghted by number of experts used)
 
+    # Router Z-loss arguments
+    moe_zloss_weight: float = 0 # 1e-3 is a reasonable value
+    moe_zloss_in_fp32 : bool = False
+
     def __post_init__(self):
         if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()

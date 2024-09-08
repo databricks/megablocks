@@ -7,6 +7,38 @@ import torch
 from megablocks.layers import common
 from megablocks.layers.arguments import Arguments
 
+_ROUTER_LOGITS = []
+
+def _save_router_logits(logits: torch.Tensor, args: Arguments):
+    if args.moe_zloss_weight == 0:
+        return
+    global _ROUTER_LOGITS
+    _ROUTER_LOGITS.append(logits)
+
+def clear_router_zloss():
+    global _ROUTER_LOGITS
+    _ROUTER_LOGITS.clear()
+
+def batched_router_zloss(args : Arguments):
+    global _ROUTER_LOGITS
+
+    if args.moe_zloss_weight == 0:
+        import warnings
+        warnings.warn("Call to batched_router_zloss, but moe_zloss_weight=0")
+        return 0
+
+    logits_per_router = _ROUTER_LOGITS
+
+    if args.moe_zloss_in_fp32:
+        logits_per_router = [logits.float() for logits in logits_per_router]
+
+    unscaled_zloss_per_router = torch.stack([
+        torch.logsumexp(logits, dim=1).square().mean()
+        for logits in logits_per_router
+    ])
+
+    return args.moe_zloss_weight * unscaled_zloss_per_router
+
 
 # NOTE: To enable end-to-end benchmarking without convergence we
 # support a flag to force the router to assign tokens uniformly
@@ -60,7 +92,9 @@ class LearnedRouter(torch.nn.Module):
         if self.training and self.args.moe_jitter_eps is not None:
             x = x * self.jitter(x)
 
-        scores = self.layer(x.view(-1, x.shape[-1])).softmax(dim=-1)
+        logits = self.layer(x.view(-1, x.shape[-1]))
+        _save_router_logits(logits, self.args)
+        scores = logits.softmax(dim=-1)
         expert_weights, expert_indices = self._top_k(scores)
         if self.args.moe_normalize_expert_weights:
             expert_weights = expert_weights / torch.norm(
