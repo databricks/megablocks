@@ -8,6 +8,7 @@ import torch
 
 from megablocks.layers.arguments import Arguments
 from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
+from megablocks.layers.router import batched_router_zloss, clear_router_zloss
 from tests.layers.architectures import FFN
 
 _FORWARD_TESTS = (
@@ -33,11 +34,12 @@ _DENSE_TESTS = (
 
 
 def construct_moe(
-    hidden_size,
-    ffn_hidden_size,
-    moe_num_experts=1,
-    moe_capacity_factor=1,
-    moe_top_k=1,
+    hidden_size: int,
+    ffn_hidden_size: int,
+    moe_num_experts: int = 1,
+    moe_capacity_factor: int = 1,
+    moe_top_k: int = 1,
+    moe_zloss_weight: float = 0,
 ):
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
@@ -47,6 +49,7 @@ def construct_moe(
         moe_capacity_factor=moe_capacity_factor,
         moe_top_k=moe_top_k,
         init_method=init_method,
+        moe_zloss_weight=moe_zloss_weight,
     )
 
     mlp = FFN(args)
@@ -107,6 +110,37 @@ def test_moe_forward_backward(
     layer.zero_grad(set_to_none=True)
     x.grad = None
     clear_load_balancing_loss()
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize(('bs', 'sl', 'hs', 'num_experts', 'top_k'), _FORWARD_TESTS)
+def test_moe_forward_backward_with_zloss(
+    bs: int,
+    sl: int,
+    hs: int,
+    num_experts: int,
+    top_k: int,
+):
+    x = torch.randn(sl, bs, hs).half().cuda()
+    x.requires_grad_(True)
+
+    args, _, layer = construct_moe(
+        hidden_size=hs,
+        ffn_hidden_size=hs * 2,
+        moe_num_experts=num_experts,
+        moe_top_k=top_k,
+        moe_zloss_weight=1e-3,
+    )
+
+    out, _ = layer(x)
+    assert out.shape == x.shape
+
+    loss = out.sum() + batched_load_balancing_loss(args)
+    loss.backward()
+    layer.zero_grad(set_to_none=True)
+    x.grad = None
+    clear_load_balancing_loss()
+    clear_router_zloss()
 
 
 @pytest.mark.gpu
