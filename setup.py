@@ -62,7 +62,7 @@ classifiers = [
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
     'packaging>=21.3.0,<24.2',
-    'torch>=2.4.0,<2.4.1',
+    'torch>=2.5.1,<2.5.2',
     'triton>=2.1.0',
     'stanford-stk==0.7.1',
 ]
