@@ -63,7 +63,7 @@ install_requires = [
     'numpy>=1.21.5,<2.1.0',
     'packaging>=21.3.0,<24.2',
     'torch>=2.6.0,<2.6.1',
-    'triton>=3.2.0,<3.3.0', # torch 2.6.0 requires ==3.2.0
+    'triton>=3.2.0,<3.3.0', # torch 2.6.0 requires ==3.2.0; docker image doesn't have triton installed so installing here.
     'stanford-stk==0.7.1',
 ]
 
