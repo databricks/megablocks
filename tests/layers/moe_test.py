@@ -5,7 +5,6 @@ from functools import partial
 
 import pytest
 import torch
-import triton
 
 from megablocks.layers.arguments import Arguments
 from megablocks.layers.moe import MoE, batched_load_balancing_loss, clear_load_balancing_loss
@@ -44,8 +43,12 @@ def construct_moe(
 ):
     # All tests are skipped if triton >=3.2.0 is installed since sparse is not supported
     # TODO: Remove this once sparse is supported with triton >=3.2.0
-    if triton.__version__ >= '3.2.0':
-        pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+    try:
+        import triton
+        if triton.__version__ >= '3.2.0':
+            pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+    except ImportError:
+        pass
 
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(

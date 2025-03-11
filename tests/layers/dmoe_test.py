@@ -5,7 +5,6 @@ from functools import partial
 
 import pytest
 import torch
-import triton
 
 from megablocks import grouped_gemm_util as gg
 from megablocks.layers.arguments import Arguments
@@ -56,8 +55,13 @@ def construct_moes(
 ):
     # All tests are skipped if triton >=3.2.0 is installed since sparse is not supported
     # TODO: Remove this once sparse is supported with triton >=3.2.0
-    if mlp_impl == 'sparse' and triton.__version__ >= '3.2.0':
-        pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+    if mlp_impl == 'sparse':
+        try:
+            import triton
+            if triton.__version__ >= '3.2.0':
+                pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+        except ImportError:
+            pass
 
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(

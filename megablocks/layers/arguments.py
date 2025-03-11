@@ -8,7 +8,6 @@ from typing import Any, Callable, Optional, Union
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-import triton
 
 import megablocks.grouped_gemm_util as grouped_gemm
 
@@ -76,8 +75,13 @@ class Arguments:
     def __post_init__(self):
         # Sparse MLP is not supported with triton >=3.2.0
         # TODO: Remove this once sparse is supported with triton >=3.2.0
-        if self.__getattribute__('mlp_impl') == 'sparse' and triton.__version__ >= '3.2.0':
-            raise ValueError('Sparse MLP is not supported with triton >=3.2.0')
+        if self.__getattribute__('mlp_impl') == 'sparse':
+            try:
+                import triton
+                if triton.__version__ >= '3.2.0':
+                    raise ValueError('Sparse MLP is not supported with triton >=3.2.0')
+            except ImportError:
+                raise ImportError("Triton is required for sparse MLP implementation")
 
         if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()

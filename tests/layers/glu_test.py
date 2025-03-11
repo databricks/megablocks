@@ -6,7 +6,6 @@ from functools import partial
 import pytest
 import stk
 import torch
-import triton
 
 from megablocks.layers import dmlp_registry
 from megablocks.layers.arguments import Arguments
@@ -26,8 +25,13 @@ def construct_dmoe_glu(
 ):
     # All tests are skipped if triton >=3.2.0 is installed since sparse is not supported
     # TODO: Remove this once sparse is supported with triton >=3.2.0
-    if mlp_impl == 'sparse' and triton.__version__ >= '3.2.0':
-        pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+    if mlp_impl == 'sparse':
+        try:
+            import triton
+            if triton.__version__ >= '3.2.0':
+                pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+        except ImportError:
+            pass
 
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
