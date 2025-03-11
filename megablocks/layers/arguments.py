@@ -81,7 +81,7 @@ class Arguments:
                 if triton.__version__ >= '3.2.0':
                     raise ValueError('Sparse MLP is not supported with triton >=3.2.0')
             except ImportError:
-                raise ImportError("Triton is required for sparse MLP implementation")
+                raise ImportError('Triton is required for sparse MLP implementation')
 
         if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()
