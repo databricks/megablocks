@@ -23,6 +23,16 @@ def construct_dmoe_glu(
     mlp_impl: str = 'sparse',
     memory_optimized_mlp: bool = False,
 ):
+    # All tests are skipped if triton >=3.2.0 is installed since sparse is not supported
+    # TODO: Remove this once sparse is supported with triton >=3.2.0
+    if mlp_impl == 'sparse':
+        try:
+            import triton
+            if triton.__version__ >= '3.2.0':
+                pytest.skip('Sparse MLP is not supported with triton >=3.2.0')
+        except ImportError:
+            pass
+
     init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
     args = Arguments(
         hidden_size=hidden_size,

@@ -73,6 +73,18 @@ class Arguments:
     moe_zloss_in_fp32: bool = False
 
     def __post_init__(self):
+        # Sparse MLP is not supported with triton >=3.2.0
+        # TODO: Remove this once sparse is supported with triton >=3.2.0
+        if self.__getattribute__('mlp_impl') == 'sparse':
+            try:
+                import triton
+                if triton.__version__ >= '3.2.0':
+                    raise ValueError(
+                        'Sparse MLP is not supported with triton >=3.2.0. Please use mlp_impl="grouped" instead.',
+                    )
+            except ImportError:
+                raise ImportError('Triton is required for sparse MLP implementation')
+
         if self.__getattribute__('mlp_impl') == 'grouped':
             grouped_gemm.assert_grouped_gemm_is_available()
 
