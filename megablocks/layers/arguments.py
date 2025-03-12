@@ -79,7 +79,9 @@ class Arguments:
             try:
                 import triton
                 if triton.__version__ >= '3.2.0':
-                    raise ValueError('Sparse MLP is not supported with triton >=3.2.0')
+                    raise ValueError(
+                        'Sparse MLP is not supported with triton >=3.2.0. Please use mlp_impl="grouped" instead.',
+                    )
             except ImportError:
                 raise ImportError('Triton is required for sparse MLP implementation')
 
