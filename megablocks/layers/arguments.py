@@ -47,7 +47,7 @@ class Arguments:
     # Compute arguments.
     memory_optimized_mlp: bool = False
     mlp_type: str = 'mlp'
-    mlp_impl: str = 'sparse'
+    mlp_impl: str = 'grouped'
 
     # Initialization arguments.
     fp16: bool = True
