@@ -31,7 +31,7 @@ jobs:
           container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
     steps:
     - name: Run PR GPU tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.5
       with:
         name: ${{ matrix.name }}
         container: ${{ matrix.container }}
