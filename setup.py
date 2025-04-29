@@ -70,7 +70,7 @@ install_requires = [
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm==0.1.6',
+    'grouped_gemm==0.2.0',
 ]
 
 extra_deps['dev'] = [
