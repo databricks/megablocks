@@ -21,14 +21,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: "python3.11-pytorch2.6.0-gpus1"
+        - name: "python3.12-pytorch2.7.0-gpus1"
           gpu_num: 1
-          python_version: 3.11
-          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
-        - name: "python3.11-pytorch2.6.0-gpus2"
+          python_version: 3.12
+          container: mosaicml/pytorch:2.7.0_cu128-python3.12-ubuntu22.04
+        - name: "python3.12-pytorch2.7.0-gpus2"
           gpu_num: 2
-          python_version: 3.11
-          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
+          python_version: 3.12
+          container: mosaicml/pytorch:2.7.0_cu128-python3.12-ubuntu22.04
     steps:
     - name: Run PR GPU tests
       uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.5

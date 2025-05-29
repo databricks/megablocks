@@ -62,15 +62,14 @@ classifiers = [
 install_requires = [
     'numpy>=1.21.5,<2.1.0',
     'packaging>=21.3.0,<24.2',
-    'torch>=2.6.0,<2.6.1',
-    'triton>=3.2.0,<3.3.0',
+    'torch>=2.7.0,<2.7.1',
     'stanford-stk==0.7.1',
 ]
 
 extra_deps = {}
 
 extra_deps['gg'] = [
-    'grouped_gemm==0.2.0',
+    'grouped_gemm==0.3.0',
 ]
 
 extra_deps['dev'] = [
