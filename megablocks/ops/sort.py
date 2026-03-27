@@ -7,12 +7,10 @@ from typing import Any, Optional, Tuple
 # extensions. Otherwise libc10.so cannot be found.
 import torch
 
-# Wrap this in a try-block with better error message and
-# instructions for building the c++ operations.
 try:
-    import megablocks_ops as ops  # type: ignore
-except ModuleNotFoundError as e:
-    raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
+    import megablocks_ops as _ops  # type: ignore
+except ModuleNotFoundError:
+    _ops = None
 
 _BITS_FOR_DTYPE = {
     torch.int16: 16,
@@ -29,9 +27,15 @@ class SortOp(torch.autograd.Function):
     def forward(ctx: Any, x: torch.Tensor, end_bit: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         if end_bit is None:
             end_bit = _BITS_FOR_DTYPE[x.dtype]
+        if x.device.type == 'npu':
+            # `end_bit` is ignored by the PyTorch fallback.
+            x_out, idx = torch.sort(x)
+            return (x_out, idx.to(dtype=x.dtype))
+        if _ops is None:
+            raise ModuleNotFoundError("No module named 'megablocks_ops'.")
         x_out = torch.empty_like(x)
         iota_out = torch.empty_like(x)
-        ops.sort(x, end_bit, x_out, iota_out)
+        _ops.sort(x, end_bit, x_out, iota_out)
         return (x_out, iota_out)
 
 

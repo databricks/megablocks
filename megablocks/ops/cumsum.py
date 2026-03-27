@@ -7,12 +7,18 @@ from typing import Any
 # extensions. Otherwise libc10.so cannot be found.
 import torch
 
-# Wrap this in a try-block with better error message and
-# instructions for building the c++ operations.
 try:
-    import megablocks_ops as ops  # type: ignore
-except ModuleNotFoundError as e:
-    raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
+    import megablocks_ops as _ops  # type: ignore
+except ModuleNotFoundError:
+    _ops = None
+
+
+def _inclusive_cumsum_fallback(x: torch.Tensor, dim: int) -> torch.Tensor:
+    return torch.cumsum(x, dim=dim)
+
+
+def _exclusive_cumsum_fallback(x: torch.Tensor, dim: int) -> torch.Tensor:
+    return torch.cumsum(x, dim=dim) - x
 
 
 # Autograd wrappers for cumsum kernels.
@@ -23,11 +29,19 @@ class ExclusiveCumsumOp(torch.autograd.Function):
     def forward(ctx: Any, x: torch.Tensor, dim: int):
         if len(x.size()) == 1:
             x = x.view([1, -1])
+            if x.device.type == 'npu':
+                return _exclusive_cumsum_fallback(x, 1).squeeze()
+            if _ops is None:
+                raise ModuleNotFoundError("No module named 'megablocks_ops'.")
             out = torch.empty_like(x)
-            ops.exclusive_cumsum(x, 1, out)
+            _ops.exclusive_cumsum(x, 1, out)
             return out.squeeze()
+        if x.device.type == 'npu':
+            return _exclusive_cumsum_fallback(x, dim)
+        if _ops is None:
+            raise ModuleNotFoundError("No module named 'megablocks_ops'.")
         out = torch.empty_like(x)
-        ops.exclusive_cumsum(x, dim, out)
+        _ops.exclusive_cumsum(x, dim, out)
         return out
 
 
@@ -40,11 +54,19 @@ class InclusiveCumsumOp(torch.autograd.Function):
     def forward(ctx: Any, x: torch.Tensor, dim: int) -> torch.Tensor:
         if len(x.size()) == 1:
             x = x.view([1, -1])
+            if x.device.type == 'npu':
+                return _inclusive_cumsum_fallback(x, 1).squeeze()
+            if _ops is None:
+                raise ModuleNotFoundError("No module named 'megablocks_ops'.")
             out = torch.empty_like(x)
-            ops.inclusive_cumsum(x, 1, out)
+            _ops.inclusive_cumsum(x, 1, out)
             return out.squeeze()
+        if x.device.type == 'npu':
+            return _inclusive_cumsum_fallback(x, dim)
+        if _ops is None:
+            raise ModuleNotFoundError("No module named 'megablocks_ops'.")
         out = torch.empty_like(x)
-        ops.inclusive_cumsum(x, dim, out)
+        _ops.inclusive_cumsum(x, dim, out)
         return out
 
 
